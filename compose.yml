@@ -1,0 +1,198 @@
+services:
+  # PostgreSQL 18 - Main Database
+  postgres:
+    image: postgres:18-alpine
+    container_name: nodepulse-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-nodepulse}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nodepulse
+
+  # Valkey - Redis alternative for caching and sessions
+  valkey:
+    image: valkey/valkey:latest
+    container_name: nodepulse-valkey
+    command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD:-valkeypassword}
+    volumes:
+      - valkey_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nodepulse
+
+  # Ory Kratos - Identity and User Management
+  kratos-migrate:
+    image: oryd/kratos:v1.3.0
+    container_name: nodepulse-kratos-migrate
+    environment:
+      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nodepulse}?sslmode=disable&search_path=kratos
+    volumes:
+      - ./kratos:/etc/config/kratos
+    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nodepulse
+
+  kratos:
+    image: oryd/kratos:v1.3.0
+    container_name: nodepulse-kratos
+    environment:
+      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nodepulse}?sslmode=disable&search_path=kratos
+      LOG_LEVEL: ${KRATOS_LOG_LEVEL:-info}
+    volumes:
+      - ./kratos:/etc/config/kratos
+    command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
+    ports:
+      - "4433:4433" # public API
+      - "4434:4434" # admin API
+    depends_on:
+      - kratos-migrate
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:4434/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nodepulse
+
+  # pgweb - PostgreSQL Web Interface
+  pgweb:
+    image: sosedoff/pgweb:latest
+    container_name: nodepulse-pgweb
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nodepulse}?sslmode=disable
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nodepulse
+
+  # Go-Gin Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nodepulse-backend
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-nodepulse}
+      DB_SCHEMA: backend
+      DB_SSLMODE: disable
+
+      # Valkey
+      VALKEY_HOST: valkey
+      VALKEY_PORT: 6379
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-valkeypassword}
+
+      # Kratos
+      KRATOS_PUBLIC_URL: http://kratos:4433
+      KRATOS_ADMIN_URL: http://kratos:4434
+
+      # Server
+      PORT: ${BACKEND_PORT:-8080}
+      GIN_MODE: ${GIN_MODE:-debug}
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      kratos:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    networks:
+      - nodepulse
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: nodepulse-frontend
+    environment:
+      # Public URLs (accessible from browser)
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+      NEXT_PUBLIC_KRATOS_URL: ${NEXT_PUBLIC_KRATOS_URL:-http://localhost:4433}
+
+      # Server-side URLs
+      API_URL: http://backend:8080
+      KRATOS_PUBLIC_URL: http://kratos:4433
+      KRATOS_ADMIN_URL: http://kratos:4434
+
+      # Better Auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-your-better-auth-secret}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+
+      # Database for Better Auth
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nodepulse}?sslmode=disable&search_path=better_auth
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+      - postgres
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - nodepulse
+
+  # Caddy - Reverse Proxy
+  caddy:
+    image: caddy:2-alpine
+    container_name: nodepulse-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+      - kratos
+    networks:
+      - nodepulse
+
+networks:
+  nodepulse:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  valkey_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,364 @@
+openapi: 3.1.0
+info:
+  title: NodePulse Ingest Protocol (NPI)
+  version: "1.0"
+  description: |
+    NPI v1 — Envelope-based ingest for metrics, probes, and security events.
+    Transport-agnostic; this spec documents the HTTP endpoints.
+
+servers:
+  - url: https://api.nodepulse.io
+
+paths:
+  /v1/health:
+    get:
+      summary: Liveness/health check
+      operationId: getHealth
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, const: true }
+                  version: { type: string }
+                required: [ok, version]
+
+  /v1/ingest:
+    post:
+      summary: Ingest an Envelope (batch of items)
+      description: |
+        Agents POST a single Envelope that can contain multiple items
+        (metrics, heartbeat, probe_result, sec_log, etc).
+      operationId: postIngest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-NPI-Seq
+          in: header
+          required: true
+          description: Monotonic per-agent sequence number for idempotency
+          schema: { type: integer, minimum: 0 }
+        - name: X-NPI-Signature
+          in: header
+          required: false
+          description: HMAC signature of the request body.
+          schema: { type: string, pattern: "^v1=[0-9a-fA-F]+$" }
+      requestBody:
+        required: true
+        content:
+          application/vnd.nodepulse.npi.v1+json:
+            schema: { $ref: "#/components/schemas/Envelope" }
+            examples:
+              batch:
+                summary: Envelope with multiple items
+                value:
+                  protocol: npi
+                  version: "1.0"
+                  agent:
+                    id: agt_7Yp2
+                    capabilities: [metrics, probe, sec_log]
+                    labels: { region: us, env: prod }
+                  seq: 4182
+                  ts: 1739452800123
+                  items:
+                    - type: heartbeat
+                      ts: 1739452800123
+                      host:
+                        {
+                          hostname: vm-01,
+                          os: linux,
+                          arch: amd64,
+                          uptime_sec: 123456,
+                        }
+                      net: { ips: ["10.0.0.2"], tx_kb: 8345, rx_kb: 10234 }
+                    - type: metrics
+                      ts: 1739452800123
+                      cpu_pct: 7.2
+                      mem_pct: 61.3
+                      load1: 0.42
+                      disk_used_pct: 71.5
+                      net: { tx_bps: 12000, rx_bps: 18000 }
+                    - type: sec_log
+                      ts: 1739452801123
+                      category: port_change
+                      severity: warn
+                      summary: "new port opened 8443"
+                      kv: { opened: [8443] }
+          application/json:
+            schema: { $ref: "#/components/schemas/Envelope" }
+      responses:
+        "200":
+          description: All items accepted
+          headers:
+            Retry-After:
+              description: Backoff hint in seconds (optional)
+              schema: { type: integer, minimum: 0 }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestAck"
+              examples:
+                ok:
+                  value:
+                    {
+                      ok: true,
+                      min_interval_sec: 5,
+                      server_received_at: 1739452800456,
+                    }
+        "207":
+          description: Multi-Status — partial success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, const: false }
+                  accepted: { type: integer, minimum: 0 }
+                  failed: { type: integer, minimum: 1 }
+                  failed_items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        index: { type: integer, minimum: 0 }
+                        reason: { type: string }
+                        code: { type: string }
+                      required: [index, reason]
+                  min_interval_sec: { type: integer, minimum: 1 }
+                  server_received_at: { type: integer, description: "Unix ms" }
+                required: [ok, accepted, failed, failed_items]
+        "400":
+          description: Bad request (schema/validation error)
+        "401":
+          description: Unauthorized (invalid/expired JWT)
+        "413":
+          description: Payload too large (split into smaller batches)
+        "429":
+          description: Rate limited
+          headers:
+            Retry-After:
+              description: Seconds to wait before retry
+              schema: { type: integer, minimum: 1 }
+        "500":
+          description: Server error
+
+  /v1/agents/{id}/tasks:
+    get:
+      summary: Short-poll tasks for an agent (optional)
+      description: |
+        Allows HTTP-only agents to fetch pending tasks without WebSocket.
+        Use since to only retrieve newer tasks.
+      operationId: getAgentTasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: since
+          in: query
+          required: false
+          description: Only tasks created after this Unix ms timestamp
+          schema: { type: integer, minimum: 0 }
+        - name: max
+          in: query
+          required: false
+          description: Maximum number of tasks to return (default 50)
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items: { $ref: "#/components/schemas/Task" }
+                required: [tasks]
+              examples:
+                sample:
+                  value:
+                    tasks:
+                      - id: tsk_http_123
+                        kind: probe.http
+                        params: { url: "https://example.com", timeout_ms: 3000 }
+                        deadline_ts: 1739452860000
+        "401":
+          description: Unauthorized
+        "404":
+          description: Agent not found
+        "500":
+          description: Server error
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    IngestAck:
+      type: object
+      properties:
+        ok: { type: boolean, const: true }
+        min_interval_sec: { type: integer, minimum: 1 }
+        feature_flags:
+          type: array
+          items: { type: string }
+        server_received_at:
+          type: integer
+          description: Unix ms
+      required: [ok]
+
+    Envelope:
+      type: object
+      properties:
+        protocol:
+          type: string
+          const: npi
+        version:
+          type: string
+          example: "1.0"
+        agent:
+          $ref: "#/components/schemas/AgentMeta"
+        seq:
+          type: integer
+          minimum: 0
+        ts:
+          type: integer
+          description: Client timestamp (Unix ms)
+        signature:
+          type: string
+          description: Optional HMAC header mirror (may be omitted in body)
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Item"
+      required: [protocol, version, agent, seq, ts, items]
+
+    AgentMeta:
+      type: object
+      properties:
+        id: { type: string }
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum: [metrics, probe, sec_log, heartbeat]
+        labels:
+          type: object
+          additionalProperties: { type: string }
+      required: [id]
+
+    Item:
+      oneOf:
+        - $ref: "#/components/schemas/HeartbeatItem"
+        - $ref: "#/components/schemas/MetricsItem"
+        - $ref: "#/components/schemas/ProbeResultItem"
+        - $ref: "#/components/schemas/SecLogItem"
+      discriminator:
+        propertyName: type
+        mapping:
+          heartbeat: "#/components/schemas/HeartbeatItem"
+          metrics: "#/components/schemas/MetricsItem"
+          probe_result: "#/components/schemas/ProbeResultItem"
+          sec_log: "#/components/schemas/SecLogItem"
+
+    HeartbeatItem:
+      type: object
+      properties:
+        type: { type: string, const: heartbeat }
+        ts: { type: integer, description: Unix ms }
+        host:
+          type: object
+          properties:
+            hostname: { type: string }
+            os: { type: string }
+            arch: { type: string }
+            uptime_sec: { type: integer, minimum: 0 }
+        net:
+          type: object
+          properties:
+            ips:
+              type: array
+              items: { type: string }
+            tx_kb: { type: integer, minimum: 0 }
+            rx_kb: { type: integer, minimum: 0 }
+      required: [type, ts]
+
+    MetricsItem:
+      type: object
+      properties:
+        type: { type: string, const: metrics }
+        ts: { type: integer, description: Unix ms }
+        cpu_pct: { type: number, minimum: 0 }
+        mem_pct: { type: number, minimum: 0 }
+        load1: { type: number, minimum: 0 }
+        disk_used_pct: { type: number, minimum: 0 }
+        net:
+          type: object
+          properties:
+            tx_bps: { type: integer, minimum: 0 }
+            rx_bps: { type: integer, minimum: 0 }
+      required: [type, ts]
+
+    ProbeResultItem:
+      type: object
+      properties:
+        type: { type: string, const: probe_result }
+        ts: { type: integer, description: Unix ms }
+        probe_id: { type: string }
+        kind:
+          type: string
+          enum: [http, tcp, icmp]
+        target: { type: string }
+        ok: { type: boolean }
+        duration_ms: { type: integer, minimum: 0 }
+        http:
+          type: object
+          nullable: true
+          properties:
+            code: { type: integer }
+            tls: { type: boolean }
+      required: [type, ts, kind, target, ok]
+
+    SecLogItem:
+      type: object
+      properties:
+        type: { type: string, const: sec_log }
+        ts: { type: integer, description: Unix ms }
+        category:
+          type: string
+          enum: [auth_fail, port_change, file_hash, proc_anomaly, fw_event]
+        severity:
+          type: string
+          enum: [info, warn, crit]
+        summary: { type: string }
+        kv:
+          type: object
+          description: Category-specific key-values (normalized)
+          additionalProperties: {}
+      required: [type, ts, category, severity, summary]
+
+    Task:
+      type: object
+      properties:
+        id: { type: string }
+        kind:
+          type: string
+          description: Task kind (e.g., probe.http, probe.tcp, probe.icmp)
+        params:
+          type: object
+          additionalProperties: {}
+        deadline_ts:
+          type: integer
+          description: Unix ms deadline
+      required: [id, kind, params]

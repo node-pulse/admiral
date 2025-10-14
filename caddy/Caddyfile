@@ -1,0 +1,78 @@
+# Caddyfile for NodePulse Dashboard
+# Reverse proxy configuration
+
+{
+    # Global options
+    admin off
+    auto_https off
+}
+
+# Main application
+:80 {
+    # Frontend (Next.js)
+    handle /* {
+        reverse_proxy frontend:3000
+    }
+
+    # Backend API
+    handle /api/* {
+        reverse_proxy backend:8080
+    }
+
+    # Metrics endpoint (for agents to send data)
+    handle /metrics {
+        reverse_proxy backend:8080
+    }
+
+    # Kratos public API
+    handle /auth/* {
+        uri strip_prefix /auth
+        reverse_proxy kratos:4433
+    }
+
+    # pgweb (database admin interface)
+    handle /pgweb/* {
+        uri strip_prefix /pgweb
+        reverse_proxy pgweb:8081
+    }
+
+    # Health check endpoint
+    handle /health {
+        respond "OK" 200
+    }
+
+    # Logging
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+
+    # Error handling
+    handle_errors {
+        respond "{http.error.status_code} {http.error.status_text}"
+    }
+}
+
+# Optional: HTTPS configuration (uncomment when you have a domain)
+# yourdomain.com {
+#     reverse_proxy frontend:3000
+#
+#     handle /api/* {
+#         reverse_proxy backend:8080
+#     }
+#
+#     handle /metrics {
+#         reverse_proxy backend:8080
+#     }
+#
+#     handle /auth/* {
+#         uri strip_prefix /auth
+#         reverse_proxy kratos:4433
+#     }
+#
+#     log {
+#         output stdout
+#         format console
+#     }
+# }
