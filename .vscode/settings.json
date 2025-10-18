@@ -1,0 +1,9 @@
+{
+  "files.associations": {
+    ".air.toml": "toml",
+    "*.air.toml": "toml"
+  },
+  "evenBetterToml.schema.enabled": false,
+  "evenBetterToml.formatter.alignEntries": false,
+  "evenBetterToml.formatter.alignComments": false
+}
