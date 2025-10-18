@@ -1,6 +1,6 @@
 -- Up Migration
 -- Initial database schema for NodePulse Dashboard
--- Creates schemas and tables for Speedboats service
+-- Creates schemas and tables for Submarines service
 
 -- ============================================================
 -- SECTION 1: Create Schemas
@@ -12,8 +12,8 @@ CREATE SCHEMA IF NOT EXISTS better_auth;
 -- Schema for Ory Kratos (identity management)
 CREATE SCHEMA IF NOT EXISTS kratos;
 
--- Schema for Speedboats (Go-Gin - Agent Ingestion & Metrics API)
-CREATE SCHEMA IF NOT EXISTS speedboats;
+-- Schema for Submarines (Go-Gin - Agent Ingestion & Metrics API)
+CREATE SCHEMA IF NOT EXISTS submarines;
 
 -- Schema for Flagship (Rails - Admin Dashboard)
 CREATE SCHEMA IF NOT EXISTS flagship_ror;
@@ -21,17 +21,17 @@ CREATE SCHEMA IF NOT EXISTS flagship_ror;
 -- Set appropriate permissions
 GRANT ALL PRIVILEGES ON SCHEMA better_auth TO postgres;
 GRANT ALL PRIVILEGES ON SCHEMA kratos TO postgres;
-GRANT ALL PRIVILEGES ON SCHEMA speedboats TO postgres;
+GRANT ALL PRIVILEGES ON SCHEMA submarines TO postgres;
 GRANT ALL PRIVILEGES ON SCHEMA flagship_ror TO postgres;
 
 -- Set default search path for database
-ALTER DATABASE node_pulse_admiral SET search_path TO public, better_auth, speedboats, flagship_ror;
+ALTER DATABASE node_pulse_admiral SET search_path TO public, better_auth, submarines, flagship_ror;
 
 -- ============================================================
--- SECTION 2: Speedboats Schema Tables
+-- SECTION 2: Submarines Schema Tables
 -- ============================================================
 
-SET search_path TO speedboats;
+SET search_path TO submarines;
 
 -- Servers/Agents table
 CREATE TABLE IF NOT EXISTS servers (
@@ -210,7 +210,7 @@ RESET search_path;
 -- Down Migration
 -- Rollback initial schema migration
 
-SET search_path TO speedboats;
+SET search_path TO submarines;
 
 -- Drop triggers
 DROP TRIGGER IF EXISTS update_alert_rules_updated_at ON alert_rules;
@@ -231,6 +231,6 @@ RESET search_path;
 
 -- Drop schemas (Kratos manages its own schema, so we skip it)
 DROP SCHEMA IF EXISTS flagship_ror CASCADE;
-DROP SCHEMA IF EXISTS speedboats CASCADE;
+DROP SCHEMA IF EXISTS submarines CASCADE;
 DROP SCHEMA IF EXISTS better_auth CASCADE;
 -- Note: We don't drop kratos schema as it's managed by Ory Kratos migrations

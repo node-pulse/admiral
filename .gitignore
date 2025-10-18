@@ -30,6 +30,6 @@ Thumbs.db
 tmp/
 
 # Air hot reload
-speedboats/tmp/
+submarines/tmp/
 flagship/tmp/
 cruiser/.next/

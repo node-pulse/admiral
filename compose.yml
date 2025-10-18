@@ -97,12 +97,12 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Go-Gin Speedboats - Agent Ingestion & Metrics API
-  speedboats:
+  # Go-Gin Submarines - Agent Ingestion & Metrics API
+  submarines:
     build:
-      context: ./speedboats
+      context: ./submarines
       dockerfile: Dockerfile
-    container_name: node-pulse-speedboats
+    container_name: node-pulse-submarines
     env_file:
       - .env
     environment:
@@ -113,7 +113,7 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SCHEMA: speedboats
+      DB_SCHEMA: submarines
       DB_SSLMODE: disable
 
       # Valkey
@@ -141,7 +141,7 @@ services:
       kratos:
         condition: service_healthy
     volumes:
-      - ./speedboats:/app
+      - ./submarines:/app
     networks:
       - node-pulse-admiral
 
@@ -167,8 +167,8 @@ services:
       # Valkey for sessions and cache
       REDIS_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/1
 
-      # Speedboats API endpoint (server-side)
-      SPEEDBOATS_API_URL: http://speedboats:8080
+      # Submarines API endpoint (server-side)
+      SUBMARINES_API_URL: http://submarines:8080
 
       # Rails
       RAILS_ENV: development
@@ -186,7 +186,7 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
-      speedboats:
+      submarines:
         condition: service_started
     volumes:
       - ./flagship:/app
@@ -212,7 +212,7 @@ services:
       NEXT_PUBLIC_KRATOS_URL: ${NEXT_PUBLIC_KRATOS_URL:-http://localhost:4433}
 
       # Server-side URLs
-      API_URL: http://speedboats:8080
+      API_URL: http://submarines:8080
       KRATOS_PUBLIC_URL: http://kratos:4433
       KRATOS_ADMIN_URL: http://kratos:4434
 
@@ -222,7 +222,7 @@ services:
     ports:
       - "3001:3000"
     depends_on:
-      - speedboats
+      - submarines
       - postgres
     volumes:
       - ./cruiser:/app
@@ -251,7 +251,7 @@ services:
     depends_on:
       - cruiser
       - flagship
-      - speedboats
+      - submarines
       - kratos
     networks:
       - node-pulse-admiral
