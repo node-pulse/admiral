@@ -1,62 +1,63 @@
+x-common-variables: &common-variables
+  DATABASE_URL: &database-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}
+
 services:
   # PostgreSQL 18 - Main Database
   postgres:
     image: postgres:18-alpine
-    container_name: nodepulse-postgres
+    container_name: node-pulse-postgres
+    env_file:
+      - .env
     environment:
+      <<: *common-variables
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-nodepulse}
+      POSTGRES_DB: ${POSTGRES_DB:-node_pulse_admiral}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-db:/docker-entrypoint-initdb.d
-    ports:
-      - "5432:5432"
+      - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-postgres}
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - nodepulse
+      - node-pulse-admiral
 
   # Valkey - Redis alternative for caching and sessions
   valkey:
     image: valkey/valkey:latest
-    container_name: nodepulse-valkey
+    container_name: node-pulse-valkey
+    env_file:
+      - .env
     command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD:-valkeypassword}
     volumes:
-      - valkey_data:/data
+      - ./valkey_data:/data
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "valkey-cli", "--raw", "incr", "ping"]
+      test:
+        - CMD
+        - valkey-cli
+        - --raw
+        - incr
+        - ping
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - nodepulse
+      - node-pulse-admiral
 
   # Ory Kratos - Identity and User Management
-  kratos-migrate:
-    image: oryd/kratos:v1.3.0
-    container_name: nodepulse-kratos-migrate
-    environment:
-      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nodepulse}?sslmode=disable&search_path=kratos
-    volumes:
-      - ./kratos:/etc/config/kratos
-    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - nodepulse
-
   kratos:
     image: oryd/kratos:v1.3.0
-    container_name: nodepulse-kratos
+    container_name: node-pulse-kratos
+    env_file:
+      - .env
     environment:
-      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nodepulse}?sslmode=disable&search_path=kratos
+      <<: *common-variables
+      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
       LOG_LEVEL: ${KRATOS_LOG_LEVEL:-info}
     volumes:
       - ./kratos:/etc/config/kratos
@@ -65,43 +66,54 @@ services:
       - "4433:4433" # public API
       - "4434:4434" # admin API
     depends_on:
-      - kratos-migrate
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:4434/health/ready"]
+      test:
+        - CMD
+        - wget
+        - --spider
+        - --quiet
+        - http://localhost:4434/health/ready
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - nodepulse
+      - node-pulse-admiral
 
   # pgweb - PostgreSQL Web Interface
   pgweb:
     image: sosedoff/pgweb:latest
-    container_name: nodepulse-pgweb
+    container_name: node-pulse-pgweb
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nodepulse}?sslmode=disable
+      <<: *common-variables
     ports:
       - "8081:8081"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - nodepulse
+      - node-pulse-admiral
 
-  # Go-Gin Backend API
-  backend:
+  # Go-Gin Speedboats - Agent Ingestion & Metrics API
+  speedboats:
     build:
-      context: ./backend
+      context: ./speedboats
       dockerfile: Dockerfile
-    container_name: nodepulse-backend
+    container_name: node-pulse-speedboats
+    env_file:
+      - .env
     environment:
+      <<: *common-variables
       # Database
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-nodepulse}
-      DB_SCHEMA: backend
+      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
+      DB_SCHEMA: speedboats
       DB_SSLMODE: disable
 
       # Valkey
@@ -129,70 +141,122 @@ services:
       kratos:
         condition: service_healthy
     volumes:
-      - ./backend:/app
+      - ./speedboats:/app
     networks:
-      - nodepulse
+      - node-pulse-admiral
 
-  # Next.js Frontend
-  frontend:
+  # Rails Flagship - Admin Dashboard
+  flagship:
     build:
-      context: ./frontend
+      context: ./flagship
       dockerfile: Dockerfile
       target: development
-    container_name: nodepulse-frontend
+    container_name: node-pulse-flagship
+    env_file:
+      - .env
     environment:
+      <<: *common-variables
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
+      DB_SCHEMA: flagship_ror
+
+      # Valkey for sessions and cache
+      REDIS_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/1
+
+      # Speedboats API endpoint (server-side)
+      SPEEDBOATS_API_URL: http://speedboats:8080
+
+      # Rails
+      RAILS_ENV: development
+      RAILS_MAX_THREADS: 5
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-development-secret-key-change-in-production}
+
+      # Rails 8 Solid adapters
+      SOLID_CACHE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/2
+      SOLID_QUEUE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/3
+      SOLID_CABLE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/4
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      speedboats:
+        condition: service_started
+    volumes:
+      - ./flagship:/app
+      - /app/tmp
+      - ./logs/flagship:/app/log
+    networks:
+      - node-pulse-admiral
+    command: bin/dev
+
+  # Next.js Cruiser - Public Site
+  cruiser:
+    build:
+      context: ./cruiser
+      dockerfile: Dockerfile
+      target: development
+    container_name: node-pulse-cruiser
+    env_file:
+      - .env
+    environment:
+      <<: *common-variables
       # Public URLs (accessible from browser)
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
       NEXT_PUBLIC_KRATOS_URL: ${NEXT_PUBLIC_KRATOS_URL:-http://localhost:4433}
 
       # Server-side URLs
-      API_URL: http://backend:8080
+      API_URL: http://speedboats:8080
       KRATOS_PUBLIC_URL: http://kratos:4433
       KRATOS_ADMIN_URL: http://kratos:4434
 
       # Better Auth
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-your-better-auth-secret}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
-
-      # Database for Better Auth
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nodepulse}?sslmode=disable&search_path=better_auth
     ports:
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
-      - backend
+      - speedboats
       - postgres
     volumes:
-      - ./frontend:/app
+      - ./cruiser:/app
       - /app/node_modules
       - /app/.next
     networks:
-      - nodepulse
+      - node-pulse-admiral
 
   # Caddy - Reverse Proxy
   caddy:
     image: caddy:2-alpine
-    container_name: nodepulse-caddy
+    container_name: node-pulse-caddy
+    env_file:
+      - .env
+    environment:
+      <<: *common-variables
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp" # HTTP/3
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+      - ./logs/caddy:/var/log/caddy # For fail2ban monitoring
     depends_on:
-      - frontend
-      - backend
+      - cruiser
+      - flagship
+      - speedboats
       - kratos
     networks:
-      - nodepulse
+      - node-pulse-admiral
 
 networks:
-  nodepulse:
+  node-pulse-admiral:
     driver: bridge
-
-volumes:
-  postgres_data:
-  valkey_data:
-  caddy_data:
-  caddy_config:
+    name: node-pulse-admiral

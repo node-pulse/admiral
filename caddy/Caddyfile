@@ -1,5 +1,5 @@
-# Caddyfile for NodePulse Dashboard
-# Reverse proxy configuration
+# Caddyfile for NodePulse Admiral
+# Three-service reverse proxy: Bridge (Rails), Workers (Go-Gin), SimpleWeb (Next.js)
 
 {
     # Global options
@@ -9,19 +9,37 @@
 
 # Main application
 :80 {
-    # Frontend (Next.js)
-    handle /* {
-        reverse_proxy frontend:3000
+    # Admin Dashboard (Rails Bridge) - Port :3000
+    handle /admin/* {
+        reverse_proxy bridge:3000
     }
 
-    # Backend API
-    handle /api/* {
-        reverse_proxy backend:8080
+    handle /dashboard/* {
+        reverse_proxy bridge:3000
+    }
+
+    handle /users/* {
+        reverse_proxy bridge:3000
+    }
+
+    handle /settings/* {
+        reverse_proxy bridge:3000
+    }
+
+    # Workers API (Go-Gin) - Port :8080
+    # Agent ingestion endpoints
+    handle /ingest/* {
+        reverse_proxy workers:8080
     }
 
     # Metrics endpoint (for agents to send data)
     handle /metrics {
-        reverse_proxy backend:8080
+        reverse_proxy workers:8080
+    }
+
+    # Backend API endpoints
+    handle /api/* {
+        reverse_proxy workers:8080
     }
 
     # Kratos public API
@@ -36,9 +54,27 @@
         reverse_proxy pgweb:8081
     }
 
-    # Health check endpoint
+    # Health check endpoints
     handle /health {
         respond "OK" 200
+    }
+
+    handle /health/workers {
+        reverse_proxy workers:8080
+    }
+
+    handle /health/bridge {
+        reverse_proxy bridge:3000
+    }
+
+    handle /health/simpleweb {
+        reverse_proxy simpleweb:3001
+    }
+
+    # Public Website (Next.js SimpleWeb) - Port :3001
+    # This should be last as a catch-all
+    handle /* {
+        reverse_proxy simpleweb:3001
     }
 
     # Logging
@@ -56,19 +92,37 @@
 
 # Optional: HTTPS configuration (uncomment when you have a domain)
 # yourdomain.com {
-#     reverse_proxy frontend:3000
+#     # Admin Dashboard (Rails)
+#     handle /admin/* {
+#         reverse_proxy bridge:3000
+#     }
+#
+#     handle /dashboard/* {
+#         reverse_proxy bridge:3000
+#     }
+#
+#     # Workers (Go-Gin)
+#     handle /ingest/* {
+#         reverse_proxy workers:8080
+#     }
 #
 #     handle /api/* {
-#         reverse_proxy backend:8080
+#         reverse_proxy workers:8080
 #     }
 #
 #     handle /metrics {
-#         reverse_proxy backend:8080
+#         reverse_proxy workers:8080
 #     }
 #
+#     # Kratos
 #     handle /auth/* {
 #         uri strip_prefix /auth
 #         reverse_proxy kratos:4433
+#     }
+#
+#     # SimpleWeb (Next.js) - catch-all
+#     handle /* {
+#         reverse_proxy simpleweb:3001
 #     }
 #
 #     log {

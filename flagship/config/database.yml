@@ -1,0 +1,40 @@
+# PostgreSQL configuration for NodePulse Flagship (Admin Dashboard)
+# Connects to shared PostgreSQL instance with rails_admin schema
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host: <%= ENV.fetch("DB_HOST") { "localhost" } %>
+  port: <%= ENV.fetch("DB_PORT") { 5432 } %>
+  username: <%= ENV.fetch("DB_USER") { "postgres" } %>
+  password: <%= ENV.fetch("DB_PASSWORD") { "postgres" } %>
+  database: <%= ENV.fetch("DB_NAME") { "nodepulse" } %>
+  # Use flagship_ror schema for all Flagship tables
+  schema_search_path: <%= ENV.fetch("DB_SCHEMA") { "flagship_ror" } %>,public
+
+development:
+  <<: *default
+
+# Warning: The database defined as "test" will be erased and
+# re-generated from your development database when you run "rake".
+# Do not set this db to the same as development or production.
+test:
+  <<: *default
+  database: flagship_test
+  schema_search_path: public
+
+# Production configuration
+# Rails 8 uses multiple databases for cache, queue, and cable
+production:
+  primary: &primary_production
+    <<: *default
+  cache:
+    <<: *primary_production
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_production
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_production
+    migrations_paths: db/cable_migrate

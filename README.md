@@ -1,4 +1,4 @@
-# NodePulse Dashboard
+# Node Pulse Admiral
 
 A comprehensive agent fleet management dashboard for monitoring NodePulse agents across your infrastructure.
 
@@ -22,27 +22,32 @@ This project uses Docker Compose to orchestrate multiple services:
 ## Quick Start
 
 1. **Clone the repository** (if not already done):
+
    ```bash
    git clone <repository-url>
    cd node-pulse-stack/dashboard
    ```
 
 2. **Copy the environment file**:
+
    ```bash
    cp .env.example .env
    ```
 
 3. **Update the `.env` file** with your configuration:
+
    - Change `POSTGRES_PASSWORD` to a secure password
    - Change `VALKEY_PASSWORD` to a secure password
    - Update `JWT_SECRET` and `BETTER_AUTH_SECRET` with strong random values
 
 4. **Start all services**:
+
    ```bash
    docker compose up -d
    ```
 
 5. **Check service status**:
+
    ```bash
    docker compose ps
    ```
@@ -83,11 +88,13 @@ The PostgreSQL database is organized into three schemas:
 ### Metrics Ingestion
 
 Agents send metrics to:
+
 ```
 POST http://your-domain/metrics
 ```
 
 Example payload (matches NodePulse agent format):
+
 ```json
 {
   "timestamp": "2025-10-13T14:30:00Z",
@@ -135,7 +142,7 @@ server:
   timeout: 3s
 
 agent:
-  server_id: "00000000-0000-0000-0000-000000000000"  # Auto-generated if not set
+  server_id: "00000000-0000-0000-0000-000000000000" # Auto-generated if not set
   interval: 5s
 
 buffer:
@@ -195,6 +202,7 @@ docker compose up -d --build
 ### Services won't start
 
 Check logs for specific services:
+
 ```bash
 docker compose logs backend
 docker compose logs postgres
@@ -204,11 +212,13 @@ docker compose logs frontend
 ### Database connection issues
 
 1. Ensure PostgreSQL is healthy:
+
    ```bash
    docker compose ps postgres
    ```
 
 2. Check database logs:
+
    ```bash
    docker compose logs postgres
    ```
@@ -230,6 +240,7 @@ docker compose exec valkey valkey-cli ping
 ### Frontend won't load
 
 1. Check if Next.js is building correctly:
+
    ```bash
    docker compose logs frontend
    ```

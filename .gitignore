@@ -27,3 +27,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+tmp/
+
+# Air hot reload
+speedboats/tmp/
+flagship/tmp/
+cruiser/.next/

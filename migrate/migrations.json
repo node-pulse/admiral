@@ -1,0 +1,11 @@
+{
+  "database-url": "DATABASE_URL",
+  "migrations-dir": "migrations",
+  "migrations-table": "pgmigrations",
+  "migrations-schema": "public",
+  "create-schema": true,
+  "check-order": true,
+  "verbose": true,
+  "migration-filename-format": "utc",
+  "migration-file-language": "sql"
+}

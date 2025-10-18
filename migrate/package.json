@@ -1,0 +1,16 @@
+{
+  "name": "node-pulse-migrations",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Database migrations for Node Pulse Admiral",
+  "scripts": {
+    "migrate:up": "node-pg-migrate up --config-file migrations.json",
+    "migrate:down": "node-pg-migrate down --config-file migrations.json",
+    "migrate:status": "node-pg-migrate up --dry-run --config-file migrations.json"
+  },
+  "dependencies": {
+    "node-pg-migrate": "^8.0.3",
+    "pg": "^8.16.3"
+  }
+}
