@@ -84,18 +84,21 @@ func (c *Client) XReadGroup(ctx context.Context, group, consumer, stream, id str
 	}
 
 	messages := []StreamMessage{}
-	// Parse the XREADGROUP response - returns []XRangeEntry
-	entries, err := result.AsXRead()
+	// Parse the XREADGROUP response - returns map[string][]XRangeEntry
+	streamData, err := result.AsXRead()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse stream response: %w", err)
 	}
 
 	// Convert XRangeEntry to StreamMessage
-	for _, entry := range entries {
-		messages = append(messages, StreamMessage{
-			ID:     entry.ID,
-			Fields: entry.FieldValues,
-		})
+	// streamData is a map where keys are stream names
+	for _, entries := range streamData {
+		for _, entry := range entries {
+			messages = append(messages, StreamMessage{
+				ID:     entry.ID,
+				Fields: entry.FieldValues,
+			})
+		}
 	}
 
 	return messages, nil
