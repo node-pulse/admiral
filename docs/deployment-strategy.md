@@ -4,32 +4,6 @@
 
 This document outlines the multi-environment Docker Compose deployment strategy for **NodePulse Admiral** (the control plane), using GitHub Container Registry (GHCR) for production image distribution.
 
-## Important: Kamal's Role in This Project
-
-**Kamal is NOT used to deploy Admiral itself.** Instead:
-
-- ✅ **Admiral deployment**: Docker Compose (this document)
-- ✅ **Kamal's purpose**: Deploy applications to managed servers in your fleet (future feature)
-
-### Why Keep Kamal?
-
-NodePulse Admiral is a **fleet management platform**. Kamal will be used as a deployment engine to orchestrate workloads across managed servers:
-
-```
-NodePulse Admiral (Control Plane)
-  │
-  ├─→ Docker Compose deploys Admiral stack (submarines, flagship, cruiser, etc.)
-  │
-  └─→ Kamal deploys customer apps to managed servers:
-        - Rails applications
-        - Next.js frontends
-        - PostgreSQL databases
-        - Background workers
-        - Any Docker-based workload
-```
-
-**Reference**: See `docs/kamal-fleet-deployment.md` for details on using Kamal as a deployment engine.
-
 ---
 
 ## Architecture (Admiral Stack Deployment Only)
