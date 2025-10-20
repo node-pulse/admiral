@@ -53,7 +53,7 @@ func main() {
 	})
 
 	// Initialize handlers
-	metricsHandler := handlers.NewMetricsHandler(db)
+	metricsHandler := handlers.NewMetricsHandler(db, valkeyClient)
 
 	// Ingest routes (for agents only)
 	router.POST("/metrics", metricsHandler.IngestMetrics)

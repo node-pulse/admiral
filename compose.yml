@@ -145,7 +145,7 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Rails Flagship - Admin Dashboard
+  # Rails Flagship - Admin Dashboard & Karafka Consumer
   flagship:
     build:
       context: ./flagship

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -9,17 +10,25 @@ import (
 	"github.com/google/uuid"
 	"github.com/nodepulse/dashboard/backend/internal/database"
 	"github.com/nodepulse/dashboard/backend/internal/models"
+	"github.com/nodepulse/dashboard/backend/internal/valkey"
 )
 
+const MetricsStreamKey = "nodepulse:metrics:stream"
+
 type MetricsHandler struct {
-	db *database.DB
+	db     *database.DB
+	valkey *valkey.Client
 }
 
-func NewMetricsHandler(db *database.DB) *MetricsHandler {
-	return &MetricsHandler{db: db}
+func NewMetricsHandler(db *database.DB, valkeyClient *valkey.Client) *MetricsHandler {
+	return &MetricsHandler{
+		db:     db,
+		valkey: valkeyClient,
+	}
 }
 
 // IngestMetrics handles incoming metrics from agents
+// Now publishes to Valkey Stream instead of directly writing to database
 func (h *MetricsHandler) IngestMetrics(c *gin.Context) {
 	var report models.MetricReport
 	if err := c.ShouldBindJSON(&report); err != nil {
@@ -27,36 +36,29 @@ func (h *MetricsHandler) IngestMetrics(c *gin.Context) {
 		return
 	}
 
-	// Parse server ID
-	serverID, err := uuid.Parse(report.ServerID)
-	if err != nil {
+	// Validate server ID
+	if _, err := uuid.Parse(report.ServerID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server_id"})
 		return
 	}
 
-	// Start transaction
-	tx, err := h.db.Begin()
+	// Serialize the metric report to JSON
+	reportJSON, err := json.Marshal(report)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start transaction"})
-		return
-	}
-	defer tx.Rollback()
-
-	// Upsert server
-	if err := h.upsertServer(tx, serverID, &report); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upsert server"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to serialize report"})
 		return
 	}
 
-	// Insert metrics
-	if err := h.insertMetrics(tx, serverID, &report); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert metrics"})
-		return
+	// Publish to Valkey Stream for async processing
+	ctx := c.Request.Context()
+	streamData := map[string]string{
+		"payload":   string(reportJSON),
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to commit transaction"})
+	if _, err := h.valkey.XAdd(ctx, MetricsStreamKey, streamData); err != nil {
+		// Log error but don't fail the request - could implement fallback here
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to queue metrics"})
 		return
 	}
 
