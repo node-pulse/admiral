@@ -4,25 +4,22 @@
 
 **NodePulse Dashboard** is an agent fleet management system for monitoring Linux servers. It consists of:
 
-1. **NodePulse Agent** (Go) - Lightweight monitoring agent deployed on Linux servers
-   - Located in: `../agent/`
-   - Collects: CPU, memory, network, uptime metrics
-   - Sends metrics via HTTP to the dashboard backend
+1. **Submarines** (Go-Gin) - High-performance metrics ingestion pipeline
 
-2. **Submarines** (Go-Gin) - High-performance metrics ingestion pipeline
    - Located in: `submarines/`
    - **Ingest**: Receives metrics from agents via HTTP, publishes to Valkey Streams
    - **Worker**: Consumes from Valkey Streams, writes to PostgreSQL
    - Handles 1000+ concurrent agent connections
    - **Completely independent from Flagship** (only shares PostgreSQL)
 
-3. **Flagship** (Ruby on Rails 8) - Web dashboard and management UI
+2. **Flagship** (Ruby on Rails 8) - Web dashboard and management UI
+
    - Located in: `flagship/`
    - CRUD operations, charts, authentication
    - Reads from PostgreSQL (written by Submarines workers)
    - No message queue - pure web application
 
-4. **Cruiser** (Next.js) - Secondary web UI (non-core service)
+3. **Cruiser** (Next.js) - Secondary web UI (non-core service)
    - Located in: `cruiser/`
    - Additional dashboard features
    - Uses Better Auth for authentication
@@ -32,43 +29,59 @@
 ```
 ┌─────────────────┐
 │  Linux Servers  │
-│  (NodePulse     │
-│   Agents)       │
+│  (Agents from   │
+│  separate repo) │
 └────────┬────────┘
          │ HTTP POST /metrics
          │
          ▼
-┌──────────────────────────────────────────────────┐
-│         Docker Compose Stack                      │
-│                                                   │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
-│  │  Caddy   │  │ Cruiser  │  │ Flagship │       │
-│  │  :80     │  │ (Next.js)│  │  (Rails) │       │
-│  │          │  │  :3000   │  │          │       │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘       │
-│       │             │              │             │
-│       │    ┌────────▼──────────────▼─────┐       │
-│       │    │   Submarines (Go-Gin)       │       │
-│       │    │                             │       │
-│       │    │  ┌─────────┐  ┌──────────┐ │       │
-│       │    │  │ Ingest  │  │  Worker  │ │       │
-│       │    │  │ :8080   │  │Consumer  │ │       │
-│       │    │  └────┬────┘  └────▲─────┘ │       │
-│       │    └───────┼────────────┼───────┘       │
-│       │            │Publish     │Consume        │
-│       │            │            │               │
-│  ┌────▼─────┐  ┌──▼────────────▼──┐            │
-│  │Ory Kratos│  │  Valkey Streams  │            │
-│  │ :4433/34 │  │  (Message Buffer)│            │
-│  └──────────┘  │      :6379       │            │
-│                └──────────┬───────┘            │
-│                           │Batch Write         │
-│                  ┌────────▼────────────┐       │
-│                  │    PostgreSQL       │       │
-│                  │      :5432          │       │
-│                  │   (3 schemas)       │       │
-│                  └─────────────────────┘       │
-└──────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│         Docker Compose Stack (Admiral)                 │
+│                                                         │
+│  ┌────────────────────────────────┐                    │
+│  │  Submarines (Go-Gin)           │                    │
+│  │  ┌──────────┐   ┌───────────┐ │                    │
+│  │  │ Ingest   │   │  Worker   │ │                    │
+│  │  │ :8080    │   │ (bg proc) │ │                    │
+│  │  └────┬─────┘   └─────▲─────┘ │                    │
+│  └───────┼───────────────┼───────┘                    │
+│          │ Publish       │ Consume                     │
+│          ▼               │                             │
+│  ┌────────────────────────┘                            │
+│  │  Valkey Streams :6379                               │
+│  │  (Message Buffer)                                   │
+│  └────────────┬────────────────────────────────┐       │
+│               │ Batch Write                    │       │
+│               ▼                                │       │
+│  ┌──────────────────────┐                     │       │
+│  │   PostgreSQL :5432   │                     │       │
+│  │   (3 schemas)        │                     │       │
+│  └──────────┬───────────┘                     │       │
+│             │ ActiveRecord queries            │       │
+│             ▼                                  │       │
+│  ┌──────────────────────┐                     │       │
+│  │  Flagship (Rails)    │◄────┐               │       │
+│  │  :3000               │     │               │       │
+│  └──────────────────────┘     │               │       │
+│                               │               │       │
+│  ┌──────────────────────┐     │               │       │
+│  │  Cruiser (Next.js)   │     │               │       │
+│  │  :3001               │     │               │       │
+│  └──────────┬───────────┘     │               │       │
+│             │                 │               │       │
+│             ▼                 ▼               ▼       │
+│  ┌────────────────────────────────────────────────┐   │
+│  │  Caddy Reverse Proxy :80/:443                  │   │
+│  └────────────────────────────────────────────────┘   │
+│                                                        │
+│  ┌──────────────────────┐                             │
+│  │  Ory Kratos          │                             │
+│  │  :4433/:4434         │                             │
+│  └──────────────────────┘                             │
+└────────────────────────────────────────────────────────┘
+         ▲
+         │ HTTPS
+   Users' Browsers
 ```
 
 ## Database Schemas
@@ -76,6 +89,7 @@
 PostgreSQL has 3 separate schemas:
 
 1. **`better_auth`** - Next.js authentication (Better Auth)
+
    - `users`, `accounts`, `sessions`, `verification_tokens`
 
 2. **`kratos`** - Ory Kratos identity tables (auto-managed)
@@ -145,6 +159,7 @@ A more advanced **NodePulse Envelope Protocol (NPI)** is being designed:
 ## Technology Stack
 
 ### Submarines (Backend)
+
 - **Language**: Go 1.24
 - **Framework**: Gin (HTTP router)
 - **Output**: 2 binary files (ingest, worker)
@@ -156,6 +171,7 @@ A more advanced **NodePulse Envelope Protocol (NPI)** is being designed:
 - **Purpose**: High-throughput metrics ingestion from agents only
 
 ### Flagship (Web Dashboard)
+
 - **Language**: Ruby 3.4
 - **Framework**: Ruby on Rails 8.0
 - **Database**: PostgreSQL 18 (flagship_ror schema)
@@ -167,12 +183,14 @@ A more advanced **NodePulse Envelope Protocol (NPI)** is being designed:
   - Pure web application (no message queue, no API calls to Submarines)
 
 ### Cruiser (Frontend)
+
 - **Framework**: Next.js 15 (App Router)
 - **UI**: Tailwind CSS + shadcn/ui components
 - **Auth**: Better Auth
 - **Language**: TypeScript
 
 ### Infrastructure
+
 - **Container**: Docker Compose
 - **Proxy**: Caddy 2
 - **Message Buffer**: Valkey Streams (Redis-compatible)
@@ -180,6 +198,7 @@ A more advanced **NodePulse Envelope Protocol (NPI)** is being designed:
 ## Key Files
 
 ### Submarines (Metrics Ingestion)
+
 - `submarines/cmd/ingest/main.go` - HTTP server receiving agent metrics
 - `submarines/cmd/worker/main.go` - Background worker consuming from Valkey Stream
 - `submarines/internal/handlers/metrics.go` - Metrics ingestion logic
@@ -189,17 +208,20 @@ A more advanced **NodePulse Envelope Protocol (NPI)** is being designed:
 - `submarines/internal/config/config.go` - Configuration management
 
 ### Flagship (Rails)
+
 - `flagship/app/controllers/` - Web controllers for dashboard
 - `flagship/app/models/` - ActiveRecord models
 - `flagship/config/application.rb` - Rails application configuration
 - `flagship/Gemfile` - Ruby dependencies
 
 ### Cruiser (Frontend)
+
 - `cruiser/src/app/page.tsx` - Dashboard home page
 - `cruiser/src/lib/auth.ts` - Better Auth configuration
 - `cruiser/src/app/api/auth/[...all]/route.ts` - Auth API handler
 
 ### Infrastructure
+
 - `compose.yml` - Docker Compose services definition
 - `caddy/Caddyfile` - Reverse proxy configuration
 - `migrate/` - PostgreSQL schema migrations
@@ -262,12 +284,14 @@ agent:
 ## API Endpoints
 
 ### Current (v1)
+
 - `POST /metrics` - Agent metrics ingestion
 - `GET /api/servers` - List all servers
 - `GET /api/servers/:id/metrics` - Get server metrics
 - `GET /health` - Health check
 
 ### Future (NPI v1)
+
 - `POST /v1/ingest` - NPI envelope ingestion
 - `GET /v1/agents/{id}/tasks` - Fetch pending tasks for agent
 - `GET /v1/health` - Health check
@@ -275,18 +299,21 @@ agent:
 ## Important Conventions
 
 ### Go Code Style
+
 - All application code in `internal/` (not importable externally)
 - Models use standard Go naming (PascalCase for exported, camelCase for unexported)
 - Database queries use standard `database/sql` (no ORM)
 - Error handling with wrapped errors (`fmt.Errorf("...: %w", err)`)
 
 ### Database
+
 - Use prepared statements for security
 - Separate schemas for logical isolation
 - Timestamps use `TIMESTAMP WITH TIME ZONE`
 - UUIDs for all entity IDs
 
 ### Frontend
+
 - TypeScript strict mode
 - Server components by default
 - Client components when needed (`'use client'`)
@@ -295,17 +322,20 @@ agent:
 ## Common Tasks
 
 ### Add New Metric Type
+
 1. Update `backend/internal/models/server.go` with new fields
 2. Update `backend/init-db/03-backend-schema.sql` schema
 3. Update `backend/internal/handlers/metrics.go` ingestion logic
 4. Rebuild: `docker compose up -d --build backend`
 
 ### Add New API Endpoint
+
 1. Add handler in `backend/internal/handlers/`
 2. Register route in `backend/main.go`
 3. Update frontend to consume endpoint
 
 ### Migrate to NPI Protocol
+
 1. Update backend handlers to accept NPI envelope format
 2. Add envelope validation and item dispatch
 3. Update agent to send NPI format
