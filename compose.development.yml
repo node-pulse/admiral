@@ -97,12 +97,12 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Go-Gin Submarines - Agent Ingestion & Metrics API
-  submarines:
+  # Go-Gin Submarines Ingest - Agent Metrics Ingestion (HTTP -> Valkey Stream)
+  submarines-ingest:
     build:
       context: ./submarines
-      dockerfile: Dockerfile
-    container_name: node-pulse-submarines
+      dockerfile: Dockerfile.ingest
+    container_name: node-pulse-submarines-ingest
     env_file:
       - .env
     environment:
@@ -145,6 +145,74 @@ services:
     networks:
       - node-pulse-admiral
 
+  # Go Submarines Worker - Background processor (Valkey Stream -> PostgreSQL)
+  submarines-worker:
+    build:
+      context: ./submarines
+      dockerfile: Dockerfile.worker
+    container_name: node-pulse-submarines-worker
+    env_file:
+      - .env
+    environment:
+      <<: *common-variables
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
+      DB_SCHEMA: submarines
+      DB_SSLMODE: disable
+
+      # Valkey
+      VALKEY_HOST: valkey
+      VALKEY_PORT: 6379
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-valkeypassword}
+
+      # Worker settings
+      WORKER_ID: ${WORKER_ID:-worker-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    volumes:
+      - ./submarines:/app
+    networks:
+      - node-pulse-admiral
+
+  # Go Submarines Showoff - Public status pages and badges (read-only)
+  submarines-showoff:
+    build:
+      context: ./submarines
+      dockerfile: Dockerfile.showoff
+    container_name: node-pulse-submarines-showoff
+    env_file:
+      - .env
+    environment:
+      <<: *common-variables
+      # Database (read-only)
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
+      DB_SCHEMA: submarines
+      DB_SSLMODE: disable
+
+      # Server
+      PORT: 8082
+      GIN_MODE: ${GIN_MODE:-debug}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./submarines:/app
+    networks:
+      - node-pulse-admiral
+
   # Rails Flagship - Admin Dashboard & Karafka Consumer
   flagship:
     build:
@@ -168,7 +236,7 @@ services:
       REDIS_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/1
 
       # Submarines API endpoint (server-side)
-      SUBMARINES_API_URL: http://submarines:8080
+      SUBMARINES_API_URL: http://submarines-ingest:8080
 
       # Rails
       RAILS_ENV: development
@@ -186,7 +254,7 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
-      submarines:
+      submarines-ingest:
         condition: service_started
     volumes:
       - ./flagship:/app
@@ -212,7 +280,7 @@ services:
       NEXT_PUBLIC_KRATOS_URL: ${NEXT_PUBLIC_KRATOS_URL:-http://localhost:4433}
 
       # Server-side URLs
-      API_URL: http://submarines:8080
+      API_URL: http://submarines-ingest:8080
       KRATOS_PUBLIC_URL: http://kratos:4433
       KRATOS_ADMIN_URL: http://kratos:4434
 
@@ -222,7 +290,7 @@ services:
     ports:
       - "3001:3000"
     depends_on:
-      - submarines
+      - submarines-ingest
       - postgres
     volumes:
       - ./cruiser:/app
@@ -251,7 +319,7 @@ services:
     depends_on:
       - cruiser
       - flagship
-      - submarines
+      - submarines-ingest
       - kratos
     networks:
       - node-pulse-admiral

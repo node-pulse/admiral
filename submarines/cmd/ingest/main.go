@@ -61,7 +61,7 @@ func main() {
 	// router.POST("/v1/ingest", metricsHandler.IngestNPI)
 
 	// Start server
-	addr := ":8081" // Different port for ingest service
+	addr := ":" + cfg.Port
 	log.Printf("Starting ingest service on %s", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

@@ -1,31 +1,23 @@
-# Build stage
-FROM golang:1.24-alpine AS builder
+# Development Dockerfile for showoff with hot reload
+FROM golang:1.24-alpine
 
 WORKDIR /app
 
-# Install build dependencies
+# Install air for hot reloading
+RUN go install github.com/air-verse/air@latest
+
+# Install other dependencies
 RUN apk add --no-cache git
 
-# Copy go mod files
+# Copy go mod files and download dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
+# Copy the rest of the code
 COPY . .
 
-# Build the application (showoff binary)
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o showoff ./cmd/showoff
-
-# Final stage
-FROM alpine:latest
-
-RUN apk --no-cache add ca-certificates tzdata
-
-WORKDIR /root/
-
-# Copy the binary from builder
-COPY --from=builder /app/showoff .
-
+# Expose port for showoff service
 EXPOSE 8082
 
-CMD ["./showoff"]
+# Use air for hot reloading with showoff configuration
+CMD ["air", "-c", ".air.showoff.toml"]

@@ -68,7 +68,7 @@ func main() {
 	})
 
 	// Start server
-	addr := ":8082" // Different port for showoff service
+	addr := ":" + cfg.Port
 	log.Printf("Starting showoff (public status) service on %s", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
