@@ -5,5 +5,6 @@
   },
   "evenBetterToml.schema.enabled": false,
   "evenBetterToml.formatter.alignEntries": false,
-  "evenBetterToml.formatter.alignComments": false
+  "evenBetterToml.formatter.alignComments": false,
+  "makefile.configureOnOpen": false
 }
