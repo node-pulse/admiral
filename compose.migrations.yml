@@ -20,7 +20,7 @@ services:
 
   # Kratos Migration Service (runs once and exits)
   kratos-migrate:
-    image: oryd/kratos:v1.3.0
+    image: oryd/kratos:v1.3.0@sha256:ba79570c5f7da0e73785ddba0ff5ac4f693e26ad54dd6149423598510fb80552
     container_name: node-pulse-kratos-migrate
     env_file:
       - .env
