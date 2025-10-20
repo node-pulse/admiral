@@ -4,7 +4,7 @@ x-common-variables: &common-variables
 services:
   # PostgreSQL 18 - Main Database
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18-alpine@sha256:f898ac406e1a9e05115cc2efcb3c3abb3a92a4c0263f3b6f6aaae354cbb1953a
     container_name: node-pulse-postgres
     env_file:
       - .env
@@ -13,6 +13,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-node_pulse_admiral}
+    ports:
+      - "5432:5432"
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,7 +29,7 @@ services:
 
   # Valkey - Redis alternative for caching and sessions
   valkey:
-    image: valkey/valkey:latest
+    image: valkey/valkey:latest@sha256:81db6d39e1bba3b3ff32bd3a1b19a6d69690f94a3954ec131277b9a26b95b3aa
     container_name: node-pulse-valkey
     env_file:
       - .env
@@ -51,7 +53,7 @@ services:
 
   # Ory Kratos - Identity and User Management
   kratos:
-    image: oryd/kratos:v1.3.0
+    image: oryd/kratos:v1.3.0@sha256:ba79570c5f7da0e73785ddba0ff5ac4f693e26ad54dd6149423598510fb80552
     container_name: node-pulse-kratos
     env_file:
       - .env
@@ -78,22 +80,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - node-pulse-admiral
-
-  # pgweb - PostgreSQL Web Interface
-  pgweb:
-    image: sosedoff/pgweb:latest
-    container_name: node-pulse-pgweb
-    env_file:
-      - .env
-    environment:
-      <<: *common-variables
-    ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - node-pulse-admiral
 
@@ -301,7 +287,7 @@ services:
 
   # Caddy - Reverse Proxy
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2-alpine@sha256:953131cfea8e12bfe1c631a36308e9660e4389f0c3dfb3be957044d3ac92d446
     container_name: node-pulse-caddy
     env_file:
       - .env

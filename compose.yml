@@ -84,23 +84,6 @@ services:
     networks:
       - node-pulse-admiral
 
-  # pgweb - PostgreSQL Web Interface
-  pgweb:
-    image: sosedoff/pgweb:latest@sha256:8f1ed22e10c9da0912169b98b62ddc54930dc39a5ae07b0f1354d2a93d44c6ed
-    container_name: node-pulse-pgweb
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      <<: *common-variables
-    ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - node-pulse-admiral
-
   # Go-Gin Submarines Ingest - Agent Metrics Ingestion (HTTP -> Valkey Stream)
   submarines-ingest:
     image: ghcr.io/node-pulse/node-pulse-submarines-ingest:latest
