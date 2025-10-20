@@ -4,9 +4,8 @@ x-common-variables: &common-variables
 services:
   # PostgreSQL 18 - Main Database
   postgres:
-    image: postgres:18-alpine@sha256:f898ac406e1a9e05115cc2efcb3c3abb3a92a4c0263f3b6f6aaae354cbb1953a
+    image: postgres:18-alpine
     container_name: node-pulse-postgres
-    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -28,9 +27,8 @@ services:
 
   # Valkey - Redis alternative for caching and sessions
   valkey:
-    image: valkey/valkey:latest@sha256:81db6d39e1bba3b3ff32bd3a1b19a6d69690f94a3954ec131277b9a26b95b3aa
+    image: valkey/valkey:latest
     container_name: node-pulse-valkey
-    restart: unless-stopped
     env_file:
       - .env
     command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD:-valkeypassword}
@@ -53,9 +51,8 @@ services:
 
   # Ory Kratos - Identity and User Management
   kratos:
-    image: oryd/kratos:v1.3.0@sha256:ba79570c5f7da0e73785ddba0ff5ac4f693e26ad54dd6149423598510fb80552
+    image: oryd/kratos:v1.3.0
     container_name: node-pulse-kratos
-    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -86,9 +83,8 @@ services:
 
   # pgweb - PostgreSQL Web Interface
   pgweb:
-    image: sosedoff/pgweb:latest@sha256:8f1ed22e10c9da0912169b98b62ddc54930dc39a5ae07b0f1354d2a93d44c6ed
+    image: sosedoff/pgweb:latest
     container_name: node-pulse-pgweb
-    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -103,9 +99,10 @@ services:
 
   # Go-Gin Submarines - Agent Ingestion & Metrics API
   submarines:
-    image: ghcr.io/node-pulse/node-pulse-submarines:latest
+    build:
+      context: ./submarines
+      dockerfile: Dockerfile
     container_name: node-pulse-submarines
-    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -130,7 +127,7 @@ services:
 
       # Server
       PORT: ${BACKEND_PORT:-8080}
-      GIN_MODE: ${GIN_MODE:-release}
+      GIN_MODE: ${GIN_MODE:-debug}
 
       # JWT
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
@@ -143,14 +140,18 @@ services:
         condition: service_healthy
       kratos:
         condition: service_healthy
+    volumes:
+      - ./submarines:/app
     networks:
       - node-pulse-admiral
 
   # Rails Flagship - Admin Dashboard & Karafka Consumer
   flagship:
-    image: ghcr.io/node-pulse/node-pulse-flagship:latest
+    build:
+      context: ./flagship
+      dockerfile: Dockerfile
+      target: development
     container_name: node-pulse-flagship
-    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -170,7 +171,7 @@ services:
       SUBMARINES_API_URL: http://submarines:8080
 
       # Rails
-      RAILS_ENV: ${RAILS_ENV:-production}
+      RAILS_ENV: development
       RAILS_MAX_THREADS: 5
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-development-secret-key-change-in-production}
 
@@ -188,15 +189,20 @@ services:
       submarines:
         condition: service_started
     volumes:
+      - ./flagship:/app
+      - /app/tmp
       - ./logs/flagship:/app/log
     networks:
       - node-pulse-admiral
+    command: bin/dev
 
   # Next.js Cruiser - Public Site
   cruiser:
-    image: ghcr.io/node-pulse/node-pulse-cruiser:latest
+    build:
+      context: ./cruiser
+      dockerfile: Dockerfile
+      target: development
     container_name: node-pulse-cruiser
-    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -218,14 +224,17 @@ services:
     depends_on:
       - submarines
       - postgres
+    volumes:
+      - ./cruiser:/app
+      - /app/node_modules
+      - /app/.next
     networks:
       - node-pulse-admiral
 
   # Caddy - Reverse Proxy
   caddy:
-    image: caddy:2-alpine@sha256:953131cfea8e12bfe1c631a36308e9660e4389f0c3dfb3be957044d3ac92d446
+    image: caddy:2-alpine
     container_name: node-pulse-caddy
-    restart: unless-stopped
     env_file:
       - .env
     environment:
