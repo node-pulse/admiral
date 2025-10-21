@@ -51,7 +51,7 @@ push:
 
 # Development environment
 dev:
-	docker compose -f compose.development.yml up -d --build
+	docker compose -f compose.development.yml up -d
 
 dev-down:
 	docker compose -f compose.development.yml down
@@ -80,34 +80,6 @@ prod-restart:
 
 prod-rebuild:
 	docker compose -f compose.yml up -d --build
-
-# Clean development
-dev-clean:
-	@echo "WARNING: This will stop development containers and remove volumes (data will be lost)!"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker compose -f compose.development.yml down -v; \
-	fi
-
-# Clean production
-prod-clean:
-	@echo "WARNING: This will stop production containers and remove volumes (data will be lost)!"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker compose -f compose.yml down -v; \
-	fi
-
-# Clean everything (both dev and prod)
-clean:
-	@echo "WARNING: This will stop ALL containers and remove ALL volumes (data will be lost)!"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker compose -f compose.yml down -v; \
-		docker compose -f compose.development.yml down -v; \
-	fi
 
 db-backup:
 	@mkdir -p backups
