@@ -1,4 +1,4 @@
-.PHONY: help push dev dev-down dev-logs dev-restart dev-rebuild dev-clean prod prod-down prod-logs prod-restart prod-rebuild prod-clean up down logs restart clean ps db-backup subs-logs subs-restart ingest-logs worker-logs status-logs flagship-logs cruiser-logs valkey-cli
+.PHONY: help push dev dev-down dev-logs dev-restart dev-rebuild dev-clean prod prod-down prod-logs prod-restart prod-rebuild prod-clean up down logs restart clean ps db-backup subs-logs subs-restart ingest-logs worker-logs status-logs flagship-logs cruiser-logs valkey-cli traefik-status traefik-routers traefik-services
 
 # Default target - show help
 help:
@@ -38,7 +38,12 @@ help:
 	@echo "  make cruiser-logs  - Follow cruiser logs"
 	@echo ""
 	@echo "Utilities:"
-	@echo "  make valkey-cli    - Open valkey-cli interactive session"
+	@echo "  make valkey-cli       - Open valkey-cli interactive session"
+	@echo ""
+	@echo "Traefik Status (API):"
+	@echo "  make traefik-status   - Show Traefik overview"
+	@echo "  make traefik-routers  - Show all HTTP routers"
+	@echo "  make traefik-services - Show all services with health checks"
 
 # Git operations
 push:
@@ -134,3 +139,13 @@ cruiser-logs:
 
 valkey-cli:
 	docker exec -it node-pulse-valkey valkey-cli -a $${VALKEY_PASSWORD:-valkeypassword}
+
+# Traefik status via API
+traefik-status:
+	@./scripts/traefik-status.sh overview
+
+traefik-routers:
+	@./scripts/traefik-status.sh routers
+
+traefik-services:
+	@./scripts/traefik-status.sh services

@@ -1,6 +1,11 @@
 # Traefik Static Configuration
 # https://doc.traefik.io/traefik/getting-started/configuration-overview/
 
+# API (provides JSON endpoints for all dashboard data)
+api:
+  insecure: false  # Don't expose on 8080
+  dashboard: false # Disable web UI
+
 # Entry Points
 entryPoints:
   web:
