@@ -19,10 +19,10 @@ CREATE SCHEMA IF NOT EXISTS submarines;
 CREATE SCHEMA IF NOT EXISTS flagship_ror;
 
 -- Set appropriate permissions
-GRANT ALL PRIVILEGES ON SCHEMA better_auth TO postgres;
-GRANT ALL PRIVILEGES ON SCHEMA kratos TO postgres;
-GRANT ALL PRIVILEGES ON SCHEMA submarines TO postgres;
-GRANT ALL PRIVILEGES ON SCHEMA flagship_ror TO postgres;
+GRANT ALL PRIVILEGES ON SCHEMA better_auth TO admiral;
+GRANT ALL PRIVILEGES ON SCHEMA kratos TO admiral;
+GRANT ALL PRIVILEGES ON SCHEMA submarines TO admiral;
+GRANT ALL PRIVILEGES ON SCHEMA flagship_ror TO admiral;
 
 -- Set default search path for database
 ALTER DATABASE node_pulse_admiral SET search_path TO public, better_auth, submarines, flagship_ror;

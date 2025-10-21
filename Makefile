@@ -1,4 +1,4 @@
-.PHONY: help push dev dev-down dev-logs dev-restart dev-rebuild dev-clean prod prod-down prod-logs prod-restart prod-rebuild prod-clean up down logs restart clean ps db-backup subs-logs subs-restart ingest-logs worker-logs status-logs flagship-logs cruiser-logs valkey-cli traefik-status traefik-routers traefik-services
+.PHONY: help push dev-up dev-down dev-logs dev-restart dev-rebuild dev-clean prod-up prod-down prod-logs prod-restart prod-rebuild prod-clean db-backup subs-logs subs-restart ingest-logs worker-logs status-logs flagship-logs cruiser-logs valkey-cli traefik-status traefik-routers traefik-services
 
 # Default target - show help
 help:
@@ -8,15 +8,15 @@ help:
 	@echo "  make push          - Push to origin/main and push all tags"
 	@echo ""
 	@echo "Docker Compose - Development:"
-	@echo "  make dev           - Start development stack (compose.development.yml)"
-	@echo "  make dev-down      - Stop development stack"
-	@echo "  make dev-logs      - Follow development logs"
-	@echo "  make dev-restart   - Restart development stack"
-	@echo "  make dev-rebuild   - Rebuild and restart development stack"
-	@echo "  make dev-clean     - Stop development stack and remove volumes"
+	@echo "  make dev-up       - Start development stack (compose.development.yml)"
+	@echo "  make dev-down     - Stop development stack"
+	@echo "  make dev-logs     - Follow development logs"
+	@echo "  make dev-restart  - Restart development stack"
+	@echo "  make dev-rebuild  - Rebuild and restart development stack"
+	@echo "  make dev-clean    - Stop development stack and remove volumes"
 	@echo ""
 	@echo "Docker Compose - Production:"
-	@echo "  make prod          - Start production stack (compose.yml)"
+	@echo "  make prod-up       - Start production stack (compose.yml)"
 	@echo "  make prod-down     - Stop production stack"
 	@echo "  make prod-logs     - Follow production logs"
 	@echo "  make prod-restart  - Restart production stack"
@@ -50,7 +50,7 @@ push:
 	git push origin main && git push origin --tags
 
 # Development environment
-dev:
+dev-up:
 	docker compose -f compose.development.yml up -d
 
 dev-down:
@@ -65,8 +65,11 @@ dev-restart:
 dev-rebuild:
 	docker compose -f compose.development.yml up -d --build
 
+dev-clean:
+	docker compose -f compose.development.yml down -v --rmi all --remove-orphans
+
 # Production environment
-prod:
+prod-up:
 	docker compose -f compose.yml up -d
 
 prod-down:
@@ -80,6 +83,9 @@ prod-restart:
 
 prod-rebuild:
 	docker compose -f compose.yml up -d --build
+
+prod-clean:
+	docker compose -f compose.yml down -v --rmi all --remove-orphans
 
 db-backup:
 	@mkdir -p backups

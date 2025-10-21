@@ -49,6 +49,44 @@ services:
     networks:
       - node-pulse-admiral
 
+  # Flagship Migration - Run database migrations (idempotent)
+  flagship-migrate:
+    build:
+      context: .
+      dockerfile: ./migrate/Dockerfile
+    container_name: node-pulse-flagship-migrate
+    env_file:
+      - .env
+    environment:
+      <<: *common-variables
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - node-pulse-admiral
+    restart: "no"
+
+  # Kratos Migration - Run Kratos schema migrations (idempotent)
+  kratos-migrate:
+    image: oryd/kratos:v1.3.0@sha256:ba79570c5f7da0e73785ddba0ff5ac4f693e26ad54dd6149423598510fb80552
+    container_name: node-pulse-kratos-migrate
+    env_file:
+      - .env
+    environment:
+      <<: *common-variables
+      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
+    volumes:
+      - ./kratos:/etc/config/kratos
+    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
+    depends_on:
+      postgres:
+        condition: service_healthy
+      flagship-migrate:
+        condition: service_completed_successfully
+    networks:
+      - node-pulse-admiral
+    restart: "no"
+
   # Ory Kratos - Identity and User Management
   kratos:
     image: oryd/kratos:v1.3.0@sha256:ba79570c5f7da0e73785ddba0ff5ac4f693e26ad54dd6149423598510fb80552
@@ -69,6 +107,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kratos-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         - CMD
@@ -228,6 +268,8 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      flagship-migrate:
+        condition: service_completed_successfully
       submarines-ingest:
         condition: service_started
     volumes:

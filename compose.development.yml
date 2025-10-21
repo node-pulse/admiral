@@ -83,6 +83,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      flagship-migrate:
+        condition: service_completed_successfully
     networks:
       - node-pulse-admiral
     restart: "no"
