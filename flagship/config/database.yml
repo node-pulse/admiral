@@ -10,8 +10,8 @@ default: &default
   username: <%= ENV.fetch("DB_USER") { "postgres" } %>
   password: <%= ENV.fetch("DB_PASSWORD") { "postgres" } %>
   database: <%= ENV.fetch("DB_NAME") { "nodepulse" } %>
-  # Use flagship_ror schema for all Flagship tables
-  schema_search_path: <%= ENV.fetch("DB_SCHEMA") { "flagship_ror" } %>,public
+  # Use flagship schema for all Flagship tables
+  schema_search_path: <%= ENV.fetch("DB_SCHEMA") { "flagship" } %>,public
 
 development:
   <<: *default

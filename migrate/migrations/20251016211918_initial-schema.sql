@@ -16,16 +16,16 @@ CREATE SCHEMA IF NOT EXISTS kratos;
 CREATE SCHEMA IF NOT EXISTS submarines;
 
 -- Schema for Flagship (Rails - Admin Dashboard)
-CREATE SCHEMA IF NOT EXISTS flagship_ror;
+CREATE SCHEMA IF NOT EXISTS flagship;
 
 -- Set appropriate permissions
 GRANT ALL PRIVILEGES ON SCHEMA better_auth TO admiral;
 GRANT ALL PRIVILEGES ON SCHEMA kratos TO admiral;
 GRANT ALL PRIVILEGES ON SCHEMA submarines TO admiral;
-GRANT ALL PRIVILEGES ON SCHEMA flagship_ror TO admiral;
+GRANT ALL PRIVILEGES ON SCHEMA flagship TO admiral;
 
 -- Set default search path for database
-ALTER DATABASE node_pulse_admiral SET search_path TO public, better_auth, submarines, flagship_ror;
+ALTER DATABASE node_pulse_admiral SET search_path TO public, better_auth, submarines, flagship;
 
 -- ============================================================
 -- SECTION 2: Submarines Schema Tables
@@ -230,7 +230,7 @@ DROP TABLE IF EXISTS servers;
 RESET search_path;
 
 -- Drop schemas (Kratos manages its own schema, so we skip it)
-DROP SCHEMA IF EXISTS flagship_ror CASCADE;
+DROP SCHEMA IF EXISTS flagship CASCADE;
 DROP SCHEMA IF EXISTS submarines CASCADE;
 DROP SCHEMA IF EXISTS better_auth CASCADE;
 -- Note: We don't drop kratos schema as it's managed by Ory Kratos migrations

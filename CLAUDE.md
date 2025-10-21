@@ -174,7 +174,7 @@ A more advanced **NodePulse Envelope Protocol (NPI)** is being designed:
 
 - **Language**: Ruby 3.4
 - **Framework**: Ruby on Rails 8.0
-- **Database**: PostgreSQL 18 (flagship_ror schema)
+- **Database**: PostgreSQL 18 (flagship schema)
 - **Features**:
   - Reads metrics data written by Submarines workers
   - CRUD operations for servers, alerts, configurations
