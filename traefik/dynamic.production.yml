@@ -1,0 +1,123 @@
+# Traefik Dynamic Configuration - Production
+# File-based routing configuration for production
+# Replace 'yourdomain.com' with your actual domain
+
+http:
+  # Routers
+  routers:
+    # Ingest Router - Submarines Ingest (Agent metrics ingestion)
+    ingest:
+      rule: "Host(`ingest.${DOMAIN}`)"
+      service: submarines-ingest
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Status Router - Submarines Status (Public status pages)
+    status:
+      rule: "Host(`status.${DOMAIN}`)"
+      service: submarines-status
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Admin Router - Flagship (Rails admin dashboard)
+    admin:
+      rule: "Host(`admin.${DOMAIN}`)"
+      service: flagship
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # App Router - Cruiser (Next.js public site)
+    app:
+      rule: "Host(`app.${DOMAIN}`)"
+      service: cruiser
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Auth Router - Kratos Public API
+    auth:
+      rule: "Host(`auth.${DOMAIN}`)"
+      service: kratos-public
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+  # Services
+  services:
+    # Submarines Ingest - Agent API
+    submarines-ingest:
+      loadBalancer:
+        servers:
+          - url: "http://submarines-ingest:8080"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    # Submarines Status - Status pages
+    submarines-status:
+      loadBalancer:
+        servers:
+          - url: "http://submarines-status:8082"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    # Flagship - Rails admin
+    flagship:
+      loadBalancer:
+        servers:
+          - url: "http://flagship:3000"
+        healthCheck:
+          path: /health
+          interval: 10s
+          timeout: 3s
+
+    # Cruiser - Next.js public site
+    cruiser:
+      loadBalancer:
+        servers:
+          - url: "http://cruiser:3000"
+        healthCheck:
+          path: /api/health
+          interval: 10s
+          timeout: 3s
+
+    # Kratos Public API
+    kratos-public:
+      loadBalancer:
+        servers:
+          - url: "http://kratos:4433"
+        healthCheck:
+          path: /health/ready
+          interval: 10s
+          timeout: 3s
+
+  # Middlewares
+  middlewares:
+    # Security headers
+    security-headers:
+      headers:
+        frameDeny: true
+        sslRedirect: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+
+    # Rate limiting
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1s

@@ -9,6 +9,7 @@ postgres_data/
 valkey_data/
 caddy_data/
 caddy_config/
+traefik_data/
 
 # Logs
 *.log

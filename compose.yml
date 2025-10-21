@@ -36,8 +36,6 @@ services:
     command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD:-valkeypassword}
     volumes:
       - ./valkey_data:/data
-    ports:
-      - "6379:6379"
     healthcheck:
       test:
         - CMD
@@ -162,10 +160,10 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Go Submarines Showoff - Public status pages and badges (read-only)
-  submarines-showoff:
-    image: ghcr.io/node-pulse/node-pulse-submarines-showoff:latest
-    container_name: node-pulse-submarines-showoff
+  # Go Submarines Status - Public status pages and badges (read-only)
+  submarines-status:
+    image: ghcr.io/node-pulse/node-pulse-submarines-status:latest
+    container_name: node-pulse-submarines-status
     restart: unless-stopped
     env_file:
       - .env
@@ -266,29 +264,30 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Caddy - Reverse Proxy
-  caddy:
-    image: caddy:2-alpine@sha256:953131cfea8e12bfe1c631a36308e9660e4389f0c3dfb3be957044d3ac92d446
-    container_name: node-pulse-caddy
+  # Traefik - Reverse Proxy (Production)
+  traefik:
+    image: traefik:v3.2
+    container_name: node-pulse-traefik
     restart: unless-stopped
     env_file:
       - .env
     environment:
       <<: *common-variables
+      DOMAIN: ${DOMAIN:-yourdomain.com}
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp" # HTTP/3
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
-      - ./caddy_data:/data
-      - ./caddy_config:/config
-      - ./logs/caddy:/var/log/caddy # For fail2ban monitoring
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic.production.yml:/etc/traefik/dynamic/dynamic.yml:ro
+      - ./traefik_data/letsencrypt:/letsencrypt
+      - ./logs/traefik:/var/log/traefik
     depends_on:
       - cruiser
       - flagship
       - submarines-ingest
-      - submarines-showoff
+      - submarines-status
       - kratos
     networks:
       - node-pulse-admiral

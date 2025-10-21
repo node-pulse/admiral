@@ -1,0 +1,53 @@
+# Traefik Static Configuration
+# https://doc.traefik.io/traefik/getting-started/configuration-overview/
+
+# Entry Points
+entryPoints:
+  web:
+    address: ":80"
+    # HTTP to HTTPS redirect (production only)
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: letsencrypt
+
+# Certificate Resolvers
+certificateResolvers:
+  letsencrypt:
+    acme:
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+      # Use staging server for testing:
+      # caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+
+# Providers
+providers:
+  # File provider for dynamic configuration
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+  # Docker provider disabled (using file-based config only)
+  docker:
+    exposedByDefault: false
+
+# Logs
+log:
+  level: INFO
+  filePath: /var/log/traefik/traefik.log
+  format: json
+
+# Access Logs
+accessLog:
+  filePath: /var/log/traefik/access.log
+  format: json
+  bufferingSize: 100

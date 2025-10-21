@@ -1,4 +1,4 @@
-# Development Dockerfile for showoff with hot reload
+# Development Dockerfile for status with hot reload
 FROM golang:1.24-alpine
 
 WORKDIR /app
@@ -16,8 +16,8 @@ RUN go mod download
 # Copy the rest of the code
 COPY . .
 
-# Expose port for showoff service
+# Expose port for status service
 EXPOSE 8082
 
-# Use air for hot reloading with showoff configuration
-CMD ["air", "-c", ".air.showoff.toml"]
+# Use air for hot reloading with status configuration
+CMD ["air", "-c", ".air.status.toml"]

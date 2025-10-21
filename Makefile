@@ -1,4 +1,4 @@
-.PHONY: help push dev dev-down dev-logs dev-restart dev-rebuild dev-clean prod prod-down prod-logs prod-restart prod-rebuild prod-clean up down logs restart clean ps db-backup subs-logs subs-restart ingest-logs worker-logs showoff-logs flagship-logs cruiser-logs valkey-cli
+.PHONY: help push dev dev-down dev-logs dev-restart dev-rebuild dev-clean prod prod-down prod-logs prod-restart prod-rebuild prod-clean up down logs restart clean ps db-backup subs-logs subs-restart ingest-logs worker-logs status-logs flagship-logs cruiser-logs valkey-cli
 
 # Default target - show help
 help:
@@ -33,7 +33,7 @@ help:
 	@echo "Individual Service Logs:"
 	@echo "  make ingest-logs   - Follow submarines-ingest logs"
 	@echo "  make worker-logs   - Follow submarines-worker logs"
-	@echo "  make showoff-logs  - Follow submarines-showoff logs"
+	@echo "  make status-logs   - Follow submarines-status logs"
 	@echo "  make flagship-logs - Follow flagship logs"
 	@echo "  make cruiser-logs  - Follow cruiser logs"
 	@echo ""
@@ -111,10 +111,10 @@ db-backup:
 
 # Submarines operations
 subs-logs:
-	docker compose logs -f submarines-ingest submarines-worker submarines-showoff
+	docker compose logs -f submarines-ingest submarines-worker submarines-status
 
 subs-restart:
-	docker compose restart submarines-ingest submarines-worker submarines-showoff
+	docker compose restart submarines-ingest submarines-worker submarines-status
 
 # Individual service operations
 ingest-logs:
@@ -123,8 +123,8 @@ ingest-logs:
 worker-logs:
 	docker compose logs -f submarines-worker
 
-showoff-logs:
-	docker compose logs -f submarines-showoff
+status-logs:
+	docker compose logs -f submarines-status
 
 flagship-logs:
 	docker compose logs -f flagship

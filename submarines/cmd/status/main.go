@@ -37,7 +37,7 @@ func main() {
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status":  "ok",
-			"service": "nodepulse-showoff",
+			"service": "nodepulse-status",
 		})
 	})
 
@@ -69,7 +69,7 @@ func main() {
 
 	// Start server
 	addr := ":" + cfg.Port
-	log.Printf("Starting showoff (public status) service on %s", addr)
+	log.Printf("Starting status (public status pages) service on %s", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

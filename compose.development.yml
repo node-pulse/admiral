@@ -118,7 +118,7 @@ services:
       # JWT
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
     ports:
-      - "8080:8080"
+      - "8080:8080" # Hardcoded for Cloudflare Tunnel
     depends_on:
       postgres:
         condition: service_healthy
@@ -167,12 +167,12 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Go Submarines Showoff - Public status pages and badges (read-only)
-  submarines-showoff:
+  # Go Submarines Status - Public status pages and badges (read-only)
+  submarines-status:
     build:
       context: ./submarines
-      dockerfile: Dockerfile.showoff
-    container_name: node-pulse-submarines-showoff
+      dockerfile: Dockerfile.status
+    container_name: node-pulse-submarines-status
     env_file:
       - .env
     environment:
@@ -190,7 +190,7 @@ services:
       PORT: 8082
       GIN_MODE: ${GIN_MODE:-debug}
     ports:
-      - "8082:8082"
+      - "8081:8082" # Expose on 8081 for development
     depends_on:
       postgres:
         condition: service_healthy
@@ -234,7 +234,7 @@ services:
       SOLID_QUEUE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/3
       SOLID_CABLE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/4
     ports:
-      - "3000:3000"
+      - "8000:3000" # Expose on 8000 for development
     depends_on:
       postgres:
         condition: service_healthy
@@ -272,9 +272,9 @@ services:
 
       # Better Auth
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-your-better-auth-secret}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:8082}
     ports:
-      - "3001:3000"
+      - "8082:3000" # Expose on 8082 for development
     depends_on:
       - submarines-ingest
       - postgres
@@ -282,31 +282,6 @@ services:
       - ./cruiser:/app
       - /app/node_modules
       - /app/.next
-    networks:
-      - node-pulse-admiral
-
-  # Caddy - Reverse Proxy
-  caddy:
-    image: caddy:2-alpine@sha256:953131cfea8e12bfe1c631a36308e9660e4389f0c3dfb3be957044d3ac92d446
-    container_name: node-pulse-caddy
-    env_file:
-      - .env
-    environment:
-      <<: *common-variables
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp" # HTTP/3
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
-      - ./caddy_data:/data
-      - ./caddy_config:/config
-      - ./logs/caddy:/var/log/caddy # For fail2ban monitoring
-    depends_on:
-      - cruiser
-      - flagship
-      - submarines-ingest
-      - kratos
     networks:
       - node-pulse-admiral
 
