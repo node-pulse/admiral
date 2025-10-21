@@ -48,11 +48,34 @@ RUN bundle exec bootsnap precompile app/ lib/
 # Precompiling assets for production without requiring secret RAILS_MASTER_KEY
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
 
+# Development stage
+FROM base AS development
 
+# Install packages needed for development
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential git libpq-dev libyaml-dev pkg-config && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
+# Set development environment
+ENV RAILS_ENV="development" \
+    BUNDLE_DEPLOYMENT="" \
+    BUNDLE_PATH="/usr/local/bundle" \
+    BUNDLE_WITHOUT=""
+
+# Copy application code
+COPY . .
+
+# Install all gems (including development)
+RUN bundle install
+
+# Expose port
+EXPOSE 3000
+
+# Start Rails server
+CMD ["./bin/rails", "server", "-b", "0.0.0.0"]
 
 # Final stage for app image
-FROM base
+FROM base AS production
 
 # Copy built artifacts: gems, application
 COPY --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
