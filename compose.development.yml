@@ -112,7 +112,7 @@ services:
       KRATOS_ADMIN_URL: http://kratos:4434
 
       # Server
-      PORT: ${BACKEND_PORT:-8080}
+      PORT: ${INGEST_PORT:-8080}
       GIN_MODE: ${GIN_MODE:-debug}
 
       # JWT
