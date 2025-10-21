@@ -1,4 +1,4 @@
-# Development Dockerfile for worker with hot reload
+# Development Dockerfile for digest with hot reload
 FROM golang:1.24-alpine
 
 WORKDIR /app
@@ -16,5 +16,5 @@ RUN go mod download
 # Copy the rest of the code
 COPY . .
 
-# Use air for hot reloading with worker configuration
-CMD ["air", "-c", ".air.worker.toml"]
+# Use air for hot reloading with digest configuration
+CMD ["air", "-c", ".air.digest.toml"]

@@ -32,7 +32,7 @@ help:
 	@echo ""
 	@echo "Individual Service Logs:"
 	@echo "  make ingest-logs   - Follow submarines-ingest logs"
-	@echo "  make worker-logs   - Follow submarines-worker logs"
+	@echo "  make digest-logs   - Follow submarines-digest logs"
 	@echo "  make status-logs   - Follow submarines-status logs"
 	@echo "  make flagship-logs - Follow flagship logs"
 	@echo "  make cruiser-logs  - Follow cruiser logs"
@@ -116,17 +116,17 @@ db-backup:
 
 # Submarines operations
 subs-logs:
-	docker compose logs -f submarines-ingest submarines-worker submarines-status
+	docker compose logs -f submarines-ingest submarines-digest submarines-status
 
 subs-restart:
-	docker compose restart submarines-ingest submarines-worker submarines-status
+	docker compose restart submarines-ingest submarines-digest submarines-status
 
 # Individual service operations
 ingest-logs:
 	docker compose logs -f submarines-ingest
 
-worker-logs:
-	docker compose logs -f submarines-worker
+digest-logs:
+	docker compose logs -f submarines-digest
 
 status-logs:
 	docker compose logs -f submarines-status

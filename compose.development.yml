@@ -131,12 +131,12 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Go Submarines Worker - Background processor (Valkey Stream -> PostgreSQL)
-  submarines-worker:
+  # Go Submarines Digest - Background processor (Valkey Stream -> PostgreSQL)
+  submarines-digest:
     build:
       context: ./submarines
-      dockerfile: Dockerfile.worker
-    container_name: node-pulse-submarines-worker
+      dockerfile: Dockerfile.digest
+    container_name: node-pulse-submarines-digest
     env_file:
       - .env
     environment:
@@ -155,8 +155,8 @@ services:
       VALKEY_PORT: 6379
       VALKEY_PASSWORD: ${VALKEY_PASSWORD:-valkeypassword}
 
-      # Worker settings
-      WORKER_ID: ${WORKER_ID:-worker-1}
+      # Digest settings
+      DIGEST_ID: ${DIGEST_ID:-digest-1}
     depends_on:
       postgres:
         condition: service_healthy

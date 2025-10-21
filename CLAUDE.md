@@ -8,7 +8,7 @@
 
    - Located in: `submarines/`
    - **Ingest**: Receives metrics from agents via HTTP, publishes to Valkey Streams
-   - **Worker**: Consumes from Valkey Streams, writes to PostgreSQL
+   - **Digest**: Consumes from Valkey Streams, writes to PostgreSQL
    - Handles 1000+ concurrent agent connections
    - **Completely independent from Flagship** (only shares PostgreSQL)
 
@@ -41,7 +41,7 @@
 │  ┌────────────────────────────────┐                    │
 │  │  Submarines (Go-Gin)           │                    │
 │  │  ┌──────────┐   ┌───────────┐ │                    │
-│  │  │ Ingest   │   │  Worker   │ │                    │
+│  │  │ Ingest   │   │  Digest   │ │                    │
 │  │  │ :8080    │   │ (bg proc) │ │                    │
 │  │  └────┬─────┘   └─────▲─────┘ │                    │
 │  └───────┼───────────────┼───────┘                    │
@@ -167,7 +167,7 @@ A more advanced **NodePulse Envelope Protocol (NPI)** is being designed:
 - **Message Buffer**: Valkey Streams (decouples HTTP ingestion from DB writes)
 - **Architecture**:
   - **Ingest**: Fast HTTP endpoint → Publishes to Valkey Stream (~5ms response)
-  - **Worker**: Consumes from Valkey Stream → Batch writes to PostgreSQL
+  - **Digest**: Consumes from Valkey Stream → Batch writes to PostgreSQL
 - **Purpose**: High-throughput metrics ingestion from agents only
 
 ### Flagship (Web Dashboard)
@@ -200,7 +200,7 @@ A more advanced **NodePulse Envelope Protocol (NPI)** is being designed:
 ### Submarines (Metrics Ingestion)
 
 - `submarines/cmd/ingest/main.go` - HTTP server receiving agent metrics
-- `submarines/cmd/worker/main.go` - Background worker consuming from Valkey Stream
+- `submarines/cmd/digest/main.go` - Background digest consuming from Valkey Stream
 - `submarines/internal/handlers/metrics.go` - Metrics ingestion logic
 - `submarines/internal/models/server.go` - Data models
 - `submarines/internal/database/database.go` - PostgreSQL client
@@ -243,8 +243,8 @@ go mod download
 # Run ingest server (receives agent metrics)
 go run cmd/ingest/main.go
 
-# Run worker (consumes from Valkey Stream, writes to PostgreSQL)
-go run cmd/worker/main.go
+# Run digest (consumes from Valkey Stream, writes to PostgreSQL)
+go run cmd/digest/main.go
 ```
 
 ### Local Flagship Development
@@ -364,7 +364,7 @@ Submarines uses **Valkey Streams** as a message buffer between HTTP ingestion an
 ### Architecture Flow
 
 ```
-Agent → HTTP POST → Ingest Binary → Valkey Stream → Worker Binary → PostgreSQL
+Agent → HTTP POST → Ingest Binary → Valkey Stream → Digest Binary → PostgreSQL
          :8080      (Fast ACK)      (Buffer)        (Batch Write)
 ```
 
@@ -384,9 +384,9 @@ Agent → HTTP POST → Ingest Binary → Valkey Stream → Worker Binary → Po
 }
 ```
 
-### Worker Behavior
+### Digest Behavior
 
-1. Read from stream using consumer group (multiple workers supported)
+1. Read from stream using consumer group (multiple digest instances supported)
 2. Deserialize metric report
 3. Begin PostgreSQL transaction
 4. Upsert server record
@@ -394,16 +394,16 @@ Agent → HTTP POST → Ingest Binary → Valkey Stream → Worker Binary → Po
 6. Commit transaction
 7. ACK message in stream
 
-### Scaling Workers
+### Scaling Digest Instances
 
-Run multiple worker instances for higher throughput:
+Run multiple digest instances for higher throughput:
 
 ```bash
-# Worker 1
-WORKER_ID=worker-1 go run cmd/worker/main.go
+# Digest 1
+DIGEST_ID=digest-1 go run cmd/digest/main.go
 
-# Worker 2
-WORKER_ID=worker-2 go run cmd/worker/main.go
+# Digest 2
+DIGEST_ID=digest-2 go run cmd/digest/main.go
 ```
 
 ## Future Enhancements
@@ -416,7 +416,7 @@ WORKER_ID=worker-2 go run cmd/worker/main.go
 6. **Multi-tenancy**: Organization/team isolation
 7. **Retention Policies**: Automated old data cleanup
 8. **Data Aggregation**: Pre-compute hourly/daily rollups
-9. **Worker Auto-scaling**: Scale workers based on stream lag
+9. **Digest Auto-scaling**: Scale digest instances based on stream lag
 
 ## Contact & Support
 

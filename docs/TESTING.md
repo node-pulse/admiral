@@ -117,8 +117,8 @@ Watch the logs to see metrics coming in:
 # Watch Submarines ingest logs
 docker compose -f compose.development.yml logs -f submarines-ingest
 
-# Watch Submarines worker logs
-docker compose -f compose.development.yml logs -f submarines-worker
+# Watch Submarines digest logs
+docker compose -f compose.development.yml logs -f submarines-digest
 
 # Check PostgreSQL for new metrics
 docker compose -f compose.development.yml exec postgres psql -U nodepulse -d nodepulse -c "SELECT COUNT(*) FROM backend.metrics;"
@@ -279,10 +279,10 @@ This shows:
    docker compose -f compose.development.yml logs submarines-ingest
    ```
 
-2. **Check worker logs:**
+2. **Check digest logs:**
 
    ```bash
-   docker compose -f compose.development.yml logs submarines-worker
+   docker compose -f compose.development.yml logs submarines-digest
    ```
 
 3. **Check Valkey stream:**
@@ -344,7 +344,7 @@ docker compose -f compose.development.yml ps
 cloudflared tunnel run nodepulse-dev
 
 # 4. In another terminal, watch logs
-docker compose -f compose.development.yml logs -f submarines-ingest submarines-worker
+docker compose -f compose.development.yml logs -f submarines-ingest submarines-digest
 
 # 5. On remote server(s), update agent config
 # Edit /etc/node-pulse/nodepulse.yml
