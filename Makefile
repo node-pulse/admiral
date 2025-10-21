@@ -51,7 +51,7 @@ push:
 
 # Development environment
 dev:
-	docker compose -f compose.development.yml up -d
+	docker compose -f compose.development.yml up -d --build
 
 dev-down:
 	docker compose -f compose.development.yml down
