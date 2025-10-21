@@ -87,7 +87,7 @@ services:
   submarines-ingest:
     build:
       context: ./submarines
-      dockerfile: Dockerfile.ingest
+      dockerfile: Dockerfile.ingest.dev
     container_name: node-pulse-submarines-ingest
     env_file:
       - .env
@@ -135,7 +135,7 @@ services:
   submarines-digest:
     build:
       context: ./submarines
-      dockerfile: Dockerfile.digest
+      dockerfile: Dockerfile.digest.dev
     container_name: node-pulse-submarines-digest
     env_file:
       - .env
@@ -171,7 +171,7 @@ services:
   submarines-status:
     build:
       context: ./submarines
-      dockerfile: Dockerfile.status
+      dockerfile: Dockerfile.status.dev
     container_name: node-pulse-submarines-status
     env_file:
       - .env
