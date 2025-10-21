@@ -1,10 +1,10 @@
 # Development Dockerfile for digest with hot reload
-FROM golang:1.24-alpine
+FROM golang:1.25-alpine
 
 WORKDIR /app
 
 # Install air for hot reloading
-RUN go install github.com/air-verse/air@latest
+RUN go install github.com/air-verse/air@v1.63.0
 
 # Install other dependencies
 RUN apk add --no-cache git
