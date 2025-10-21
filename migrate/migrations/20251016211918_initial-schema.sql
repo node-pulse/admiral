@@ -25,7 +25,7 @@ GRANT ALL PRIVILEGES ON SCHEMA submarines TO admiral;
 GRANT ALL PRIVILEGES ON SCHEMA flagship TO admiral;
 
 -- Set default search path for database
-ALTER DATABASE node_pulse_admiral SET search_path TO public, better_auth, submarines, flagship;
+ALTER DATABASE node_pulse_admiral SET search_path TO submarines, flagship, better_auth, kratos, public;
 
 -- ============================================================
 -- SECTION 2: Submarines Schema Tables
