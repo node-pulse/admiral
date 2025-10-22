@@ -11,7 +11,7 @@ default: &default
   password: <%= ENV.fetch("DB_PASSWORD") { "postgres" } %>
   database: <%= ENV.fetch("DB_NAME") { "nodepulse" } %>
   # Use flagship schema for all Flagship tables
-  schema_search_path: <%= ENV.fetch("DB_SCHEMA") { "flagship" } %>,public
+  schema_search_path: flagship,public
 
 development:
   <<: *default

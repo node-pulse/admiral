@@ -28,9 +28,9 @@ func (c *Cleaner) CleanOldMetrics(ctx context.Context) error {
 	// Calculate total rows to delete (for logging)
 	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*)
-		FROM %s.metrics
+		FROM submarines.metrics
 		WHERE timestamp < NOW() - INTERVAL '%d hours'
-	`, c.cfg.DBSchema, retentionSettings.RetentionHours)
+	`, retentionSettings.RetentionHours)
 
 	var totalRows int64
 	if err := c.db.QueryRowContext(ctx, countQuery).Scan(&totalRows); err != nil {
@@ -55,14 +55,14 @@ func (c *Cleaner) CleanOldMetrics(ctx context.Context) error {
 
 	for {
 		deleteQuery := fmt.Sprintf(`
-			DELETE FROM %s.metrics
+			DELETE FROM submarines.metrics
 			WHERE id IN (
-				SELECT id FROM %s.metrics
+				SELECT id FROM submarines.metrics
 				WHERE timestamp < NOW() - INTERVAL '%d hours'
 				ORDER BY timestamp ASC
 				LIMIT %d
 			)
-		`, c.cfg.DBSchema, c.cfg.DBSchema, retentionSettings.RetentionHours, batchSize)
+		`, retentionSettings.RetentionHours, batchSize)
 
 		result, err := c.db.ExecContext(ctx, deleteQuery)
 		if err != nil {
@@ -99,11 +99,11 @@ func (c *Cleaner) getRetentionSettings(ctx context.Context) (*models.RetentionSe
 	}
 
 	// Read from flagship.settings
-	query := fmt.Sprintf(`
+	query := `
 		SELECT key, value
-		FROM %s.settings
+		FROM flagship.settings
 		WHERE key IN ('retention_hours', 'retention_enabled')
-	`, c.cfg.FlagshipDBSchema)
+	`
 
 	rows, err := c.db.QueryContext(ctx, query)
 	if err != nil {

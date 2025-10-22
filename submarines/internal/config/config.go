@@ -12,7 +12,6 @@ type Config struct {
 	DBUser     string
 	DBPassword string
 	DBName     string
-	DBSchema   string
 	DBSSLMode  string
 
 	// Valkey
@@ -45,7 +44,6 @@ func Load() *Config {
 		DBUser:     getEnv("DB_USER", "postgres"),
 		DBPassword: getEnv("DB_PASSWORD", "postgres"),
 		DBName:     getEnv("DB_NAME", "nodepulse"),
-		DBSchema:   getEnv("DB_SCHEMA", "backend"),
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
 
 		// Valkey
@@ -74,7 +72,7 @@ func Load() *Config {
 func (c *Config) GetDSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s search_path=%s",
-		c.DBHost, c.DBPort, c.DBUser, c.DBPassword, c.DBName, c.DBSSLMode, c.DBSchema,
+		c.DBHost, c.DBPort, c.DBUser, c.DBPassword, c.DBName, c.DBSSLMode, "submarines",
 	)
 }
 
