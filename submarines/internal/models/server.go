@@ -52,15 +52,37 @@ type UptimeMetrics struct {
 	Days *float64 `json:"days"`
 }
 
+type DiskMetrics struct {
+	UsedGB        *float64 `json:"used_gb"`
+	TotalGB       *float64 `json:"total_gb"`
+	UsagePercent  *float64 `json:"usage_percent"`
+	MountPoint    *string  `json:"mount_point"`
+}
+
+type Process struct {
+	PID        int      `json:"pid"`
+	Name       string   `json:"name"`
+	CPUTime    float64  `json:"cpu_time"`
+	MemoryMB   float64  `json:"memory_mb"`
+	MemoryPerc float64  `json:"memory_perc"`
+}
+
+type ProcessesMetrics struct {
+	TopCPU    []Process `json:"top_cpu"`
+	TopMemory []Process `json:"top_memory"`
+}
+
 type MetricReport struct {
-	Timestamp  time.Time       `json:"timestamp"`
-	ServerID   string          `json:"server_id"`
-	Hostname   string          `json:"hostname"`
-	SystemInfo *SystemInfo     `json:"system_info,omitempty"`
-	CPU        *CPUMetrics     `json:"cpu"`
-	Memory     *MemoryMetrics  `json:"memory"`
-	Network    *NetworkMetrics `json:"network"`
-	Uptime     *UptimeMetrics  `json:"uptime"`
+	Timestamp  time.Time         `json:"timestamp"`
+	ServerID   string            `json:"server_id"`
+	Hostname   string            `json:"hostname"`
+	SystemInfo *SystemInfo       `json:"system_info,omitempty"`
+	CPU        *CPUMetrics       `json:"cpu"`
+	Memory     *MemoryMetrics    `json:"memory"`
+	Disk       *DiskMetrics      `json:"disk"`
+	Network    *NetworkMetrics   `json:"network"`
+	Uptime     *UptimeMetrics    `json:"uptime"`
+	Processes  *ProcessesMetrics `json:"processes"`
 }
 
 type Metric struct {
@@ -71,8 +93,13 @@ type Metric struct {
 	MemoryUsedMB         *int64     `json:"memory_used_mb,omitempty"`
 	MemoryTotalMB        *int64     `json:"memory_total_mb,omitempty"`
 	MemoryUsagePercent   *float64   `json:"memory_usage_percent,omitempty"`
+	DiskUsedGB           *float64   `json:"disk_used_gb,omitempty"`
+	DiskTotalGB          *float64   `json:"disk_total_gb,omitempty"`
+	DiskUsagePercent     *float64   `json:"disk_usage_percent,omitempty"`
+	DiskMountPoint       *string    `json:"disk_mount_point,omitempty"`
 	NetworkUploadBytes   *int64     `json:"network_upload_bytes,omitempty"`
 	NetworkDownloadBytes *int64     `json:"network_download_bytes,omitempty"`
 	UptimeDays           *float64   `json:"uptime_days,omitempty"`
+	Processes            []byte     `json:"processes,omitempty"`
 	CreatedAt            time.Time  `json:"created_at"`
 }

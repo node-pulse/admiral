@@ -149,7 +149,7 @@ func processMessage(ctx context.Context, db *database.DB, msg valkey.StreamMessa
 
 func upsertServer(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {
 	query := `
-		INSERT INTO backend.servers (id, hostname, kernel, kernel_version, distro, distro_version, architecture, cpu_cores, last_seen_at, status)
+		INSERT INTO submarines.servers (id, hostname, kernel, kernel_version, distro, distro_version, architecture, cpu_cores, last_seen_at, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (id) DO UPDATE SET
 			hostname = EXCLUDED.hostname,
@@ -182,20 +182,25 @@ func upsertServer(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) e
 
 func insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {
 	query := `
-		INSERT INTO backend.metrics (
+		INSERT INTO submarines.metrics (
 			server_id, timestamp,
 			cpu_usage_percent,
 			memory_used_mb, memory_total_mb, memory_usage_percent,
+			disk_used_gb, disk_total_gb, disk_usage_percent, disk_mount_point,
 			network_upload_bytes, network_download_bytes,
-			uptime_days
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			uptime_days,
+			processes
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 
 	var cpuUsage *float64
 	var memUsed, memTotal *int64
 	var memUsagePercent *float64
+	var diskUsedGB, diskTotalGB, diskUsagePercent *float64
+	var diskMountPoint *string
 	var netUpload, netDownload *int64
 	var uptimeDays *float64
+	var processesJSON []byte
 
 	if report.CPU != nil {
 		cpuUsage = report.CPU.UsagePercent
@@ -205,6 +210,12 @@ func insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) 
 		memTotal = report.Memory.TotalMB
 		memUsagePercent = report.Memory.UsagePercent
 	}
+	if report.Disk != nil {
+		diskUsedGB = report.Disk.UsedGB
+		diskTotalGB = report.Disk.TotalGB
+		diskUsagePercent = report.Disk.UsagePercent
+		diskMountPoint = report.Disk.MountPoint
+	}
 	if report.Network != nil {
 		netUpload = report.Network.UploadBytes
 		netDownload = report.Network.DownloadBytes
@@ -212,7 +223,14 @@ func insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) 
 	if report.Uptime != nil {
 		uptimeDays = report.Uptime.Days
 	}
+	if report.Processes != nil {
+		var err error
+		processesJSON, err = json.Marshal(report.Processes)
+		if err != nil {
+			return err
+		}
+	}
 
-	_, err := tx.Exec(query, serverID, report.Timestamp, cpuUsage, memUsed, memTotal, memUsagePercent, netUpload, netDownload, uptimeDays)
+	_, err := tx.Exec(query, serverID, report.Timestamp, cpuUsage, memUsed, memTotal, memUsagePercent, diskUsedGB, diskTotalGB, diskUsagePercent, diskMountPoint, netUpload, netDownload, uptimeDays, processesJSON)
 	return err
 }
