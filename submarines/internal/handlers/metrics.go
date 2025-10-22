@@ -1,8 +1,9 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -29,128 +30,72 @@ func NewMetricsHandler(db *database.DB, valkeyClient *valkey.Client) *MetricsHan
 
 // IngestMetrics handles incoming metrics from agents
 // Now publishes to Valkey Stream instead of directly writing to database
+// Expects an array of metric reports (even if just one)
 func (h *MetricsHandler) IngestMetrics(c *gin.Context) {
-	var report models.MetricReport
-	if err := c.ShouldBindJSON(&report); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Validate server ID
-	if _, err := uuid.Parse(report.ServerID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server_id"})
-		return
-	}
-
-	// Serialize the metric report to JSON
-	reportJSON, err := json.Marshal(report)
+	// Read request body
+	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to serialize report"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
 		return
 	}
 
-	// Publish to Valkey Stream for async processing
+	// Parse JSON as array of metric reports
+	var reports []models.MetricReport
+	if err := json.Unmarshal(bodyBytes, &reports); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":  "invalid JSON format - expected array of metric reports",
+			"detail": err.Error(),
+		})
+		return
+	}
+
+	// Validate we have at least one report
+	if len(reports) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no metric reports provided"})
+		return
+	}
+
+	// Process each report
 	ctx := c.Request.Context()
-	streamData := map[string]string{
-		"payload":   string(reportJSON),
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	successCount := 0
+
+	for _, report := range reports {
+		// Validate server ID
+		if _, err := uuid.Parse(report.ServerID); err != nil {
+			continue // Skip invalid reports but process the rest
+		}
+
+		// Serialize the metric report to JSON
+		reportJSON, err := json.Marshal(report)
+		if err != nil {
+			continue
+		}
+
+		// Publish to Valkey Stream for async processing
+		streamData := map[string]string{
+			"payload":   string(reportJSON),
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		}
+
+		if _, err := h.valkey.XAdd(ctx, MetricsStreamKey, streamData); err != nil {
+			continue
+		}
+
+		successCount++
 	}
 
-	if _, err := h.valkey.XAdd(ctx, MetricsStreamKey, streamData); err != nil {
-		// Log error but don't fail the request - could implement fallback here
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to queue metrics"})
+	if successCount == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to queue any metrics"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-}
+	log.Printf("Queued %d metric(s) to Valkey", successCount)
 
-func (h *MetricsHandler) upsertServer(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {
-	query := `
-		INSERT INTO submarines.servers (id, hostname, kernel, kernel_version, distro, distro_version, architecture, cpu_cores, last_seen_at, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (id) DO UPDATE SET
-			hostname = EXCLUDED.hostname,
-			kernel = COALESCE(EXCLUDED.kernel, servers.kernel),
-			kernel_version = COALESCE(EXCLUDED.kernel_version, servers.kernel_version),
-			distro = COALESCE(EXCLUDED.distro, servers.distro),
-			distro_version = COALESCE(EXCLUDED.distro_version, servers.distro_version),
-			architecture = COALESCE(EXCLUDED.architecture, servers.architecture),
-			cpu_cores = COALESCE(EXCLUDED.cpu_cores, servers.cpu_cores),
-			last_seen_at = EXCLUDED.last_seen_at,
-			status = EXCLUDED.status,
-			updated_at = CURRENT_TIMESTAMP
-	`
-
-	var kernel, kernelVersion, distro, distroVersion, architecture *string
-	var cpuCores *int
-
-	if report.SystemInfo != nil {
-		kernel = &report.SystemInfo.Kernel
-		kernelVersion = &report.SystemInfo.KernelVersion
-		distro = &report.SystemInfo.Distro
-		distroVersion = &report.SystemInfo.DistroVersion
-		architecture = &report.SystemInfo.Architecture
-		cpuCores = &report.SystemInfo.CPUCores
-	}
-
-	_, err := tx.Exec(query, serverID, report.Hostname, kernel, kernelVersion, distro, distroVersion, architecture, cpuCores, time.Now(), "active")
-	return err
-}
-
-func (h *MetricsHandler) insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {
-	query := `
-		INSERT INTO submarines.metrics (
-			server_id, timestamp,
-			cpu_usage_percent,
-			memory_used_mb, memory_total_mb, memory_usage_percent,
-			disk_used_gb, disk_total_gb, disk_usage_percent, disk_mount_point,
-			network_upload_bytes, network_download_bytes,
-			uptime_days,
-			processes
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-	`
-
-	var cpuUsage *float64
-	var memUsed, memTotal *int64
-	var memUsagePercent *float64
-	var diskUsedGB, diskTotalGB, diskUsagePercent *float64
-	var diskMountPoint *string
-	var netUpload, netDownload *int64
-	var uptimeDays *float64
-	var processesJSON []byte
-
-	if report.CPU != nil {
-		cpuUsage = report.CPU.UsagePercent
-	}
-	if report.Memory != nil {
-		memUsed = report.Memory.UsedMB
-		memTotal = report.Memory.TotalMB
-		memUsagePercent = report.Memory.UsagePercent
-	}
-	if report.Disk != nil {
-		diskUsedGB = report.Disk.UsedGB
-		diskTotalGB = report.Disk.TotalGB
-		diskUsagePercent = report.Disk.UsagePercent
-		diskMountPoint = report.Disk.MountPoint
-	}
-	if report.Network != nil {
-		netUpload = report.Network.UploadBytes
-		netDownload = report.Network.DownloadBytes
-	}
-	if report.Uptime != nil {
-		uptimeDays = report.Uptime.Days
-	}
-	if report.Processes != nil {
-		var err error
-		processesJSON, err = json.Marshal(report.Processes)
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err := tx.Exec(query, serverID, report.Timestamp, cpuUsage, memUsed, memTotal, memUsagePercent, diskUsedGB, diskTotalGB, diskUsagePercent, diskMountPoint, netUpload, netDownload, uptimeDays, processesJSON)
-	return err
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "ok",
+		"received":  len(reports),
+		"processed": successCount,
+	})
 }
 
 // GetServers returns list of all servers

@@ -77,9 +77,15 @@ func (c *Client) XAdd(ctx context.Context, stream string, values map[string]stri
 
 // XReadGroup reads messages from a Redis/Valkey Stream using a consumer group
 func (c *Client) XReadGroup(ctx context.Context, group, consumer, stream, id string, count int64) ([]StreamMessage, error) {
-	cmd := c.client.B().Xreadgroup().Group(group, consumer).Count(count).Streams().Key(stream).Id(id).Build()
+	cmd := c.client.B().Xreadgroup().Group(group, consumer).Count(count).Block(5000).Streams().Key(stream).Id(id).Build()
 	result := c.client.Do(ctx, cmd)
+
+	// Check for errors
 	if err := result.Error(); err != nil {
+		// Check if it's a nil response (no messages within block timeout)
+		if err.Error() == "valkey nil message" || err.Error() == "redis nil" {
+			return []StreamMessage{}, nil
+		}
 		return nil, fmt.Errorf("failed to read from stream %s: %w", stream, err)
 	}
 
@@ -87,6 +93,10 @@ func (c *Client) XReadGroup(ctx context.Context, group, consumer, stream, id str
 	// Parse the XREADGROUP response - returns map[string][]XRangeEntry
 	streamData, err := result.AsXRead()
 	if err != nil {
+		// Empty result is OK when blocking times out
+		if err.Error() == "valkey nil message" || err.Error() == "redis nil" {
+			return []StreamMessage{}, nil
+		}
 		return nil, fmt.Errorf("failed to parse stream response: %w", err)
 	}
 
@@ -113,13 +123,19 @@ func (c *Client) XAck(ctx context.Context, stream, group string, ids ...string) 
 
 // XGroupCreate creates a consumer group for a stream
 func (c *Client) XGroupCreate(ctx context.Context, stream, group string, startID string) error {
-	cmd := c.client.B().XgroupCreate().Key(stream).Group(group).Id(startID).Build()
+	cmd := c.client.B().XgroupCreate().Key(stream).Group(group).Id(startID).Mkstream().Build()
 	result := c.client.Do(ctx, cmd)
 	// Ignore "BUSYGROUP" error (group already exists)
 	if err := result.Error(); err != nil {
-		if err.Error() != "BUSYGROUP Consumer Group name already exists" {
+		errMsg := err.Error()
+		// Check for both possible error message formats
+		if errMsg != "BUSYGROUP Consumer Group name already exists" &&
+		   errMsg != "BUSYGROUP Consumer group name already exists" {
 			return fmt.Errorf("failed to create consumer group: %w", err)
 		}
+		log.Printf("Consumer group %s already exists for stream %s", group, stream)
+	} else {
+		log.Printf("Created consumer group %s for stream %s", group, stream)
 	}
 	return nil
 }

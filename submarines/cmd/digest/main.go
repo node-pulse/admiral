@@ -20,14 +20,14 @@ import (
 
 const (
 	streamKey     = handlers.MetricsStreamKey
-	consumerGroup = "nodepulse-workers"
-	consumerName  = "worker-1" // TODO: Generate unique consumer ID
+	consumerGroup = "submarines-digest"
+	consumerName  = "digest-1"
 	batchSize     = 10
-	blockTimeout  = 5000 // milliseconds
+	idleSleep     = 5 // seconds to sleep when no messages
 )
 
 func main() {
-	log.Println("Starting NodePulse metrics worker...")
+	log.Println("Starting digest worker...")
 
 	// Load configuration
 	cfg := config.Load()
@@ -48,32 +48,29 @@ func main() {
 
 	// Create consumer group (idempotent)
 	ctx := context.Background()
-	if err := valkeyClient.XGroupCreate(ctx, streamKey, consumerGroup, "0"); err != nil {
-		log.Printf("Consumer group creation note: %v (may already exist)", err)
-	}
+	valkeyClient.XGroupCreate(ctx, streamKey, consumerGroup, "0")
 
 	// Setup graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	log.Printf("Worker started. Consuming from stream: %s", streamKey)
+	log.Println("Digest worker ready")
 
 	// Main processing loop
 	running := true
 	for running {
 		select {
 		case <-sigChan:
-			log.Println("Shutdown signal received, stopping worker...")
+			log.Println("Shutting down...")
 			running = false
 		default:
 			if err := processMessages(ctx, valkeyClient, db); err != nil {
-				log.Printf("Error processing messages: %v", err)
 				time.Sleep(1 * time.Second) // Brief pause on error
 			}
 		}
 	}
 
-	log.Println("Worker stopped gracefully")
+	log.Println("Digest worker stopped")
 }
 
 func processMessages(ctx context.Context, valkeyClient *valkey.Client, db *database.DB) error {
@@ -84,30 +81,31 @@ func processMessages(ctx context.Context, valkeyClient *valkey.Client, db *datab
 	}
 
 	if len(messages) == 0 {
-		// No messages, sleep briefly
-		time.Sleep(100 * time.Millisecond)
+		// No messages, take a longer break to reduce polling
+		time.Sleep(idleSleep * time.Second)
 		return nil
 	}
 
-	log.Printf("Processing %d messages", len(messages))
-
+	successCount := 0
 	for _, msg := range messages {
-		if err := processMessage(ctx, db, msg); err != nil {
-			log.Printf("Failed to process message %s: %v", msg.ID, err)
+		if err := processMessage(db, msg); err != nil {
 			// Don't ACK failed messages - they'll be retried
 			continue
 		}
 
 		// Acknowledge successful processing
-		if err := valkeyClient.XAck(ctx, streamKey, consumerGroup, msg.ID); err != nil {
-			log.Printf("Failed to ACK message %s: %v", msg.ID, err)
-		}
+		valkeyClient.XAck(ctx, streamKey, consumerGroup, msg.ID)
+		successCount++
+	}
+
+	if successCount > 0 {
+		log.Printf("Inserted %d metric(s) to PostgreSQL", successCount)
 	}
 
 	return nil
 }
 
-func processMessage(ctx context.Context, db *database.DB, msg valkey.StreamMessage) error {
+func processMessage(db *database.DB, msg valkey.StreamMessage) error {
 	// Extract payload from stream message
 	payloadJSON, ok := msg.Fields["payload"]
 	if !ok {
