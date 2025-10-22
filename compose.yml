@@ -73,7 +73,6 @@ services:
     env_file:
       - .env
     environment:
-      <<: *common-variables
       DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
     volumes:
       - ./kratos:/etc/config/kratos
@@ -95,7 +94,6 @@ services:
     env_file:
       - .env
     environment:
-      <<: *common-variables
       DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
       LOG_LEVEL: ${KRATOS_LOG_LEVEL:-info}
     volumes:
