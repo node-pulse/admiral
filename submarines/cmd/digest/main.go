@@ -181,14 +181,40 @@ func upsertServer(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) e
 func insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {
 	query := `
 		INSERT INTO submarines.metrics (
-			server_id, timestamp,
+			server_id,
+			timestamp,
 			cpu_usage_percent,
-			memory_used_mb, memory_total_mb, memory_usage_percent,
-			disk_used_gb, disk_total_gb, disk_usage_percent, disk_mount_point,
-			network_upload_bytes, network_download_bytes,
+			memory_used_mb,
+			memory_total_mb,
+			memory_usage_percent,
+			disk_used_gb,
+			disk_total_gb,
+			disk_usage_percent,
+			disk_mount_point,
+			network_upload_bytes,
+			network_download_bytes,
 			uptime_days,
-			processes
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+			processes,
+			ipv4,
+			ipv6
+		) VALUES (
+			$1,
+			$2,
+			$3,
+			$4,
+			$5,
+			$6,
+			$7,
+			$8,
+			$9,
+			$10,
+			$11,
+			$12,
+			$13,
+			$14,
+			$15,
+			$16
+		)
 	`
 
 	var cpuUsage *float64
@@ -229,6 +255,6 @@ func insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) 
 		}
 	}
 
-	_, err := tx.Exec(query, serverID, report.Timestamp, cpuUsage, memUsed, memTotal, memUsagePercent, diskUsedGB, diskTotalGB, diskUsagePercent, diskMountPoint, netUpload, netDownload, uptimeDays, processesJSON)
+	_, err := tx.Exec(query, serverID, report.Timestamp, cpuUsage, memUsed, memTotal, memUsagePercent, diskUsedGB, diskTotalGB, diskUsagePercent, diskMountPoint, netUpload, netDownload, uptimeDays, processesJSON, report.IPv4, report.IPv6)
 	return err
 }

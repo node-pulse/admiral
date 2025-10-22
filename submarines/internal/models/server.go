@@ -83,6 +83,8 @@ type MetricReport struct {
 	Network    *NetworkMetrics   `json:"network"`
 	Uptime     *UptimeMetrics    `json:"uptime"`
 	Processes  *ProcessesMetrics `json:"processes"`
+	IPv4       *string           `json:"ipv4,omitempty"`
+	IPv6       *string           `json:"ipv6,omitempty"`
 }
 
 type Metric struct {
@@ -101,5 +103,7 @@ type Metric struct {
 	NetworkDownloadBytes *int64     `json:"network_download_bytes,omitempty"`
 	UptimeDays           *float64   `json:"uptime_days,omitempty"`
 	Processes            []byte     `json:"processes,omitempty"`
+	IPv4                 *string    `json:"ipv4,omitempty"`
+	IPv6                 *string    `json:"ipv6,omitempty"`
 	CreatedAt            time.Time  `json:"created_at"`
 }

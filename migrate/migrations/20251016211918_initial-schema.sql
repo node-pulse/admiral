@@ -66,12 +66,25 @@ CREATE TABLE IF NOT EXISTS submarines.metrics (
     memory_total_mb BIGINT,
     memory_usage_percent NUMERIC(5,2),
 
+    -- Disk metrics
+    disk_used_gb DOUBLE PRECISION,
+    disk_total_gb DOUBLE PRECISION,
+    disk_usage_percent DOUBLE PRECISION,
+    disk_mount_point VARCHAR(255),
+
     -- Network metrics (delta since last collection)
     network_upload_bytes BIGINT,
     network_download_bytes BIGINT,
 
     -- Uptime
     uptime_days NUMERIC(10,2),
+
+    -- Processes data
+    processes JSONB,
+
+    -- IP addresses
+    ipv4 VARCHAR(45),
+    ipv6 VARCHAR(45),
 
     -- Raw data for future extensibility
     raw_data JSONB,
@@ -147,6 +160,7 @@ CREATE INDEX IF NOT EXISTS idx_alert_rules_enabled ON submarines.alert_rules(ena
 -- GIN indexes for JSONB columns
 CREATE INDEX IF NOT EXISTS idx_servers_tags ON submarines.servers USING GIN(tags);
 CREATE INDEX IF NOT EXISTS idx_servers_metadata ON submarines.servers USING GIN(metadata);
+CREATE INDEX IF NOT EXISTS idx_metrics_processes ON submarines.metrics USING GIN(processes);
 
 -- ============================================================
 -- SECTION 4: Functions and Triggers

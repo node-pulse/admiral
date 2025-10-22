@@ -130,9 +130,7 @@ func (h *MetricsHandler) GetServerMetrics(c *gin.Context) {
 	serverID := c.Param("id")
 
 	query := `
-		SELECT id, server_id, timestamp, cpu_usage_percent, memory_used_mb, memory_total_mb, memory_usage_percent,
-		       disk_used_gb, disk_total_gb, disk_usage_percent, disk_mount_point,
-		       network_upload_bytes, network_download_bytes, uptime_days, processes, created_at
+		SELECT *
 		FROM submarines.metrics
 		WHERE server_id = $1
 		ORDER BY timestamp DESC
@@ -149,7 +147,8 @@ func (h *MetricsHandler) GetServerMetrics(c *gin.Context) {
 	metrics := []models.Metric{}
 	for rows.Next() {
 		var m models.Metric
-		if err := rows.Scan(&m.ID, &m.ServerID, &m.Timestamp, &m.CPUUsagePercent, &m.MemoryUsedMB, &m.MemoryTotalMB, &m.MemoryUsagePercent, &m.DiskUsedGB, &m.DiskTotalGB, &m.DiskUsagePercent, &m.DiskMountPoint, &m.NetworkUploadBytes, &m.NetworkDownloadBytes, &m.UptimeDays, &m.Processes, &m.CreatedAt); err != nil {
+		var rawData []byte // raw_data column exists in DB but not needed in model
+		if err := rows.Scan(&m.ID, &m.ServerID, &m.Timestamp, &m.CPUUsagePercent, &m.MemoryUsedMB, &m.MemoryTotalMB, &m.MemoryUsagePercent, &m.DiskUsedGB, &m.DiskTotalGB, &m.DiskUsagePercent, &m.DiskMountPoint, &m.NetworkUploadBytes, &m.NetworkDownloadBytes, &m.UptimeDays, &m.Processes, &m.IPv4, &m.IPv6, &rawData, &m.CreatedAt); err != nil {
 			continue
 		}
 		metrics = append(metrics, m)
