@@ -7,34 +7,27 @@
 -- ============================================================
 
 -- Schema for Better Auth (Next.js authentication)
-CREATE SCHEMA IF NOT EXISTS better_auth;
+CREATE SCHEMA IF NOT EXISTS better_auth AUTHORIZATION admiral;
 
 -- Schema for Ory Kratos (identity management)
-CREATE SCHEMA IF NOT EXISTS kratos;
+CREATE SCHEMA IF NOT EXISTS kratos AUTHORIZATION admiral;
 
 -- Schema for Submarines (Go-Gin - Agent Ingestion & Metrics API)
-CREATE SCHEMA IF NOT EXISTS submarines;
+CREATE SCHEMA IF NOT EXISTS submarines AUTHORIZATION admiral;
 
 -- Schema for Flagship (Rails - Admin Dashboard)
-CREATE SCHEMA IF NOT EXISTS flagship;
+CREATE SCHEMA IF NOT EXISTS flagship AUTHORIZATION admiral;
 
--- Set appropriate permissions
-GRANT ALL PRIVILEGES ON SCHEMA better_auth TO admiral;
-GRANT ALL PRIVILEGES ON SCHEMA kratos TO admiral;
-GRANT ALL PRIVILEGES ON SCHEMA submarines TO admiral;
-GRANT ALL PRIVILEGES ON SCHEMA flagship TO admiral;
-
--- Set default search path for database
-ALTER DATABASE node_pulse_admiral SET search_path TO submarines, flagship, better_auth, kratos, public;
+-- Set default search path for admiral role in this database
+ALTER ROLE admiral IN DATABASE node_pulse_admiral
+  SET search_path = submarines, flagship, better_auth, kratos, public;
 
 -- ============================================================
 -- SECTION 2: Submarines Schema Tables
 -- ============================================================
 
-SET search_path TO submarines;
-
 -- Servers/Agents table
-CREATE TABLE IF NOT EXISTS servers (
+CREATE TABLE IF NOT EXISTS submarines.servers (
     id UUID PRIMARY KEY,
     hostname VARCHAR(255) NOT NULL,
 
@@ -60,9 +53,9 @@ CREATE TABLE IF NOT EXISTS servers (
 );
 
 -- Metrics table (time-series data)
-CREATE TABLE IF NOT EXISTS metrics (
+CREATE TABLE IF NOT EXISTS submarines.metrics (
     id BIGSERIAL PRIMARY KEY,
-    server_id UUID NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    server_id UUID NOT NULL REFERENCES submarines.servers(id) ON DELETE CASCADE,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 
     -- CPU metrics
@@ -87,9 +80,9 @@ CREATE TABLE IF NOT EXISTS metrics (
 );
 
 -- Alerts table
-CREATE TABLE IF NOT EXISTS alerts (
+CREATE TABLE IF NOT EXISTS submarines.alerts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    server_id UUID NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    server_id UUID NOT NULL REFERENCES submarines.servers(id) ON DELETE CASCADE,
 
     -- Alert details
     alert_type VARCHAR(50) NOT NULL, -- cpu, memory, disk, network, uptime
@@ -112,9 +105,9 @@ CREATE TABLE IF NOT EXISTS alerts (
 );
 
 -- Alert rules table
-CREATE TABLE IF NOT EXISTS alert_rules (
+CREATE TABLE IF NOT EXISTS submarines.alert_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
 
     -- Rule configuration
@@ -137,9 +130,9 @@ CREATE TABLE IF NOT EXISTS alert_rules (
 );
 
 -- Buffered metrics table (from agent buffer on failure)
-CREATE TABLE IF NOT EXISTS buffered_metrics (
+CREATE TABLE IF NOT EXISTS submarines.buffered_metrics (
     id BIGSERIAL PRIMARY KEY,
-    server_id UUID NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    server_id UUID NOT NULL REFERENCES submarines.servers(id) ON DELETE CASCADE,
     received_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     buffer_file VARCHAR(255),
     metrics JSONB NOT NULL,
@@ -152,85 +145,71 @@ CREATE TABLE IF NOT EXISTS buffered_metrics (
 -- ============================================================
 
 -- B-tree indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_servers_status ON servers(status);
-CREATE INDEX IF NOT EXISTS idx_servers_last_seen ON servers(last_seen_at);
-CREATE INDEX IF NOT EXISTS idx_metrics_server_id ON metrics(server_id);
-CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_metrics_server_timestamp ON metrics(server_id, timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_alerts_server_id ON alerts(server_id);
-CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status);
-CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_alert_rules_enabled ON alert_rules(enabled);
-CREATE INDEX IF NOT EXISTS idx_buffered_metrics_server_id ON buffered_metrics(server_id);
-CREATE INDEX IF NOT EXISTS idx_buffered_metrics_processed ON buffered_metrics(processed);
+CREATE INDEX IF NOT EXISTS idx_servers_status ON submarines.servers(status);
+CREATE INDEX IF NOT EXISTS idx_servers_last_seen ON submarines.servers(last_seen_at);
+CREATE INDEX IF NOT EXISTS idx_metrics_server_id ON submarines.metrics(server_id);
+CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON submarines.metrics(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_metrics_server_timestamp ON submarines.metrics(server_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_alerts_server_id ON submarines.alerts(server_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_status ON submarines.alerts(status);
+CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON submarines.alerts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_alert_rules_enabled ON submarines.alert_rules(enabled);
+CREATE INDEX IF NOT EXISTS idx_buffered_metrics_server_id ON submarines.buffered_metrics(server_id);
+CREATE INDEX IF NOT EXISTS idx_buffered_metrics_processed ON submarines.buffered_metrics(processed);
 
 -- GIN indexes for JSONB columns
-CREATE INDEX IF NOT EXISTS idx_servers_tags ON servers USING GIN(tags);
-CREATE INDEX IF NOT EXISTS idx_servers_metadata ON servers USING GIN(metadata);
+CREATE INDEX IF NOT EXISTS idx_servers_tags ON submarines.servers USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_servers_metadata ON submarines.servers USING GIN(metadata);
 
 -- ============================================================
 -- SECTION 4: Functions and Triggers
 -- ============================================================
 
 -- Create updated_at trigger function
-CREATE OR REPLACE FUNCTION update_updated_at_column()
+CREATE OR REPLACE FUNCTION submarines.update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 -- Add triggers for updated_at
-CREATE TRIGGER update_servers_updated_at BEFORE UPDATE ON servers
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_servers_updated_at
+    BEFORE UPDATE ON submarines.servers
+    FOR EACH ROW EXECUTE FUNCTION submarines.update_updated_at_column();
 
-CREATE TRIGGER update_alerts_updated_at BEFORE UPDATE ON alerts
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_alerts_updated_at
+    BEFORE UPDATE ON submarines.alerts
+    FOR EACH ROW EXECUTE FUNCTION submarines.update_updated_at_column();
 
-CREATE TRIGGER update_alert_rules_updated_at BEFORE UPDATE ON alert_rules
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_alert_rules_updated_at
+    BEFORE UPDATE ON submarines.alert_rules
+    FOR EACH ROW EXECUTE FUNCTION submarines.update_updated_at_column();
 
 -- ============================================================
 -- SECTION 5: Default Data
 -- ============================================================
 
 -- Insert default alert rules
-INSERT INTO alert_rules (name, description, metric_type, condition, threshold, severity) VALUES
+INSERT INTO submarines.alert_rules (name, description, metric_type, condition, threshold, severity) VALUES
     ('High CPU Usage', 'Alert when CPU usage exceeds 80%', 'cpu_usage', 'gt', 80.0, 'warning'),
     ('Critical CPU Usage', 'Alert when CPU usage exceeds 95%', 'cpu_usage', 'gt', 95.0, 'critical'),
     ('High Memory Usage', 'Alert when memory usage exceeds 85%', 'memory_usage', 'gt', 85.0, 'warning'),
     ('Critical Memory Usage', 'Alert when memory usage exceeds 95%', 'memory_usage', 'gt', 95.0, 'critical')
-ON CONFLICT DO NOTHING;
-
--- Reset search path
-RESET search_path;
+ON CONFLICT (name) DO NOTHING;
 
 
 -- Down Migration
 -- Rollback initial schema migration
 
-SET search_path TO submarines;
-
--- Drop triggers
-DROP TRIGGER IF EXISTS update_alert_rules_updated_at ON alert_rules;
-DROP TRIGGER IF EXISTS update_alerts_updated_at ON alerts;
-DROP TRIGGER IF EXISTS update_servers_updated_at ON servers;
-
--- Drop function
-DROP FUNCTION IF EXISTS update_updated_at_column();
-
--- Drop tables (in reverse order of dependencies)
-DROP TABLE IF EXISTS buffered_metrics;
-DROP TABLE IF EXISTS alert_rules;
-DROP TABLE IF EXISTS alerts;
-DROP TABLE IF EXISTS metrics;
-DROP TABLE IF EXISTS servers;
-
-RESET search_path;
-
--- Drop schemas (Kratos manages its own schema, so we skip it)
-DROP SCHEMA IF EXISTS flagship CASCADE;
+-- Drop schemas with CASCADE (automatically drops all objects within)
+-- This is safer and simpler than dropping individual objects
 DROP SCHEMA IF EXISTS submarines CASCADE;
+DROP SCHEMA IF EXISTS flagship CASCADE;
 DROP SCHEMA IF EXISTS better_auth CASCADE;
 -- Note: We don't drop kratos schema as it's managed by Ory Kratos migrations
+
+-- Reset search path for admiral role
+ALTER ROLE admiral IN DATABASE node_pulse_admiral
+  RESET search_path;
