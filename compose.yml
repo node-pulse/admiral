@@ -1,5 +1,5 @@
 x-common-variables: &common-variables
-  DATABASE_URL: &database-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}
+  DATABASE_URL: &database-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=better_auth
 
 services:
   # PostgreSQL 18 - Main Database
