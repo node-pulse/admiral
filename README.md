@@ -84,7 +84,6 @@ The PostgreSQL database is organized into three schemas:
    - `metrics`: Time-series metrics data
    - `alerts`: Alert records
    - `alert_rules`: Alert rule configurations
-   - `buffered_metrics`: Buffered metrics from agents
 
 ## API Endpoints
 

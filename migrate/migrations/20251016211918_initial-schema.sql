@@ -129,17 +129,6 @@ CREATE TABLE IF NOT EXISTS submarines.alert_rules (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Buffered metrics table (from agent buffer on failure)
-CREATE TABLE IF NOT EXISTS submarines.buffered_metrics (
-    id BIGSERIAL PRIMARY KEY,
-    server_id UUID NOT NULL REFERENCES submarines.servers(id) ON DELETE CASCADE,
-    received_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    buffer_file VARCHAR(255),
-    metrics JSONB NOT NULL,
-    processed BOOLEAN DEFAULT FALSE,
-    processed_at TIMESTAMP WITH TIME ZONE
-);
-
 -- ============================================================
 -- SECTION 3: Indexes
 -- ============================================================
@@ -154,8 +143,6 @@ CREATE INDEX IF NOT EXISTS idx_alerts_server_id ON submarines.alerts(server_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_status ON submarines.alerts(status);
 CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON submarines.alerts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_alert_rules_enabled ON submarines.alert_rules(enabled);
-CREATE INDEX IF NOT EXISTS idx_buffered_metrics_server_id ON submarines.buffered_metrics(server_id);
-CREATE INDEX IF NOT EXISTS idx_buffered_metrics_processed ON submarines.buffered_metrics(processed);
 
 -- GIN indexes for JSONB columns
 CREATE INDEX IF NOT EXISTS idx_servers_tags ON submarines.servers USING GIN(tags);

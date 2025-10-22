@@ -99,7 +99,6 @@ PostgreSQL has 3 separate schemas:
    - `metrics` - Time-series metrics data
    - `alerts` - Alert records
    - `alert_rules` - Alert configurations
-   - `buffered_metrics` - Failed agent reports
 
 ## Current Protocol
 
