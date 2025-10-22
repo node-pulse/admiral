@@ -139,7 +139,6 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SCHEMA: submarines
       DB_SSLMODE: disable
 
       # Valkey
@@ -187,7 +186,6 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SCHEMA: submarines
       DB_SSLMODE: disable
 
       # Valkey
@@ -223,7 +221,6 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SCHEMA: submarines
       DB_SSLMODE: disable
 
       # Server
@@ -256,7 +253,6 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SCHEMA: flagship
 
       # Valkey for sessions and cache
       REDIS_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/1
