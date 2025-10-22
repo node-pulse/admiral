@@ -24,15 +24,16 @@ CREATE SCHEMA IF NOT EXISTS flagship AUTHORIZATION admiral;
 
 -- Servers/Agents table
 CREATE TABLE IF NOT EXISTS submarines.servers (
-    id UUID PRIMARY KEY,
-    hostname VARCHAR(255) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    server_id TEXT UNIQUE NOT NULL, -- Agent-provided identifier (UUID or custom string)
+    hostname TEXT NOT NULL,
 
     -- System Information (from agent)
-    kernel VARCHAR(100),
-    kernel_version VARCHAR(255),
-    distro VARCHAR(100),
-    distro_version VARCHAR(255),
-    architecture VARCHAR(50),
+    kernel TEXT,
+    kernel_version TEXT,
+    distro TEXT,
+    distro_version TEXT,
+    architecture TEXT,
     cpu_cores INTEGER,
 
     -- Metadata
@@ -40,7 +41,7 @@ CREATE TABLE IF NOT EXISTS submarines.servers (
     metadata JSONB DEFAULT '{}'::jsonb,
 
     -- Status
-    status VARCHAR(50) DEFAULT 'active', -- active, inactive, error
+    status TEXT DEFAULT 'active', -- active, inactive, error
     last_seen_at TIMESTAMP WITH TIME ZONE,
 
     -- Timestamps
@@ -66,7 +67,7 @@ CREATE TABLE IF NOT EXISTS submarines.metrics (
     disk_used_gb DOUBLE PRECISION,
     disk_total_gb DOUBLE PRECISION,
     disk_usage_percent DOUBLE PRECISION,
-    disk_mount_point VARCHAR(255),
+    disk_mount_point TEXT,
 
     -- Network metrics (delta since last collection)
     network_upload_bytes BIGINT,
@@ -79,8 +80,8 @@ CREATE TABLE IF NOT EXISTS submarines.metrics (
     processes JSONB,
 
     -- IP addresses
-    ipv4 VARCHAR(45),
-    ipv6 VARCHAR(45),
+    ipv4 TEXT,
+    ipv6 TEXT,
 
     -- Raw data for future extensibility
     raw_data JSONB,
@@ -94,8 +95,8 @@ CREATE TABLE IF NOT EXISTS submarines.alerts (
     server_id UUID NOT NULL REFERENCES submarines.servers(id) ON DELETE CASCADE,
 
     -- Alert details
-    alert_type VARCHAR(50) NOT NULL, -- cpu, memory, disk, network, uptime
-    severity VARCHAR(20) NOT NULL, -- info, warning, critical
+    alert_type TEXT NOT NULL, -- cpu, memory, disk, network, uptime
+    severity TEXT NOT NULL, -- info, warning, critical
     message TEXT NOT NULL,
 
     -- Alert data
@@ -104,7 +105,7 @@ CREATE TABLE IF NOT EXISTS submarines.alerts (
     metadata JSONB DEFAULT '{}'::jsonb,
 
     -- Status
-    status VARCHAR(20) DEFAULT 'active', -- active, acknowledged, resolved
+    status TEXT DEFAULT 'active', -- active, acknowledged, resolved
     acknowledged_at TIMESTAMP WITH TIME ZONE,
     resolved_at TIMESTAMP WITH TIME ZONE,
 
@@ -116,17 +117,17 @@ CREATE TABLE IF NOT EXISTS submarines.alerts (
 -- Alert rules table
 CREATE TABLE IF NOT EXISTS submarines.alert_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    name TEXT NOT NULL UNIQUE,
     description TEXT,
 
     -- Rule configuration
-    metric_type VARCHAR(50) NOT NULL, -- cpu_usage, memory_usage, etc.
-    condition VARCHAR(20) NOT NULL, -- gt (>), lt (<), eq (=), gte (>=), lte (<=)
+    metric_type TEXT NOT NULL, -- cpu_usage, memory_usage, etc.
+    condition TEXT NOT NULL, -- gt (>), lt (<), eq (=), gte (>=), lte (<=)
     threshold NUMERIC(10,2) NOT NULL,
     duration_seconds INTEGER DEFAULT 60, -- Alert if condition persists for this duration
 
     -- Alert settings
-    severity VARCHAR(20) NOT NULL, -- info, warning, critical
+    severity TEXT NOT NULL, -- info, warning, critical
     enabled BOOLEAN DEFAULT TRUE,
 
     -- Target servers (empty = all servers)
@@ -143,6 +144,7 @@ CREATE TABLE IF NOT EXISTS submarines.alert_rules (
 -- ============================================================
 
 -- B-tree indexes for common queries
+CREATE INDEX IF NOT EXISTS idx_servers_server_id ON submarines.servers(server_id);
 CREATE INDEX IF NOT EXISTS idx_servers_status ON submarines.servers(status);
 CREATE INDEX IF NOT EXISTS idx_servers_last_seen ON submarines.servers(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_metrics_server_id ON submarines.metrics(server_id);

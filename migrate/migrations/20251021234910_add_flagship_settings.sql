@@ -7,10 +7,10 @@
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS flagship.settings (
-    key VARCHAR(100) PRIMARY KEY,
+    key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
     description TEXT,
-    tier VARCHAR(20) DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'enterprise')),
+    tier TEXT DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'enterprise')),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
