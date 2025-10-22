@@ -1,19 +1,66 @@
-# Deployment Guide - NodePulse Admiral
+# NodePulse Admiral - Deployment Guide
 
-Quick reference for deploying NodePulse Admiral in different environments.
+Complete guide for deploying NodePulse Admiral in development and production environments.
 
 ## Table of Contents
 
-- [Development](#development)
-- [Production](#production)
-- [Cloudflare Tunnel](#cloudflare-tunnel)
-- [Related Documentation](#related-documentation)
+- [Quick Start (Production)](#quick-start-production)
+- [Development Environment](#development-environment)
+- [Production Deployment](#production-deployment)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
+- [Monitoring & Maintenance](#monitoring--maintenance)
+- [Troubleshooting](#troubleshooting)
+- [Security](#security)
+- [Advanced Topics](#advanced-topics)
 
-## Development
+---
 
-Development environment uses direct port exposure without reverse proxy for simplicity and Cloudflare Tunnel compatibility.
+## Quick Start (Production)
 
-### Quick Start
+### 1. Create Release Package
+
+```bash
+# On development machine
+cd /path/to/admiral
+./scripts/release.sh v1.0.0
+```
+
+This creates `nodepulse-admiral-v1.0.0.tar.gz` containing:
+- Docker Compose configuration
+- Deployment scripts
+- Environment template
+
+### 2. Deploy to Production
+
+```bash
+# Copy to server
+scp nodepulse-admiral-v1.0.0.tar.gz user@server:/opt/
+
+# On production server
+ssh user@server
+cd /opt
+tar -xzf nodepulse-admiral-v1.0.0.tar.gz
+cd nodepulse-admiral-v1.0.0
+
+# Run interactive deployment
+sudo ./deploy.sh
+```
+
+The deployment script will:
+1. ✅ Prompt for configuration (database passwords, secrets, etc.)
+2. ✅ Auto-generate secure random secrets
+3. ✅ Create `.env` file
+4. ✅ Pull Docker images from GHCR
+5. ✅ Start all services
+
+---
+
+## Development Environment
+
+Development environment uses direct port exposure for simplicity and Cloudflare Tunnel compatibility.
+
+### Start Development Stack
 
 ```bash
 # Start all services
@@ -39,14 +86,61 @@ docker compose down
 | 5432 | PostgreSQL | localhost:5432 |
 | 6379 | Valkey (Redis) | localhost:6379 |
 
-### Port Assignment Strategy
+### Health Checks (Development)
 
-- **8080**: Submarines Ingest (hardcoded for Cloudflare Tunnel)
-- **8081**: Submarines Status (public status pages)
-- **8000**: Flagship (admin dashboard)
-- **8082**: Cruiser (public app)
+```bash
+curl http://localhost:8080/health  # Submarines Ingest
+curl http://localhost:8081/health  # Submarines Status
+curl http://localhost:8000/health  # Flagship
+curl http://localhost:8082/api/health  # Cruiser
+curl http://localhost:4433/health/ready  # Kratos
+```
 
-## Production
+### Cloudflare Tunnel (Optional)
+
+Use Cloudflare Tunnel for development with SSL without exposing ports.
+
+1. Install cloudflared:
+```bash
+# macOS
+brew install cloudflared
+
+# Linux
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+```
+
+2. Login and create tunnel:
+```bash
+cloudflared tunnel login
+cloudflared tunnel create nodepulse
+```
+
+3. Create config.yml:
+```yaml
+tunnel: <your-tunnel-id>
+credentials-file: /path/to/<tunnel-id>.json
+
+ingress:
+  - hostname: api.yourdomain.com
+    service: http://localhost:8080
+  - hostname: status.yourdomain.com
+    service: http://localhost:8081
+  - hostname: admin.yourdomain.com
+    service: http://localhost:8000
+  - hostname: app.yourdomain.com
+    service: http://localhost:8082
+  - service: http_status:404
+```
+
+4. Start tunnel:
+```bash
+cloudflared tunnel run nodepulse
+```
+
+---
+
+## Production Deployment
 
 Production uses Traefik reverse proxy with automatic SSL/TLS via Let's Encrypt.
 
@@ -54,20 +148,12 @@ Production uses Traefik reverse proxy with automatic SSL/TLS via Let's Encrypt.
 
 1. Domain name with DNS configured
 2. Server with ports 80, 443 accessible from internet
-3. Environment variables configured in `.env`
-
-### Configuration
-
-```bash
-# .env file
-DOMAIN=yourdomain.com
-ACME_EMAIL=admin@yourdomain.com
-```
+3. Docker and Docker Compose installed
 
 ### SSL Setup
 
 ```bash
-# Create htpasswd for basic auth
+# Create htpasswd for Traefik dashboard
 htpasswd -nb admin your-secure-password > traefik/.htpasswd
 
 # Ensure acme.json has correct permissions
@@ -100,123 +186,237 @@ docker compose ps
 | auth.yourdomain.com | Kratos | Identity API |
 | traefik.yourdomain.com | Traefik | Dashboard (auth required) |
 
-## Cloudflare Tunnel
+---
 
-Use Cloudflare Tunnel for development with SSL without exposing ports.
+## Architecture
 
-### Setup
+### What Gets Deployed
 
-1. Install cloudflared:
-```bash
-# macOS
-brew install cloudflared
+**Docker Containers (from GHCR):**
 
-# Linux
-wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared-linux-amd64.deb
-```
+- **submarines-ingest** - Metrics ingestion API `:8080`
+- **submarines-digest** - Background worker (Valkey → PostgreSQL + Cleanup)
+- **postgres** - PostgreSQL 18 database `:5432`
+- **valkey** - Message buffer `:6379`
+- **flagship** - Rails dashboard (if configured)
+- **cruiser** - Next.js frontend (if configured)
+- **kratos** - Identity & user management
+- **traefik** - Reverse proxy (production only)
 
-2. Login and create tunnel:
-```bash
-cloudflared tunnel login
-cloudflared tunnel create nodepulse
-```
+**Background Workers:**
 
-3. Create config.yml:
-```yaml
-tunnel: <your-tunnel-id>
-credentials-file: /path/to/<tunnel-id>.json
+- **Digest Worker**:
+  - Consumes metrics from Valkey Stream, writes to PostgreSQL
+  - Runs cleanup every 1 minute (coupled with digest - if digest stops, cleanup stops too)
 
-ingress:
-  # Agent API (port 8080 is hardcoded)
-  - hostname: api.yourdomain.com
-    service: http://localhost:8080
-
-  # Public status pages
-  - hostname: status.yourdomain.com
-    service: http://localhost:8081
-
-  # Admin dashboard
-  - hostname: admin.yourdomain.com
-    service: http://localhost:8000
-
-  # Public app
-  - hostname: app.yourdomain.com
-    service: http://localhost:8082
-
-  # Kratos auth
-  - hostname: auth.yourdomain.com
-    service: http://localhost:4433
-
-  # Catch-all
-  - service: http_status:404
-```
-
-4. Start tunnel:
-```bash
-cloudflared tunnel run nodepulse
-```
-
-### Configure DNS
-
-In Cloudflare dashboard, add CNAME records:
+### Data Flow
 
 ```
-api.yourdomain.com    CNAME  <tunnel-id>.cfargotunnel.com
-status.yourdomain.com CNAME  <tunnel-id>.cfargotunnel.com
-admin.yourdomain.com  CNAME  <tunnel-id>.cfargotunnel.com
-app.yourdomain.com    CNAME  <tunnel-id>.cfargotunnel.com
-auth.yourdomain.com   CNAME  <tunnel-id>.cfargotunnel.com
+Agents → Ingest → Valkey Stream → Digest Worker → PostgreSQL
+         :8080    (buffer)        (consume + cleanup)
+                                  ↓ every 1 min
+                                  Cleanup old metrics
+                                  (reads retention from DB)
 ```
 
-### Benefits
+---
 
-- SSL/TLS without Let's Encrypt setup
-- No port forwarding needed
-- DDoS protection
-- Global CDN
-- Works with development environment
+## Configuration
 
-## Health Checks
+### Environment Variables (.env)
 
-### Development
+Created interactively by `deploy.sh`:
 
 ```bash
-# Test each service
-curl http://localhost:8080/health  # Submarines Ingest
-curl http://localhost:8081/health  # Submarines Status
-curl http://localhost:8000/health  # Flagship
-curl http://localhost:8082/api/health  # Cruiser
-curl http://localhost:4433/health/ready  # Kratos
+# Database
+POSTGRES_USER=nodepulse
+POSTGRES_PASSWORD=<auto-generated>
+POSTGRES_DB=nodepulse
+DB_SCHEMA=backend
+FLAGSHIP_DB_SCHEMA=flagship
+
+# Valkey
+VALKEY_PASSWORD=<auto-generated>
+
+# Backend
+JWT_SECRET=<auto-generated>
+GIN_MODE=release
+INGEST_PORT=8080
+
+# Frontend
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_KRATOS_URL=http://localhost:4433
+BETTER_AUTH_SECRET=<auto-generated>
+BETTER_AUTH_URL=http://localhost:3000
+
+# Production only
+DOMAIN=yourdomain.com
+ACME_EMAIL=admin@yourdomain.com
 ```
 
-### Production
+### Generate Secrets
 
 ```bash
-# Via Traefik subdomains
-curl https://api.yourdomain.com/health
-curl https://status.yourdomain.com/health
-curl https://admin.yourdomain.com/health
-curl https://app.yourdomain.com/api/health
-curl https://auth.yourdomain.com/health/ready
+# Rails secret
+docker compose run --rm flagship bundle exec rails secret
+
+# Random secret
+openssl rand -hex 64
+openssl rand -base64 32
 ```
+
+### Data Retention
+
+Data retention is controlled by the **flagship settings table** in the database:
+- **Default**: 24 hours
+- **Cleanup frequency**: Every 1 minute
+- **Runs in**: Digest worker (coupled together)
+- **Why coupled?**: If digest stops, cleanup stops too (prevents wiping all data when ingestion is down)
+
+---
+
+## Monitoring & Maintenance
+
+### Verify Services
+
+```bash
+# Docker services
+docker compose ps
+
+# Should see submarines-digest running
+```
+
+### View Logs
+
+```bash
+# All services
+docker compose logs -f
+
+# Specific services
+docker compose logs -f submarines-ingest
+docker compose logs -f submarines-digest
+
+# Cleanup activity (runs in digest worker)
+docker compose logs -f submarines-digest | grep "CLEANUP"
+```
+
+### Cleanup Activity
+
+```bash
+# View recent cleanup runs
+docker compose logs --tail=50 submarines-digest | grep CLEANUP
+
+# Watch cleanup in real-time
+docker compose logs -f submarines-digest | grep CLEANUP
+
+# Expected output every minute:
+# [CLEANUP] Running cleanup at 2025-10-22T12:34:56Z
+# [CLEANUP] ✓ Completed successfully
+```
+
+### Database Access
+
+```bash
+docker compose exec postgres psql -U nodepulse -d nodepulse
+
+# Check metrics count
+SELECT COUNT(*) FROM backend.metrics;
+
+# Check oldest metric
+SELECT MIN(timestamp) FROM backend.metrics;
+
+# Should not be older than retention period (default 24h)
+```
+
+### Health Checks
+
+```bash
+# Ingest endpoint
+curl http://localhost:8080/health
+
+# Database
+docker compose exec postgres pg_isready
+
+# Valkey
+docker compose exec valkey valkey-cli ping
+```
+
+### Metrics
+
+```bash
+# Recent metrics
+docker compose exec postgres psql -U nodepulse -d nodepulse -c \
+  "SELECT COUNT(*), MAX(timestamp) FROM backend.metrics WHERE timestamp > NOW() - INTERVAL '1 hour'"
+
+# Check data retention
+docker compose exec postgres psql -U nodepulse -d nodepulse -c \
+  "SELECT MIN(timestamp), MAX(timestamp), NOW() - MIN(timestamp) as age FROM backend.metrics"
+```
+
+### Management
+
+```bash
+# Restart services
+docker compose restart
+
+# Update to new version
+docker compose pull
+docker compose up -d
+
+# Stop services
+docker compose down
+
+# Backup database
+docker compose exec postgres pg_dump -U nodepulse nodepulse > backup.sql
+```
+
+### Backup & Restore
+
+**Backup:**
+```bash
+# Backup database
+docker compose exec postgres pg_dump -U nodepulse nodepulse > backup.sql
+
+# Backup volumes
+docker run --rm \
+  -v admiral_postgres_data:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/postgres_data.tar.gz -C /data .
+```
+
+**Restore:**
+```bash
+# Restore database
+docker compose exec -T postgres psql -U nodepulse nodepulse < backup.sql
+
+# Restore volumes
+docker run --rm \
+  -v admiral_postgres_data:/data \
+  -v $(pwd):/backup \
+  alpine tar xzf /backup/postgres_data.tar.gz -C /data
+```
+
+---
 
 ## Troubleshooting
 
-### Services won't start
+### Services Won't Start
 
 ```bash
 # Check logs
-docker compose logs -f [service-name]
+docker compose logs
 
-# Check service status
-docker compose ps
+# Check ports
+sudo netstat -tlnp | grep -E ':(80|443|5432|6379|8080)'
+
+# Verify .env
+cat .env
 
 # Restart specific service
 docker compose restart [service-name]
 ```
 
-### Port conflicts
+### Port Conflicts
 
 ```bash
 # Check what's using a port
@@ -226,17 +426,54 @@ lsof -i :8080
 kill -9 $(lsof -t -i :8080)
 ```
 
-### Database connection issues
+### Cleanup Not Running
 
 ```bash
-# Test PostgreSQL connection
-docker compose exec postgres psql -U postgres -d node_pulse_admiral
+# Check digest worker status (cleanup runs here)
+docker compose ps submarines-digest
 
-# Check database logs
-docker compose logs postgres
+# View cleanup logs
+docker compose logs submarines-digest | grep CLEANUP
+
+# Check for errors
+docker compose logs submarines-digest | grep -i error
+
+# Restart digest worker
+docker compose restart submarines-digest
 ```
 
-### SSL certificate issues
+### Database Connection Issues
+
+```bash
+# Check PostgreSQL logs
+docker compose logs postgres
+
+# Test PostgreSQL connection
+docker compose exec postgres psql -U nodepulse -d nodepulse
+
+# Verify submarines is running
+docker compose ps submarines-ingest
+
+# Test connection from digest worker
+docker compose logs submarines-digest | grep "Connected to PostgreSQL"
+```
+
+### Data Not Being Cleaned
+
+```bash
+# Check retention setting in database (flagship settings table)
+docker compose exec postgres psql -U nodepulse -d nodepulse -c \
+  "SELECT key, value FROM flagship.settings WHERE key LIKE '%retention%'"
+
+# Check for old data
+docker compose exec postgres psql -U nodepulse -d nodepulse -c \
+  "SELECT MIN(timestamp), MAX(timestamp), COUNT(*) FROM backend.metrics"
+
+# Check cleanup logs for errors
+docker compose logs submarines-digest | grep CLEANUP | tail -50
+```
+
+### SSL Certificate Issues
 
 ```bash
 # View Traefik logs
@@ -249,9 +486,26 @@ chmod 600 traefik_data/letsencrypt/acme.json
 docker compose restart traefik
 ```
 
-## Security Checklist
+---
 
-### Production
+## Security
+
+### Secrets Management
+
+- All secrets auto-generated by `deploy.sh`
+- `.env` created with `600` permissions (owner-only)
+- Never commit `.env` to version control
+
+### Network Security
+
+- Database not exposed to public internet
+- Only Docker network `admiral_default` can access internal services
+- Use firewall to restrict access to `:8080` (ingest endpoint)
+- Traefik handles SSL/TLS termination
+
+### Security Checklist
+
+**Production:**
 
 - [ ] Change default passwords in `.env`
 - [ ] Update `.htpasswd` with strong passwords
@@ -260,83 +514,113 @@ docker compose restart traefik
 - [ ] Enable automatic updates
 - [ ] Regular database backups
 - [ ] Monitor Traefik access logs
-- [ ] Restrict Traefik dashboard access (port 8888)
+- [ ] Restrict Traefik dashboard access
 - [ ] Use strong JWT_SECRET and BETTER_AUTH_SECRET
 
-### Development
+**Development:**
 
 - [ ] Don't expose development environment to internet
 - [ ] Use Cloudflare Tunnel instead of port forwarding
 - [ ] Keep development secrets separate from production
 
-## Backup & Restore
-
-### Backup
+### Updates
 
 ```bash
-# Backup database
-docker compose exec postgres pg_dump -U postgres node_pulse_admiral > backup.sql
+# Keep system updated
+sudo apt update && sudo apt upgrade
 
-# Backup volumes
-docker run --rm \
-  -v admiral_postgres_data:/data \
-  -v $(pwd):/backup \
-  alpine tar czf /backup/postgres_data.tar.gz -C /data .
+# Update Docker images regularly
+docker compose pull
+docker compose up -d
 ```
 
-### Restore
+---
+
+## Advanced Topics
+
+### Custom Retention Period
+
+Retention is stored in the **flagship settings table** (default: 24 hours).
+
+To change it, update the database:
 
 ```bash
-# Restore database
-docker compose exec -T postgres psql -U postgres node_pulse_admiral < backup.sql
-
-# Restore volumes
-docker run --rm \
-  -v admiral_postgres_data:/data \
-  -v $(pwd):/backup \
-  alpine tar xzf /backup/postgres_data.tar.gz -C /data
+docker compose exec postgres psql -U nodepulse -d nodepulse -c \
+  "UPDATE flagship.settings SET value = '168' WHERE key = 'metrics_retention_hours'"
 ```
 
-## Related Documentation
+Or via Flagship admin dashboard (if available).
 
-- [TRAEFIK.md](./TRAEFIK.md) - Detailed Traefik configuration and troubleshooting
-- [TESTING.md](./TESTING.md) - Testing guide for development
-- [CLAUDE.md](../CLAUDE.md) - Project overview and architecture
-- [Makefile](../Makefile) - Common development commands
+**Note**: Changes take effect on the next cleanup run (every 1 minute).
 
-## Environment Variables
+### Change Cleanup Frequency
 
-Key environment variables in `.env`:
+Cleanup runs every 1 minute by default (hardcoded in digest worker). To change:
+
+1. Edit `submarines/cmd/digest/main.go`:
+   ```go
+   cleanupTicker := time.NewTicker(5 * time.Minute) // Change to 5 minutes
+   ```
+
+2. Rebuild and redeploy digest service
+
+Current frequency provides:
+- **60 runs/hour** - Very tight retention guarantees
+- **Low overhead** - Fast DELETE query
+- **Coupled with digest** - Safety mechanism (stops if digest stops)
+
+### Test Cleanup
 
 ```bash
-# Database
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=<strong-password>
-POSTGRES_DB=node_pulse_admiral
+# View cleanup logs in real-time
+docker compose logs -f submarines-digest | grep CLEANUP
 
-# Valkey
-VALKEY_PASSWORD=<strong-password>
+# Expected output every minute:
+# [CLEANUP] Running cleanup at 2025-10-22T12:34:56Z
+# [CLEANUP] ✓ Completed successfully
 
-# Rails
-SECRET_KEY_BASE=<generate-with-rails-secret>
-RAILS_ENV=production
-
-# JWT
-JWT_SECRET=<strong-secret>
-
-# Better Auth
-BETTER_AUTH_SECRET=<strong-secret>
-
-# Production only
-DOMAIN=yourdomain.com
-ACME_EMAIL=admin@yourdomain.com
+# Force restart to trigger immediate run
+docker compose restart submarines-digest
 ```
 
-Generate secrets:
+### Scale Digest Workers
+
+For high throughput, run multiple digest instances:
+
 ```bash
-# Rails secret
-docker compose run --rm flagship bundle exec rails secret
-
-# Random secret
-openssl rand -hex 64
+docker compose up -d --scale submarines-digest=3
 ```
+
+Each digest worker will:
+- Consume from the same Valkey Stream using consumer groups
+- Run cleanup independently (safe due to idempotent DELETE)
+
+### High Availability
+
+For production HA setup:
+
+1. **Multiple Digest Workers**: Scale digest service (each will run cleanup independently - safe due to idempotent DELETE)
+2. **PostgreSQL Replication**: Set up streaming replication
+3. **Valkey Cluster**: Use Valkey in cluster mode
+4. **Load Balancer**: Front ingest with nginx/haproxy
+
+See enterprise deployment docs for details.
+
+---
+
+## Files and Locations
+
+```
+/opt/nodepulse-admiral-v1.0.0/
+├── .env                        # Environment config (secrets)
+├── compose.yml                 # Docker Compose config
+└── deploy.sh                   # Deployment script
+```
+
+## Support
+
+- **Documentation**: See `scripts/README.md` for detailed script documentation
+- **GitHub**: https://github.com/nodepulse/admiral
+- **Issues**: https://github.com/nodepulse/admiral/issues
+- **TRAEFIK.md**: Detailed Traefik configuration
+- **CLAUDE.md**: Project overview and architecture

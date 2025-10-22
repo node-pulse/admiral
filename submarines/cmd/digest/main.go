@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nodepulse/dashboard/backend/internal/cleaner"
 	"github.com/nodepulse/dashboard/backend/internal/config"
 	"github.com/nodepulse/dashboard/backend/internal/database"
 	"github.com/nodepulse/dashboard/backend/internal/handlers"
@@ -50,11 +51,21 @@ func main() {
 	ctx := context.Background()
 	valkeyClient.XGroupCreate(ctx, streamKey, consumerGroup, "0")
 
+	// Create cleaner instance
+	cleanerInstance := cleaner.New(db.DB, cfg)
+
+	// Setup cleanup ticker (runs every 1 minute)
+	cleanupTicker := time.NewTicker(1 * time.Minute)
+	defer cleanupTicker.Stop()
+
 	// Setup graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	log.Println("Digest worker ready")
+	log.Println("Digest worker ready (with cleanup every 1 minute)")
+
+	// Run cleanup immediately on startup
+	go runCleanup(ctx, cleanerInstance)
 
 	// Main processing loop
 	running := true
@@ -63,6 +74,9 @@ func main() {
 		case <-sigChan:
 			log.Println("Shutting down...")
 			running = false
+		case <-cleanupTicker.C:
+			// Run cleanup in background (don't block digest processing)
+			go runCleanup(ctx, cleanerInstance)
 		default:
 			if err := processMessages(ctx, valkeyClient, db); err != nil {
 				time.Sleep(1 * time.Second) // Brief pause on error
@@ -257,4 +271,18 @@ func insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) 
 
 	_, err := tx.Exec(query, serverID, report.Timestamp, cpuUsage, memUsed, memTotal, memUsagePercent, diskUsedGB, diskTotalGB, diskUsagePercent, diskMountPoint, netUpload, netDownload, uptimeDays, processesJSON, report.IPv4, report.IPv6)
 	return err
+}
+
+func runCleanup(ctx context.Context, c *cleaner.Cleaner) {
+	log.Printf("[CLEANUP] Running cleanup at %s", time.Now().UTC().Format(time.RFC3339))
+
+	// Create context with timeout for this cleanup run (30s to not skip next runs)
+	cleanupCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	if err := c.Run(cleanupCtx); err != nil {
+		log.Printf("[CLEANUP] ❌ Failed: %v", err)
+	} else {
+		log.Printf("[CLEANUP] ✓ Completed successfully")
+	}
 }
