@@ -1,0 +1,66 @@
+<% content_for :page_title, "Servers" %>
+
+<div class="mb-6 flex items-center justify-between">
+  <div class="flex space-x-2">
+    <%= link_to "All", servers_path, class: "px-4 py-2 rounded #{params[:status].blank? ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}" %>
+    <%= link_to "Active", servers_path(status: "active"), class: "px-4 py-2 rounded #{params[:status] == 'active' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}" %>
+    <%= link_to "Inactive", servers_path(status: "inactive"), class: "px-4 py-2 rounded #{params[:status] == 'inactive' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}" %>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow">
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hostname</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Server ID</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPU</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Memory</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disk</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Seen</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        <% @servers.each do |server| %>
+          <tr>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="<%= server.online? ? 'bg-green-400' : 'bg-gray-400' %> rounded-full w-2 h-2 mr-2"></div>
+                <span class="font-medium"><%= server.hostname %></span>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="text-xs text-gray-500 font-mono"><%= server.server_id %></span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <%= status_badge(server.status) %>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900"><%= number_to_percentage(server.cpu_usage, precision: 1) %></div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900"><%= number_to_percentage(server.memory_usage, precision: 1) %></div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900"><%= number_to_percentage(server.disk_usage, precision: 1) %></div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <%= server.last_seen_at ? "#{time_ago_in_words(server.last_seen_at)} ago" : "Never" %>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+              <%= link_to "View", server, class: "text-blue-600 hover:text-blue-900" %>
+              <%= link_to "Metrics", metrics_server_path(server), class: "text-green-600 hover:text-green-900" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="px-6 py-4 border-t border-gray-200">
+    <%== pagy_nav(@pagy) if @pagy.pages > 1 %>
+  </div>
+</div>
