@@ -10,8 +10,6 @@ default: &default
   username: <%= ENV.fetch("DB_USER") { "postgres" } %>
   password: <%= ENV.fetch("DB_PASSWORD") { "postgres" } %>
   database: <%= ENV.fetch("DB_NAME") { "nodepulse" } %>
-  # Use flagship schema for all Flagship tables
-  schema_search_path: flagship,public
 
 development:
   <<: *default
@@ -22,7 +20,6 @@ development:
 test:
   <<: *default
   database: flagship_test
-  schema_search_path: public
 
 # Production configuration
 # Rails 8 uses multiple databases for cache, queue, and cable

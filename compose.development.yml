@@ -1,5 +1,5 @@
 x-common-variables: &common-variables
-  DATABASE_URL: &database-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=better_auth
+  DATABASE_URL: &database-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable
 
 services:
   # PostgreSQL 18 - Main Database
@@ -75,6 +75,7 @@ services:
     env_file:
       - .env
     environment:
+      # Note: Kratos requires search_path because it doesn't support schema-qualified table names in its internal queries
       DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
     volumes:
       - ./kratos:/etc/config/kratos
@@ -95,6 +96,7 @@ services:
     env_file:
       - .env
     environment:
+      # Note: Kratos requires search_path because it doesn't support schema-qualified table names in its internal queries
       DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
       LOG_LEVEL: ${KRATOS_LOG_LEVEL:-info}
     volumes:

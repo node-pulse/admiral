@@ -18,10 +18,6 @@ CREATE SCHEMA IF NOT EXISTS submarines AUTHORIZATION admiral;
 -- Schema for Flagship (Rails - Admin Dashboard)
 CREATE SCHEMA IF NOT EXISTS flagship AUTHORIZATION admiral;
 
--- Set default search path for admiral role in this database
-ALTER ROLE admiral IN DATABASE node_pulse_admiral
-  SET search_path = submarines, flagship, better_auth, kratos, public;
-
 -- ============================================================
 -- SECTION 2: Submarines Schema Tables
 -- ============================================================
@@ -210,7 +206,3 @@ DROP SCHEMA IF EXISTS submarines CASCADE;
 DROP SCHEMA IF EXISTS flagship CASCADE;
 DROP SCHEMA IF EXISTS better_auth CASCADE;
 -- Note: We don't drop kratos schema as it's managed by Ory Kratos migrations
-
--- Reset search path for admiral role
-ALTER ROLE admiral IN DATABASE node_pulse_admiral
-  RESET search_path;
