@@ -17,6 +17,7 @@ Defined NodePulse's product tiers:
 ### 2. **Flagship Settings Table** (migrate/migrations/20251021000002_add_flagship_settings.sql)
 
 Created `flagship.settings` table to store system configuration:
+
 - `retention_hours`: How long to keep metrics (24/48/72)
 - `retention_enabled`: Enable/disable automatic cleanup
 - `tier`: Current subscription tier (free/pro/enterprise)
@@ -27,6 +28,7 @@ Created `flagship.settings` table to store system configuration:
 Built a dedicated data retention cleanup service:
 
 **Files Created**:
+
 - `submarines/cmd/cleaner/main.go` - Entry point
 - `submarines/internal/cleaner/cleaner.go` - Orchestrator
 - `submarines/internal/cleaner/metrics.go` - Metrics cleanup logic
@@ -35,6 +37,7 @@ Built a dedicated data retention cleanup service:
 - `submarines/Dockerfile.cleaner.dev` - Development Dockerfile
 
 **Features**:
+
 - ✅ Reads retention policy from `flagship.settings`
 - ✅ Deletes metrics older than configured hours
 - ✅ Batch deletion (10k rows at a time) to avoid locks
@@ -46,6 +49,7 @@ Built a dedicated data retention cleanup service:
 ### 4. **Docker Compose Integration** (compose.yml)
 
 Added `submarines-cleaner` service:
+
 - Runs as one-shot job (not a daemon)
 - Depends on PostgreSQL and flagship migrations
 - Uses `profiles: [tools]` to prevent auto-start
@@ -54,6 +58,7 @@ Added `submarines-cleaner` service:
 ### 5. **Documentation**
 
 Created comprehensive docs:
+
 - `.claude/docs/tiering-strategy.md` - Product strategy
 - `.claude/docs/submarines-cleaner-architecture.md` - Technical design
 - `.claude/docs/cleaner-usage-guide.md` - Usage instructions
@@ -114,6 +119,7 @@ Created comprehensive docs:
 ## Testing Checklist
 
 ### Prerequisites
+
 - [ ] Run migration: `docker compose run --rm flagship-migrate`
 - [ ] Verify settings table exists
 - [ ] Insert test metrics with old timestamps
@@ -168,8 +174,6 @@ DB_HOST=localhost \
 DB_USER=postgres \
 DB_PASSWORD=postgres \
 DB_NAME=node_pulse_admiral \
-DB_SCHEMA=submarines \
-FLAGSHIP_DB_SCHEMA=flagship \
 ./cleaner
 ```
 
@@ -227,11 +231,13 @@ UPDATE flagship.settings SET value = 'true'::jsonb WHERE key = 's3_archival_enab
 ### Metrics to Track
 
 1. **Cleaner execution**:
+
    - Exit code (0 = success, 1 = failure)
    - Execution duration
    - Rows deleted per run
 
 2. **Database health**:
+
    - Total metrics count
    - Oldest metric timestamp
    - Table size (MB)
@@ -266,12 +272,14 @@ SELECT pg_size_pretty(pg_total_relation_size('submarines.metrics'));
 ## Future Enhancements
 
 ### Short-term (Free Tier)
+
 1. ✅ Flagship UI for retention settings
 2. ✅ Cleaner execution history table
 3. ✅ Dashboard showing retention compliance
 4. ✅ Email notifications for cleanup failures
 
 ### Long-term (Pro Tier)
+
 1. 🔜 TimescaleDB integration (hypertables + compression)
 2. 🔜 S3 archival before deletion (compliance mode)
 3. 🔜 Continuous aggregates (pre-computed rollups)
@@ -343,18 +351,21 @@ If issues arise:
 ## Success Criteria
 
 ✅ **Functional**:
+
 - [x] Cleaner reads settings from database
 - [x] Cleaner deletes metrics older than retention policy
 - [x] Cleaner logs results clearly
 - [x] Cleaner exits cleanly (code 0 on success)
 
 ✅ **Operational**:
+
 - [ ] Can run via cron/systemd timer
 - [ ] Logs are parseable and useful
 - [ ] Failure notifications work
 - [ ] Database size stabilizes after initial cleanup
 
 ✅ **User Experience**:
+
 - [ ] Flagship UI allows changing retention (to be built)
 - [ ] Users understand retention policy
 - [ ] Clear upgrade path to Pro (longer retention)
@@ -375,6 +386,7 @@ If issues arise:
 ## Contact
 
 For questions or issues:
+
 - Review architecture: `.claude/docs/submarines-cleaner-architecture.md`
 - Usage guide: `.claude/docs/cleaner-usage-guide.md`
 - Tiering strategy: `.claude/docs/tiering-strategy.md`

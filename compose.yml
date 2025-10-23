@@ -226,7 +226,7 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Rails Flagship - Admin Dashboard & Karafka Consumer
+  # Laravel Flagship - Admin Dashboard
   flagship:
     image: ghcr.io/node-pulse/node-pulse-flagship:latest
     container_name: node-pulse-flagship
@@ -235,28 +235,6 @@ services:
       - .env
     environment:
       <<: *common-variables
-      # Database
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-
-      # Valkey for sessions and cache
-      REDIS_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/1
-
-      # Submarines API endpoint (server-side)
-      SUBMARINES_API_URL: http://submarines-ingest:8080
-
-      # Rails
-      RAILS_ENV: ${RAILS_ENV:-production}
-      RAILS_MAX_THREADS: 5
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-development-secret-key-change-in-production}
-
-      # Rails 8 Solid adapters
-      SOLID_CACHE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/2
-      SOLID_QUEUE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/3
-      SOLID_CABLE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/4
     ports:
       - "3000:3000"
     depends_on:
@@ -269,8 +247,8 @@ services:
       submarines-ingest:
         condition: service_started
     volumes:
-      - ./logs/flagship:/app/log
-      - ./flagship/config/master.key:/app/config/master.key:ro
+      - ./flagship/storage:/app/storage
+      - ./logs/flagship:/app/storage/logs
     networks:
       - node-pulse-admiral
 

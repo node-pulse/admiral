@@ -29,9 +29,8 @@ type Config struct {
 
 	// JWT
 	JWTSecret string
-
-	// Cleaner-specific (optional, only used by cleaner binary)
-	FlagshipDBSchema string
+	
+	// Cleaner-specific
 	DryRun           bool
 	LogLevel         string
 }
@@ -63,7 +62,6 @@ func Load() *Config {
 		JWTSecret: getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 
 		// Cleaner-specific
-		FlagshipDBSchema: getEnv("FLAGSHIP_DB_SCHEMA", "flagship"),
 		DryRun:           getEnv("DRY_RUN", "false") == "true",
 		LogLevel:         getEnv("LOG_LEVEL", "info"),
 	}

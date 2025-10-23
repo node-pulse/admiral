@@ -147,10 +147,6 @@ if [ "$SKIP_ENV_CONFIG" != "true" ]; then
 
     echo ""
 
-    # Database schema configuration
-    DB_SCHEMA="backend"
-    FLAGSHIP_DB_SCHEMA="flagship"
-
     # Construct DATABASE_URL
     DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable&search_path=better_auth"
 
@@ -162,9 +158,6 @@ POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 POSTGRES_DB=$POSTGRES_DB
 
-# Database Schema Configuration
-DB_SCHEMA=$DB_SCHEMA
-FLAGSHIP_DB_SCHEMA=$FLAGSHIP_DB_SCHEMA
 
 # Valkey Configuration
 VALKEY_PASSWORD=$VALKEY_PASSWORD

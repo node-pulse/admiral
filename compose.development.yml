@@ -133,29 +133,6 @@ services:
       - .env
     environment:
       <<: *common-variables
-      # Database
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SSLMODE: disable
-
-      # Valkey
-      VALKEY_HOST: valkey
-      VALKEY_PORT: 6379
-      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-valkeypassword}
-
-      # Kratos
-      KRATOS_PUBLIC_URL: http://kratos:4433
-      KRATOS_ADMIN_URL: http://kratos:4434
-
-      # Server
-      PORT: ${INGEST_PORT:-8080}
-      GIN_MODE: ${GIN_MODE:-debug}
-
-      # JWT
-      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
     ports:
       - "8080:8080" # Hardcoded for Cloudflare Tunnel
     depends_on:
@@ -180,21 +157,6 @@ services:
       - .env
     environment:
       <<: *common-variables
-      # Database
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SSLMODE: disable
-
-      # Valkey
-      VALKEY_HOST: valkey
-      VALKEY_PORT: 6379
-      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-valkeypassword}
-
-      # Digest settings
-      DIGEST_ID: ${DIGEST_ID:-digest-1}
     depends_on:
       postgres:
         condition: service_healthy
@@ -215,17 +177,6 @@ services:
       - .env
     environment:
       <<: *common-variables
-      # Database (read-only)
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SSLMODE: disable
-
-      # Server
-      PORT: 8082
-      GIN_MODE: ${GIN_MODE:-debug}
     ports:
       - "8081:8082" # Expose on 8081 for development
     depends_on:
@@ -236,39 +187,16 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Rails Flagship - Admin Dashboard & Karafka Consumer
+  # Laravel Flagship - Admin Dashboard
   flagship:
     build:
       context: ./flagship
       dockerfile: Dockerfile
-      target: development
     container_name: node-pulse-flagship
     env_file:
       - .env
     environment:
       <<: *common-variables
-      # Database
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-
-      # Valkey for sessions and cache
-      REDIS_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/1
-
-      # Submarines API endpoint (server-side)
-      SUBMARINES_API_URL: http://submarines-ingest:8080
-
-      # Rails
-      RAILS_ENV: development
-      RAILS_MAX_THREADS: 5
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-development-secret-key-change-in-production}
-
-      # Rails 8 Solid adapters
-      SOLID_CACHE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/2
-      SOLID_QUEUE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/3
-      SOLID_CABLE_URL: redis://:${VALKEY_PASSWORD:-valkeypassword}@valkey:6379/4
     ports:
       - "8000:3000" # Expose on 8000 for development
     depends_on:
@@ -281,12 +209,12 @@ services:
       submarines-ingest:
         condition: service_started
     volumes:
-      - ./flagship:/rails
-      - /rails/tmp
-      - ./logs/flagship:/rails/log
+      - ./flagship:/app
+      - /app/vendor
+      - /app/node_modules
+      - /app/storage
     networks:
       - node-pulse-admiral
-    command: sh -c "rm -f tmp/pids/server.pid && bin/dev"
 
   # Next.js Cruiser - Public Site
   cruiser:
@@ -299,18 +227,6 @@ services:
       - .env
     environment:
       <<: *common-variables
-      # Public URLs (accessible from browser)
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
-      NEXT_PUBLIC_KRATOS_URL: ${NEXT_PUBLIC_KRATOS_URL:-http://localhost:4433}
-
-      # Server-side URLs
-      API_URL: http://submarines-ingest:8080
-      KRATOS_PUBLIC_URL: http://kratos:4433
-      KRATOS_ADMIN_URL: http://kratos:4434
-
-      # Better Auth
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-your-better-auth-secret}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:8082}
     ports:
       - "8082:3000" # Expose on 8082 for development
     depends_on:
