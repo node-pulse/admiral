@@ -38,7 +38,7 @@ import AppLogoIcon from './app-logo-icon';
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
+        title: 'Admiral Dashboard',
         href: dashboard(),
         icon: LayoutGrid,
     },
@@ -47,12 +47,12 @@ const mainNavItems: NavItem[] = [
 const rightNavItems: NavItem[] = [
     {
         title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
+        href: 'https://github.com/node-pulse/admiral',
         icon: Folder,
     },
     {
         title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
+        href: 'https://docs.nodepulse.sh',
         icon: BookOpen,
     },
 ];
