@@ -54,7 +54,10 @@ generate_secret() {
 
 # Function to generate Laravel APP_KEY format
 generate_laravel_key() {
-    echo "base64:$(openssl rand -base64 32)"
+    # Generate 32 random bytes and base64 encode them
+    # Remove any newlines to ensure clean output
+    local key=$(openssl rand -base64 32 | tr -d '\n')
+    echo "base64:${key}"
 }
 
 # Associative arrays to store configuration
