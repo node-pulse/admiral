@@ -131,29 +131,6 @@ services:
       - .env
     environment:
       <<: *common-variables
-      # Database
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SSLMODE: disable
-
-      # Valkey
-      VALKEY_HOST: valkey
-      VALKEY_PORT: 6379
-      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-valkeypassword}
-
-      # Kratos
-      KRATOS_PUBLIC_URL: http://kratos:4433
-      KRATOS_ADMIN_URL: http://kratos:4434
-
-      # Server
-      PORT: ${INGEST_PORT:-8080}
-      GIN_MODE: ${GIN_MODE:-release}
-
-      # JWT
-      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
     ports:
       - "8080:8080"
     depends_on:
@@ -175,21 +152,6 @@ services:
       - .env
     environment:
       <<: *common-variables
-      # Database
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SSLMODE: disable
-
-      # Valkey
-      VALKEY_HOST: valkey
-      VALKEY_PORT: 6379
-      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-valkeypassword}
-
-      # Digest settings
-      DIGEST_ID: ${DIGEST_ID:-digest-1}
     depends_on:
       postgres:
         condition: service_healthy
@@ -207,17 +169,6 @@ services:
       - .env
     environment:
       <<: *common-variables
-      # Database (read-only)
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_SSLMODE: disable
-
-      # Server
-      PORT: 8082
-      GIN_MODE: ${GIN_MODE:-release}
     ports:
       - "8082:8082"
     depends_on:
@@ -261,18 +212,6 @@ services:
       - .env
     environment:
       <<: *common-variables
-      # Public URLs (accessible from browser)
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
-      NEXT_PUBLIC_KRATOS_URL: ${NEXT_PUBLIC_KRATOS_URL:-http://localhost:4433}
-
-      # Server-side URLs
-      API_URL: http://submarines-ingest:8080
-      KRATOS_PUBLIC_URL: http://kratos:4433
-      KRATOS_ADMIN_URL: http://kratos:4434
-
-      # Better Auth
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-your-better-auth-secret}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
     ports:
       - "3001:3000"
     depends_on:
