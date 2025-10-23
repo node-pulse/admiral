@@ -1,12 +1,12 @@
 -- Up Migration
--- Add Flagship settings table for application configuration
+-- Add Admiral settings table for application configuration
 -- This table stores system-wide settings managed by Flagship admin UI
 
 -- ============================================================
--- Create Flagship Settings Table
+-- Create Admiral Settings Table
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS flagship.settings (
+CREATE TABLE IF NOT EXISTS admiral.settings (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
     description TEXT,
@@ -15,24 +15,24 @@ CREATE TABLE IF NOT EXISTS flagship.settings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE flagship.settings IS 'System-wide configuration settings managed by Flagship admin';
-COMMENT ON COLUMN flagship.settings.key IS 'Unique setting identifier (e.g., retention_hours, tier, license_key)';
-COMMENT ON COLUMN flagship.settings.value IS 'Setting value stored as JSONB for flexibility (strings, numbers, arrays, objects)';
-COMMENT ON COLUMN flagship.settings.tier IS 'Which tier can modify this setting (free, pro, enterprise)';
+COMMENT ON TABLE admiral.settings IS 'System-wide configuration settings managed by Flagship admin';
+COMMENT ON COLUMN admiral.settings.key IS 'Unique setting identifier (e.g., retention_hours, tier, license_key)';
+COMMENT ON COLUMN admiral.settings.value IS 'Setting value stored as JSONB for flexibility (strings, numbers, arrays, objects)';
+COMMENT ON COLUMN admiral.settings.tier IS 'Which tier can modify this setting (free, pro, enterprise)';
 
 -- ============================================================
 -- Add Trigger for updated_at
 -- ============================================================
 
-CREATE TRIGGER update_flagship_settings_updated_at
-    BEFORE UPDATE ON flagship.settings
-    FOR EACH ROW EXECUTE FUNCTION submarines.update_updated_at_column();
+CREATE TRIGGER update_admiral_settings_updated_at
+    BEFORE UPDATE ON admiral.settings
+    FOR EACH ROW EXECUTE FUNCTION admiral.update_updated_at_column();
 
 -- ============================================================
 -- Insert Default Settings
 -- ============================================================
 
-INSERT INTO flagship.settings (key, value, description, tier) VALUES
+INSERT INTO admiral.settings (key, value, description, tier) VALUES
     -- Tier and licensing
     ('tier', '"free"', 'Current subscription tier (free, pro, enterprise)', 'free'),
     ('license_key', 'null', 'Pro/Enterprise license key for validation', 'pro'),
@@ -62,9 +62,9 @@ ON CONFLICT (key) DO NOTHING;
 -- Create Index
 -- ============================================================
 
-CREATE INDEX IF NOT EXISTS idx_flagship_settings_tier ON flagship.settings(tier);
+CREATE INDEX IF NOT EXISTS idx_admiral_settings_tier ON admiral.settings(tier);
 
 -- Down Migration
--- Drop Flagship settings table
+-- Drop Admiral settings table
 
-DROP TABLE IF EXISTS flagship.settings CASCADE;
+DROP TABLE IF EXISTS admiral.settings CASCADE;

@@ -1,5 +1,5 @@
 class Server < ApplicationRecord
-  self.table_name = "submarines.servers"
+  self.table_name = "admiral.servers"
 
   belongs_to :private_key, optional: true
   has_many :metrics, dependent: :destroy, foreign_key: :server_id

@@ -1,5 +1,5 @@
 class Alert < ApplicationRecord
-  self.table_name = "submarines.alerts"
+  self.table_name = "admiral.alerts"
 
   belongs_to :server, foreign_key: :server_id
 

@@ -1,5 +1,5 @@
 class Metric < ApplicationRecord
-  self.table_name = "submarines.metrics"
+  self.table_name = "admiral.metrics"
 
   belongs_to :server, foreign_key: :server_id
 

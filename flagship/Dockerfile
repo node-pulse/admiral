@@ -1,11 +1,12 @@
 # syntax=docker/dockerfile:1
 # check=error=true
 
-# This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
-# docker build -t bridge .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name bridge bridge
+# This Dockerfile is designed for production, not development.
+# Use with Docker Compose (recommended) or build'n'run by hand:
+# docker build -t flagship .
+# docker run -d -p 3000:3000 -v ./config/master.key:/rails/config/master.key:ro --name flagship flagship
 
-# For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
+# For development, use: docker compose -f compose.development.yml up -d
 
 # Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=3.4.3

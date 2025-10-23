@@ -23,40 +23,40 @@ NodePulse Flagship uses a **Coolify-inspired** SSH key management system that al
 
 The Rails master key is used to encrypt SSH private keys in the database. You **must** generate and securely store this key.
 
-> This step is taken care of by the `deploy.sh` script; you do not need to do it manually
+**For Production:**
+
+> The `deploy.sh` script handles this automatically (idempotent)
+
+**For Development:**
 
 ```bash
 cd flagship
 
-# Generate master key (if not exists)
+# Generate master key (one-time setup)
 rails credentials:edit
 # This creates config/master.key automatically
+# You can just save and quit the editor
 ```
 
 **IMPORTANT:** The `config/master.key` file is gitignored. You must back it up securely!
 
-### 2. Add Master Key to Environment
+### 2. Master Key Location
 
-Add the master key to your `.env` file in the project root:
+**Development:**
 
-```bash
-# In admiral/.env
-RAILS_MASTER_KEY=your_master_key_here
-```
+- Rails automatically reads from `flagship/config/master.key`
+- No need to add to `.env` file
 
-**How to get your master key:**
+**Production:**
 
-```bash
-cd flagship
-cat config/master.key
-```
+- The `deploy.sh` script creates the key and adds it to `.env` automatically
 
 ### 3. Run Database Migrations
 
 The migrations are handled by the `migrate` service in Docker Compose, which uses SQL migration files in `migrate/migrations/`:
 
 - `20251016211918_initial-schema.sql` - Updated with SSH fields on `servers` table
-- `20251023010000_add_private_keys.sql` - New `private_keys` table
+- `20251023012017_add_private_keys.sql` - New `private_keys` table
 
 To run migrations:
 
@@ -76,8 +76,8 @@ docker compose up flagship-migrate
 
 This creates:
 
-- `submarines.private_keys` table - Stores SSH keys (encrypted)
-- SSH fields on `submarines.servers` table - Links servers to SSH keys
+- `admiral.private_keys` table - Stores SSH keys (encrypted)
+- SSH fields on `admiral.servers` table - Links servers to SSH keys
 
 ### 4. Start the Application
 
@@ -189,7 +189,7 @@ chmod 600 ~/.ssh/authorized_keys
 │ Flagship Rails App                                      │
 │                                                          │
 │ ┌────────────────────────────────────────────────────┐ │
-│ │ config/master.key (from RAILS_MASTER_KEY env var) │ │
+│ │ config/master.key                                  │ │
 │ │ - AES-256 encryption key                          │ │
 │ └────────────────────────────────────────────────────┘ │
 │                   │                                      │
@@ -237,8 +237,6 @@ cat config/master.key
 # If missing, generate it:
 rails credentials:edit
 
-# Add to .env:
-echo "RAILS_MASTER_KEY=$(cat config/master.key)" >> ../.env
 ```
 
 ### Error: "SSH connection failed: Authentication failed"

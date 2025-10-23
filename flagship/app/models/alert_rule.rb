@@ -1,5 +1,5 @@
 class AlertRule < ApplicationRecord
-  self.table_name = "submarines.alert_rules"
+  self.table_name = "admiral.alert_rules"
 
   # Validations
   validates :name, presence: true, uniqueness: true

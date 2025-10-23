@@ -1,5 +1,5 @@
 class PrivateKey < ApplicationRecord
-  self.table_name = "submarines.private_keys"
+  self.table_name = "admiral.private_keys"
 
   has_many :servers, dependent: :restrict_with_error, foreign_key: :private_key_id
 
