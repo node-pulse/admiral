@@ -129,6 +129,24 @@ if [ "$SKIP_ENV_CONFIG" != "true" ]; then
 
     echo ""
 
+    # Rails Master Key Configuration (for SSH key encryption)
+    echo -e "${GREEN}Rails Configuration:${NC}"
+    MASTER_KEY_FILE="$PROJECT_ROOT/flagship/config/master.key"
+
+    if [ -f "$MASTER_KEY_FILE" ]; then
+        RAILS_MASTER_KEY=$(cat "$MASTER_KEY_FILE")
+        echo -e "${YELLOW}✓ Using existing Rails master key${NC}"
+    else
+        echo "Generating new Rails master key..."
+        RAILS_MASTER_KEY=$(generate_secret)
+        mkdir -p "$PROJECT_ROOT/flagship/config"
+        echo "$RAILS_MASTER_KEY" > "$MASTER_KEY_FILE"
+        chmod 600 "$MASTER_KEY_FILE"
+        echo -e "${GREEN}✓ Generated new Rails master key${NC}"
+    fi
+
+    echo ""
+
     # Database schema configuration
     DB_SCHEMA="backend"
     FLAGSHIP_DB_SCHEMA="flagship"
@@ -170,6 +188,11 @@ BETTER_AUTH_URL=$BETTER_AUTH_URL
 
 # Database URL for Better Auth (Next.js)
 DATABASE_URL=$DATABASE_URL
+
+# Rails Configuration (Flagship Dashboard)
+RAILS_ENV=production
+SECRET_KEY_BASE=$(generate_secret)
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 
 # Cleaner Configuration
 RETENTION_HOURS=$RETENTION_HOURS
@@ -240,10 +263,18 @@ echo ""
 
 echo -e "${YELLOW}Configuration Files:${NC}"
 echo "  Environment:     $ENV_FILE"
+echo "  Rails Master Key: $PROJECT_ROOT/flagship/config/master.key"
 echo ""
 
 echo -e "${YELLOW}Important:${NC}"
 echo "  - Keep your .env file secure (contains secrets)"
 echo "  - Database password: ${POSTGRES_PASSWORD:0:4}****"
 echo "  - Data retention: ${RETENTION_HOURS:-72} hours"
+echo "  - BACKUP your Rails master key (flagship/config/master.key) - it cannot be recovered if lost!"
+echo ""
+
+echo -e "${YELLOW}SSH Key Management:${NC}"
+echo "  - Access SSH keys management: http://localhost:3000/private_keys"
+echo "  - SSH keys are encrypted using the Rails master key"
+echo "  - See flagship/SSH_SETUP.md for detailed instructions"
 echo ""

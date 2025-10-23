@@ -37,6 +37,10 @@
         </div>
       <% end %>
     </dl>
+
+    <div class="mt-4 flex space-x-2">
+      <%= link_to "Edit", edit_server_path(@server), class: "px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm" %>
+    </div>
   </div>
 
   <% if @latest_metric %>
@@ -51,6 +55,56 @@
       <p class="text-4xl font-bold text-green-600"><%= number_to_percentage(@latest_metric.memory_usage_percent, precision: 1) %></p>
       <p class="text-sm text-gray-500 mt-2"><%= number_to_human_size(@latest_metric.memory_used_mb * 1024 * 1024) %> / <%= number_to_human_size(@latest_metric.memory_total_mb * 1024 * 1024) %></p>
     </div>
+  <% end %>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-lg font-semibold">SSH Connection</h3>
+  </div>
+
+  <% if @server.ssh_enabled? %>
+    <dl class="space-y-2 mb-4">
+      <div>
+        <dt class="text-sm text-gray-600">SSH Host</dt>
+        <dd class="font-mono text-sm"><%= @server.ssh_username %>@<%= @server.ssh_host %>:<%= @server.ssh_port %></dd>
+      </div>
+      <div>
+        <dt class="text-sm text-gray-600">Private Key</dt>
+        <dd><%= link_to @server.private_key.name, private_key_path(@server.private_key), class: "text-blue-600 hover:text-blue-900" %></dd>
+      </div>
+      <div>
+        <dt class="text-sm text-gray-600">Connection Status</dt>
+        <dd>
+          <% case @server.connection_status_badge %>
+          <% when "connected" %>
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+              Connected
+            </span>
+            <span class="text-xs text-gray-600 ml-2">Last tested <%= time_ago_in_words(@server.last_validated_at) %> ago</span>
+          <% when "failed" %>
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+              Failed
+            </span>
+            <span class="text-xs text-gray-600 ml-2">Last tested <%= time_ago_in_words(@server.last_validated_at) %> ago</span>
+          <% when "stale" %>
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+              Stale
+            </span>
+            <span class="text-xs text-gray-600 ml-2">Last tested <%= time_ago_in_words(@server.last_validated_at) %> ago</span>
+          <% when "unknown" %>
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+              Unknown
+            </span>
+          <% end %>
+        </dd>
+      </div>
+    </dl>
+
+    <%= button_to "Test SSH Connection", test_connection_server_path(@server), method: :post, class: "px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" %>
+  <% else %>
+    <p class="text-gray-600 mb-4">SSH access is not configured for this server.</p>
+    <%= link_to "Configure SSH", edit_server_path(@server), class: "px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block" %>
   <% end %>
 </div>
 

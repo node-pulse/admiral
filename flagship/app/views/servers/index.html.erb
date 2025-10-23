@@ -6,6 +6,10 @@
     <%= link_to "Active", servers_path(status: "active"), class: "px-4 py-2 rounded #{params[:status] == 'active' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}" %>
     <%= link_to "Inactive", servers_path(status: "inactive"), class: "px-4 py-2 rounded #{params[:status] == 'inactive' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}" %>
   </div>
+  <div class="flex space-x-2">
+    <%= link_to "SSH Keys", private_keys_path, class: "px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300" %>
+    <%= link_to "Add Server", new_server_path, class: "px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700" %>
+  </div>
 </div>
 
 <div class="bg-white rounded-lg shadow">

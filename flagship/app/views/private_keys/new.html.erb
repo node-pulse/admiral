@@ -1,0 +1,101 @@
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+  <h1 class="text-3xl font-bold mb-6">Add SSH Key</h1>
+
+  <div class="bg-white shadow-md rounded-lg p-6">
+    <div class="mb-6">
+      <p class="text-gray-700 mb-4">
+        Choose how you want to add an SSH key:
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-4 mb-6">
+        <div class="border-2 border-blue-500 rounded-lg p-4">
+          <h3 class="font-bold text-lg mb-2">Generate New Key</h3>
+          <p class="text-sm text-gray-600 mb-4">
+            Let NodePulse generate a new Ed25519 SSH key pair. You'll get the public key to add to your servers.
+          </p>
+          <button onclick="showGenerateForm()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">
+            Generate New Key
+          </button>
+        </div>
+
+        <div class="border-2 border-gray-300 rounded-lg p-4">
+          <h3 class="font-bold text-lg mb-2">Import Existing Key</h3>
+          <p class="text-sm text-gray-600 mb-4">
+            Import an existing private key that you already have and use.
+          </p>
+          <button onclick="showImportForm()" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded w-full">
+            Import Key
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generate Form -->
+    <div id="generate-form" style="display: none;">
+      <%= form_with model: @private_key, url: private_keys_path, method: :post do |f| %>
+        <%= hidden_field_tag :key_action, 'generate' %>
+
+        <div class="mb-4">
+          <%= f.label :name, "Key Name", class: "block text-gray-700 font-bold mb-2" %>
+          <%= f.text_field :name, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline", placeholder: "e.g., Production Servers" %>
+          <p class="text-xs text-gray-600 mt-1">A friendly name to identify this key</p>
+        </div>
+
+        <div class="mb-4">
+          <%= f.label :description, "Description (Optional)", class: "block text-gray-700 font-bold mb-2" %>
+          <%= f.text_area :description, rows: 3, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline", placeholder: "e.g., Used for all production Linux servers" %>
+        </div>
+
+        <div class="mb-4">
+          <%= f.label :key_type, "Key Type", class: "block text-gray-700 font-bold mb-2" %>
+          <%= f.select :key_type, [['Ed25519 (Recommended)', 'ED25519'], ['RSA 4096', 'RSA']], {}, class: "shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" %>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <%= f.submit "Generate SSH Key", class: "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" %>
+          <%= link_to "Cancel", private_keys_path, class: "text-gray-600 hover:text-gray-900" %>
+        </div>
+      <% end %>
+    </div>
+
+    <!-- Import Form -->
+    <div id="import-form" style="display: none;">
+      <%= form_with model: @private_key, url: private_keys_path, method: :post do |f| %>
+        <%= hidden_field_tag :key_action, 'import' %>
+
+        <div class="mb-4">
+          <%= f.label :name, "Key Name", class: "block text-gray-700 font-bold mb-2" %>
+          <%= f.text_field :name, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline", placeholder: "e.g., My Existing Key" %>
+        </div>
+
+        <div class="mb-4">
+          <%= f.label :description, "Description (Optional)", class: "block text-gray-700 font-bold mb-2" %>
+          <%= f.text_area :description, rows: 3, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" %>
+        </div>
+
+        <div class="mb-4">
+          <%= f.label :private_key_content, "Private Key", class: "block text-gray-700 font-bold mb-2" %>
+          <%= f.text_area :private_key_content, rows: 10, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 font-mono text-sm leading-tight focus:outline-none focus:shadow-outline", placeholder: "-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----" %>
+          <p class="text-xs text-gray-600 mt-1">Paste your existing private key here (it will be encrypted)</p>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <%= f.submit "Import SSH Key", class: "bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" %>
+          <%= link_to "Cancel", private_keys_path, class: "text-gray-600 hover:text-gray-900" %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showGenerateForm() {
+    document.getElementById('generate-form').style.display = 'block';
+    document.getElementById('import-form').style.display = 'none';
+  }
+
+  function showImportForm() {
+    document.getElementById('generate-form').style.display = 'none';
+    document.getElementById('import-form').style.display = 'block';
+  }
+</script>

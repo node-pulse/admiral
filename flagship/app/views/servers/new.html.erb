@@ -1,0 +1,84 @@
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+  <h1 class="text-3xl font-bold mb-6">Add New Server</h1>
+
+  <div class="bg-white shadow-md rounded-lg p-6">
+    <%= form_with model: @server, url: servers_path, method: :post do |f| %>
+      <% if @server.errors.any? %>
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+          <p class="font-bold">Please fix the following errors:</p>
+          <ul class="list-disc list-inside">
+            <% @server.errors.full_messages.each do |message| %>
+              <li><%= message %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
+      <h2 class="text-xl font-bold mb-4">Server Information</h2>
+
+      <div class="mb-4">
+        <%= f.label :name, "Server Name", class: "block text-gray-700 font-bold mb-2" %>
+        <%= f.text_field :name, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline", placeholder: "e.g., web-server-01" %>
+        <p class="text-xs text-gray-600 mt-1">A friendly name for this server</p>
+      </div>
+
+      <div class="mb-4">
+        <%= f.label :hostname, "Hostname", class: "block text-gray-700 font-bold mb-2" %>
+        <%= f.text_field :hostname, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline", placeholder: "e.g., server.example.com" %>
+        <p class="text-xs text-gray-600 mt-1">The server hostname (for agent identification)</p>
+      </div>
+
+      <div class="mb-4">
+        <%= f.label :description, "Description (Optional)", class: "block text-gray-700 font-bold mb-2" %>
+        <%= f.text_area :description, rows: 3, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline", placeholder: "e.g., Production web server running NGINX" %>
+      </div>
+
+      <h2 class="text-xl font-bold mb-4 mt-8">SSH Configuration</h2>
+
+      <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+        <p class="text-sm text-gray-700">
+          Configure SSH access to remotely manage this server. You'll need an SSH private key configured first.
+          <% if @private_keys.empty? %>
+            <%= link_to "Add an SSH key", new_private_key_path, class: "text-blue-600 hover:text-blue-900 underline" %>
+          <% end %>
+        </p>
+      </div>
+
+      <div class="mb-4">
+        <%= f.label :ssh_host, "SSH Host (IP or Domain)", class: "block text-gray-700 font-bold mb-2" %>
+        <%= f.text_field :ssh_host, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline", placeholder: "e.g., 192.168.1.100 or server.example.com" %>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <%= f.label :ssh_port, "SSH Port", class: "block text-gray-700 font-bold mb-2" %>
+          <%= f.number_field :ssh_port, value: 22, class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" %>
+        </div>
+
+        <div>
+          <%= f.label :ssh_username, "SSH Username", class: "block text-gray-700 font-bold mb-2" %>
+          <%= f.text_field :ssh_username, value: 'root', class: "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" %>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <%= f.label :private_key_id, "SSH Private Key", class: "block text-gray-700 font-bold mb-2" %>
+        <% if @private_keys.any? %>
+          <%= f.collection_select :private_key_id, @private_keys, :id, :name,
+              { prompt: "Select an SSH key..." },
+              { class: "shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" } %>
+        <% else %>
+          <p class="text-red-600 text-sm">
+            No SSH keys available.
+            <%= link_to "Create an SSH key first", new_private_key_path, class: "underline" %>
+          </p>
+        <% end %>
+      </div>
+
+      <div class="flex items-center justify-between mt-6">
+        <%= f.submit "Add Server", class: "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" %>
+        <%= link_to "Cancel", servers_path, class: "text-gray-600 hover:text-gray-900" %>
+      </div>
+    <% end %>
+  </div>
+</div>

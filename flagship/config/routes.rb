@@ -8,10 +8,14 @@ Rails.application.routes.draw do
   # Dashboard
   get "dashboard", to: "dashboard#index", as: :dashboard
 
+  # SSH Private Keys
+  resources :private_keys, only: [ :index, :new, :create, :show, :destroy ]
+
   # Servers
-  resources :servers, only: [ :index, :show, :edit, :update, :destroy ] do
+  resources :servers do
     member do
       get :metrics
+      post :test_connection
     end
   end
 

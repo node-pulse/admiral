@@ -26,6 +26,10 @@ gem "groupdate"
 # Pagination
 gem "pagy"
 
+# SSH key generation and management
+gem "sshkey"
+gem "net-ssh"
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 

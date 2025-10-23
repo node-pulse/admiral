@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS submarines.servers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     server_id TEXT UNIQUE NOT NULL, -- Agent-provided identifier (UUID or custom string)
     hostname TEXT NOT NULL,
+    name TEXT, -- Friendly name for the server
+    description TEXT, -- Optional description
 
     -- System Information (from agent)
     kernel TEXT,
@@ -35,6 +37,14 @@ CREATE TABLE IF NOT EXISTS submarines.servers (
     distro_version TEXT,
     architecture TEXT,
     cpu_cores INTEGER,
+
+    -- SSH Configuration
+    ssh_host TEXT, -- IP or domain for SSH connection
+    ssh_port INTEGER DEFAULT 22, -- SSH port
+    ssh_username TEXT DEFAULT 'root', -- SSH username
+    private_key_id INTEGER, -- Foreign key to submarines.private_keys
+    is_reachable BOOLEAN DEFAULT FALSE, -- SSH connection status
+    last_validated_at TIMESTAMP WITH TIME ZONE, -- Last SSH connection test
 
     -- Metadata
     tags JSONB DEFAULT '[]'::jsonb,
