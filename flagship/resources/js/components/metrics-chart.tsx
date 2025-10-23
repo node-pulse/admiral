@@ -66,7 +66,9 @@ const COLORS = [
 
 export function MetricsChart({ selectedServers }: MetricsChartProps) {
     const [timeRange, setTimeRange] = useState('24');
-    const [metricType, setMetricType] = useState<'cpu' | 'memory' | 'disk' | 'network'>('cpu');
+    const [metricType, setMetricType] = useState<
+        'cpu' | 'memory' | 'disk' | 'network'
+    >('cpu');
     const [metricsData, setMetricsData] = useState<ServerMetrics[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -112,30 +114,48 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         }
 
         // Create a map of all timestamps
-        const timestampMap = new Map<string, any>();
+        const timestampMap = new Map<string, Record<string, string>>();
 
         metricsData.forEach((serverMetric) => {
             serverMetric.data_points.forEach((point) => {
                 if (!timestampMap.has(point.timestamp)) {
                     timestampMap.set(point.timestamp, {
-                        timestamp: new Date(point.timestamp).toLocaleTimeString(),
+                        timestamp: new Date(
+                            point.timestamp,
+                        ).toLocaleTimeString(),
                     });
                 }
 
                 const dataPoint = timestampMap.get(point.timestamp);
 
                 // Add metric value for this server
-                if (metricType === 'cpu' && point.cpu_usage_percent !== undefined) {
-                    dataPoint[serverMetric.display_name] = point.cpu_usage_percent;
-                } else if (metricType === 'memory' && point.memory_usage_percent !== undefined) {
-                    dataPoint[serverMetric.display_name] = point.memory_usage_percent;
-                } else if (metricType === 'disk' && point.disk_usage_percent !== undefined) {
-                    dataPoint[serverMetric.display_name] = point.disk_usage_percent;
+                if (
+                    metricType === 'cpu' &&
+                    point.cpu_usage_percent !== undefined
+                ) {
+                    dataPoint[serverMetric.display_name] =
+                        point.cpu_usage_percent;
+                } else if (
+                    metricType === 'memory' &&
+                    point.memory_usage_percent !== undefined
+                ) {
+                    dataPoint[serverMetric.display_name] =
+                        point.memory_usage_percent;
+                } else if (
+                    metricType === 'disk' &&
+                    point.disk_usage_percent !== undefined
+                ) {
+                    dataPoint[serverMetric.display_name] =
+                        point.disk_usage_percent;
                 } else if (metricType === 'network') {
                     // For network, we'll show upload + download in MB
                     const upload = point.network_upload_bytes || 0;
                     const download = point.network_download_bytes || 0;
-                    dataPoint[serverMetric.display_name] = ((upload + download) / 1024 / 1024).toFixed(2);
+                    dataPoint[serverMetric.display_name] = (
+                        (upload + download) /
+                        1024 /
+                        1024
+                    ).toFixed(2);
                 }
             });
         });
@@ -153,7 +173,9 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
     };
 
     const getChartTitle = () => {
-        const typeLabel = METRIC_TYPES.find((t) => t.value === metricType)?.label;
+        const typeLabel = METRIC_TYPES.find(
+            (t) => t.value === metricType,
+        )?.label;
         return `${typeLabel} Usage`;
     };
 
@@ -183,7 +205,10 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
                         >
                             <TabsList>
                                 {METRIC_TYPES.map((type) => (
-                                    <TabsTrigger key={type.value} value={type.value}>
+                                    <TabsTrigger
+                                        key={type.value}
+                                        value={type.value}
+                                    >
                                         {type.label}
                                     </TabsTrigger>
                                 ))}
@@ -195,7 +220,10 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
                             </SelectTrigger>
                             <SelectContent>
                                 {TIME_RANGES.map((range) => (
-                                    <SelectItem key={range.value} value={range.value}>
+                                    <SelectItem
+                                        key={range.value}
+                                        value={range.value}
+                                    >
                                         {range.label}
                                     </SelectItem>
                                 ))}
@@ -207,12 +235,15 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
             <CardContent>
                 {loading ? (
                     <div className="flex h-96 items-center justify-center">
-                        <p className="text-muted-foreground">Loading metrics...</p>
+                        <p className="text-muted-foreground">
+                            Loading metrics...
+                        </p>
                     </div>
                 ) : chartData.length === 0 ? (
                     <div className="flex h-96 items-center justify-center">
                         <p className="text-muted-foreground">
-                            No metrics data available for the selected time range
+                            No metrics data available for the selected time
+                            range
                         </p>
                     </div>
                 ) : (
