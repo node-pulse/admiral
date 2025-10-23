@@ -258,6 +258,68 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     echo ""
 
+    # =============================================================================
+    # Master Key Generation (for SSH Private Key Encryption)
+    # =============================================================================
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}Master Key for SSH Private Key Encryption${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    MASTER_KEY_FILE="$PROJECT_ROOT/flagship/config/master.key"
+
+    if [ -f "$MASTER_KEY_FILE" ]; then
+        echo -e "${YELLOW}✓ Master key file already exists${NC}"
+        echo "  Location: $MASTER_KEY_FILE"
+        echo ""
+        read -p "Keep existing master key? (Y/n): " keep_master
+        if [[ ! "$keep_master" =~ ^[Nn]$ ]]; then
+            echo -e "${GREEN}✓ Using existing master key${NC}"
+        else
+            # Backup existing key
+            backup_file="$MASTER_KEY_FILE.backup.$(date +%Y%m%d_%H%M%S)"
+            cp "$MASTER_KEY_FILE" "$backup_file"
+            echo -e "${GREEN}✓ Backed up existing key to $backup_file${NC}"
+
+            # Generate new key (simple random string, 32 characters)
+            new_master_key=$(openssl rand -hex 16)
+            echo "$new_master_key" > "$MASTER_KEY_FILE"
+            chmod 600 "$MASTER_KEY_FILE"
+            echo -e "${GREEN}✓ New master key generated${NC}"
+            echo -e "${YELLOW}⚠️  All existing SSH keys will need to be re-imported!${NC}"
+        fi
+    else
+        echo -e "${CYAN}Generating new master key for SSH private key encryption...${NC}"
+
+        # Create config directory if it doesn't exist
+        mkdir -p "$(dirname "$MASTER_KEY_FILE")"
+
+        # Generate new key (simple random string, 32 characters)
+        new_master_key=$(openssl rand -hex 16)
+        echo "$new_master_key" > "$MASTER_KEY_FILE"
+        chmod 600 "$MASTER_KEY_FILE"
+
+        echo -e "${GREEN}✓ Master key generated successfully${NC}"
+        echo "  Location: $MASTER_KEY_FILE"
+        echo "  Permissions: 600 (owner read/write only)"
+        echo ""
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${YELLOW}⚠️  IMPORTANT: BACKUP THIS KEY!${NC}"
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo "This key encrypts all SSH private keys."
+        echo "If lost, you will NOT be able to decrypt them!"
+        echo ""
+        echo "Recommended backups:"
+        echo "  • Password manager"
+        echo "  • Encrypted USB drive"
+        echo "  • Secure cloud storage"
+        echo ""
+        read -p "Press Enter to continue after backing up the key..."
+    fi
+
+    echo ""
+
     # Logging
     prompt_config "LOG_CHANNEL" "stack" "Log channel (stack/single/daily)"
     prompt_config "LOG_STACK" "single" "Log stack channels"
@@ -569,6 +631,66 @@ EOF
 
     chmod 600 "$ENV_FILE"
     echo -e "${GREEN}✓ .env file created successfully${NC}"
+    echo ""
+fi
+
+# =============================================================================
+# Verify Master Key Exists
+# =============================================================================
+echo -e "${BLUE}================================================${NC}"
+echo -e "${BLUE}Verifying Master Key${NC}"
+echo -e "${BLUE}================================================${NC}"
+echo ""
+
+MASTER_KEY_FILE="$PROJECT_ROOT/flagship/config/master.key"
+
+if [ ! -f "$MASTER_KEY_FILE" ]; then
+    echo -e "${RED}✗ Master key file not found!${NC}"
+    echo "  Expected location: $MASTER_KEY_FILE"
+    echo ""
+    echo -e "${YELLOW}The master key should have been created during configuration.${NC}"
+    echo -e "${YELLOW}Creating it now...${NC}"
+    echo ""
+
+    # Create config directory if it doesn't exist
+    mkdir -p "$(dirname "$MASTER_KEY_FILE")"
+
+    # Generate new key
+    new_master_key=$(openssl rand -hex 16)
+    echo "$new_master_key" > "$MASTER_KEY_FILE"
+    chmod 600 "$MASTER_KEY_FILE"
+
+    echo -e "${GREEN}✓ Master key generated${NC}"
+    echo "  Location: $MASTER_KEY_FILE"
+    echo ""
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW}⚠️  IMPORTANT: BACKUP THIS KEY!${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo "This key encrypts all SSH private keys."
+    echo "Store it securely in a password manager or encrypted backup."
+    echo ""
+    read -p "Press Enter to continue after backing up the key..."
+    echo ""
+else
+    echo -e "${GREEN}✓ Master key file exists${NC}"
+    echo "  Location: $MASTER_KEY_FILE"
+
+    # Verify permissions
+    PERMS=$(stat -f "%A" "$MASTER_KEY_FILE" 2>/dev/null || stat -c "%a" "$MASTER_KEY_FILE" 2>/dev/null)
+    if [ "$PERMS" != "600" ]; then
+        echo -e "${YELLOW}⚠  Fixing file permissions (should be 600)${NC}"
+        chmod 600 "$MASTER_KEY_FILE"
+        echo -e "${GREEN}✓ Permissions corrected${NC}"
+    fi
+
+    # Verify file is not empty
+    if [ ! -s "$MASTER_KEY_FILE" ]; then
+        echo -e "${RED}✗ Master key file is empty!${NC}"
+        echo "Please regenerate the master key or restore from backup."
+        exit 1
+    fi
+
     echo ""
 fi
 

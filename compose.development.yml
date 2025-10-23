@@ -64,6 +64,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ./migrate/migrations:/app/migrations # Mount migrations for hot reload in dev
     networks:
       - node-pulse-admiral
     restart: "no"

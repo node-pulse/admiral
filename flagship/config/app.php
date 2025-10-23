@@ -99,6 +99,33 @@ return [
 
     'key' => env('APP_KEY'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Master Encryption Key (for SSH Private Keys)
+    |--------------------------------------------------------------------------
+    |
+    | This key is used specifically for encrypting sensitive SSH private keys.
+    | It's separate from APP_KEY for security isolation.
+    |
+    | Priority:
+    | 1. Read from config/master.key file (most secure, Rails-style)
+    | 2. Fall back to MASTER_KEY environment variable
+    |
+    | IMPORTANT: Store this key securely! If lost, all SSH keys become unusable.
+    |
+    */
+
+    'master_key' => (function() {
+        // Priority 1: Read from config/master.key file (Rails-style, most secure)
+        $masterKeyPath = base_path('config/master.key');
+        if (file_exists($masterKeyPath)) {
+            return trim(file_get_contents($masterKeyPath));
+        }
+
+        // Priority 2: Fall back to MASTER_KEY environment variable
+        return env('MASTER_KEY');
+    })(),
+
     'previous_keys' => [
         ...array_filter(
             explode(',', env('APP_PREVIOUS_KEYS', ''))

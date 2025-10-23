@@ -183,7 +183,8 @@ services:
       submarines-ingest:
         condition: service_started
     volumes:
-      - ./logs/flagship:/var/www/html/storage/logs # Only mount logs for persistence
+      - ./logs/flagship:/var/www/html/storage/logs # Mount logs for persistence
+      - ./flagship/config/master.key:/var/www/html/config/master.key:ro # Mount master key (read-only)
     networks:
       - node-pulse-admiral
 

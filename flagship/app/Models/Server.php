@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Server extends Model
@@ -26,7 +27,6 @@ class Server extends Model
         'ssh_host',
         'ssh_port',
         'ssh_username',
-        'private_key_id',
         'is_reachable',
         'last_validated_at',
         'tags',
@@ -40,7 +40,6 @@ class Server extends Model
         'metadata' => 'array',
         'cpu_cores' => 'integer',
         'ssh_port' => 'integer',
-        'private_key_id' => 'integer',
         'is_reachable' => 'boolean',
         'last_validated_at' => 'datetime',
         'last_seen_at' => 'datetime',
@@ -56,6 +55,21 @@ class Server extends Model
     public function alerts(): HasMany
     {
         return $this->hasMany(Alert::class);
+    }
+
+    public function privateKeys(): BelongsToMany
+    {
+        return $this->belongsToMany(PrivateKey::class, 'server_private_keys')
+            ->withPivot('purpose', 'is_primary', 'last_used_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the primary SSH key for this server
+     */
+    public function primaryPrivateKey()
+    {
+        return $this->privateKeys()->wherePivot('is_primary', true)->first();
     }
 
     /**
