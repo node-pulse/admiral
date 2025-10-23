@@ -142,7 +142,7 @@ NodePulse uses a **tiered feature model** to provide value at different price po
 1. Admin enables Pro tier in Flagship settings
 2. Enters license key (validates with licensing server)
 3. System detects TimescaleDB extension availability
-4. Runs migration to convert `submarines.metrics` to hypertable
+4. Runs migration to convert `admiral.metrics` to hypertable
 5. Enables S3 archival (if credentials configured)
 6. UI unlocks Pro features
 

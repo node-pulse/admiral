@@ -102,7 +102,7 @@ func (h *MetricsHandler) IngestMetrics(c *gin.Context) {
 func (h *MetricsHandler) GetServers(c *gin.Context) {
 	query := `
 		SELECT id, hostname, kernel, kernel_version, distro, distro_version, architecture, cpu_cores, status, last_seen_at, created_at, updated_at
-		FROM submarines.servers
+		FROM admiral.servers
 		ORDER BY hostname ASC
 	`
 
@@ -131,7 +131,7 @@ func (h *MetricsHandler) GetServerMetrics(c *gin.Context) {
 
 	query := `
 		SELECT *
-		FROM submarines.metrics
+		FROM admiral.metrics
 		WHERE server_id = $1
 		ORDER BY timestamp DESC
 		LIMIT 100

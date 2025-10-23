@@ -81,16 +81,26 @@ export default function Dashboard() {
 
                 {/* Server Selection and Charts */}
                 <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-4">
-                        <ServerCog className="size-5 text-muted-foreground" />
-                        <div className="flex-1">
-                            <ServerSelector
-                                selectedServers={selectedServers}
-                                onSelectionChange={setSelectedServers}
-                                multiSelect={true}
-                                placeholder="Select servers to view metrics..."
-                            />
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-4">
+                            <ServerCog className="size-5 text-muted-foreground" />
+                            <div className="flex-1">
+                                <ServerSelector
+                                    selectedServers={selectedServers}
+                                    onSelectionChange={setSelectedServers}
+                                    multiSelect={true}
+                                    placeholder="Select servers to view metrics..."
+                                />
+                            </div>
                         </div>
+                        {selectedServers.length > 0 && (
+                            <div className="text-sm text-muted-foreground">
+                                Viewing metrics for {selectedServers.length}{' '}
+                                {selectedServers.length === 1
+                                    ? 'server'
+                                    : 'servers'}
+                            </div>
+                        )}
                     </div>
 
                     {/* Metrics Chart */}

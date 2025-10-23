@@ -32,6 +32,76 @@ class DashboardController extends Controller
     }
 
     /**
+     * Get list of servers that have metrics data
+     */
+    public function serversWithMetrics(Request $request)
+    {
+        $query = DB::table('admiral.metrics')
+            ->select(
+                'admiral.servers.id',
+                'admiral.servers.server_id',
+                'admiral.servers.hostname',
+                'admiral.servers.name',
+                'admiral.servers.status',
+                'admiral.servers.last_seen_at',
+                DB::raw('MAX(admiral.metrics.timestamp) as last_metric_at'),
+                DB::raw('COUNT(admiral.metrics.id) as metric_count')
+            )
+            ->join('admiral.servers', 'admiral.metrics.server_id', '=', 'admiral.servers.id')
+            ->groupBy(
+                'admiral.servers.id',
+                'admiral.servers.server_id',
+                'admiral.servers.hostname',
+                'admiral.servers.name',
+                'admiral.servers.status',
+                'admiral.servers.last_seen_at'
+            )
+            ->orderBy('admiral.servers.hostname');
+
+        // Search filter
+        if ($request->has('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('admiral.servers.hostname', 'ilike', "%{$search}%")
+                    ->orWhere('admiral.servers.name', 'ilike', "%{$search}%")
+                    ->orWhere('admiral.servers.server_id', 'ilike', "%{$search}%");
+            });
+        }
+
+        // Time range filter (only show servers with recent metrics)
+        if ($request->has('recent_hours')) {
+            $hours = $request->input('recent_hours', 24);
+            $query->having('last_metric_at', '>=', now()->subHours($hours));
+        }
+
+        // Limit results for performance
+        $limit = $request->input('limit', 100);
+        $servers = $query->limit($limit)->get();
+
+        return response()->json([
+            'servers' => $servers->map(function ($server) {
+                $lastSeenAt = $server->last_seen_at ? \Carbon\Carbon::parse($server->last_seen_at) : null;
+                $isOnline = $lastSeenAt && $lastSeenAt->greaterThan(now()->subMinutes(5));
+
+                return [
+                    'id' => $server->id,
+                    'server_id' => $server->server_id,
+                    'hostname' => $server->hostname,
+                    'name' => $server->name,
+                    'display_name' => $server->name ?: $server->hostname,
+                    'status' => $server->status,
+                    'is_online' => $isOnline,
+                    'last_seen_at' => $lastSeenAt?->toIso8601String(),
+                    'last_metric_at' => \Carbon\Carbon::parse($server->last_metric_at)->toIso8601String(),
+                    'metric_count' => $server->metric_count,
+                ];
+            }),
+            'total' => $servers->count(),
+            'has_more' => $servers->count() >= $limit,
+        ]);
+    }
+
+    /**
      * Get list of servers for dropdown/search
      */
     public function servers(Request $request)

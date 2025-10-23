@@ -3,6 +3,7 @@
 ## TL;DR
 
 NodePulse now has **configurable data retention** for metrics:
+
 - **Free tier**: 24h / 48h / 72h (user choice)
 - **Pro tier**: 7d / 30d / 90d + TimescaleDB + S3 archival
 
@@ -37,7 +38,7 @@ docker compose exec postgres psql -U postgres -d node_pulse_admiral \
           ELSE '> 72h'
         END AS age,
         COUNT(*)
-      FROM submarines.metrics
+      FROM admiral.metrics
       GROUP BY age;"
 ```
 
@@ -74,24 +75,24 @@ sudo systemctl list-timers
 
 ## Configuration Reference
 
-| Setting | Free Tier | Pro Tier |
-|---------|-----------|----------|
-| **retention_hours** | 24/48/72 | 168+ |
-| **retention_enabled** | true | true |
-| **tier** | "free" | "pro" |
-| **timescaledb_enabled** | false | true |
-| **s3_archival_enabled** | false | true |
+| Setting                 | Free Tier | Pro Tier |
+| ----------------------- | --------- | -------- |
+| **retention_hours**     | 24/48/72  | 168+     |
+| **retention_enabled**   | true      | true     |
+| **tier**                | "free"    | "pro"    |
+| **timescaledb_enabled** | false     | true     |
+| **s3_archival_enabled** | false     | true     |
 
 ---
 
 ## File Locations
 
-| File | Description |
-|------|-------------|
-| `submarines/cmd/cleaner/main.go` | Cleaner entry point |
-| `submarines/internal/cleaner/` | Cleaner logic |
-| `migrate/migrations/20251021000002_add_flagship_settings.sql` | Settings table migration |
-| `compose.yml` | Cleaner service definition |
+| File                                                          | Description                |
+| ------------------------------------------------------------- | -------------------------- |
+| `submarines/cmd/cleaner/main.go`                              | Cleaner entry point        |
+| `submarines/internal/cleaner/`                                | Cleaner logic              |
+| `migrate/migrations/20251021000002_add_flagship_settings.sql` | Settings table migration   |
+| `compose.yml`                                                 | Cleaner service definition |
 
 ---
 

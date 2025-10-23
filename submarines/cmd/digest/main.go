@@ -91,6 +91,7 @@ func processMessages(ctx context.Context, valkeyClient *valkey.Client, db *datab
 	// Read messages from stream
 	messages, err := valkeyClient.XReadGroup(ctx, consumerGroup, consumerName, streamKey, ">", batchSize)
 	if err != nil {
+		log.Printf("[ERROR] Failed to read from stream: %v", err)
 		return err
 	}
 
@@ -100,9 +101,13 @@ func processMessages(ctx context.Context, valkeyClient *valkey.Client, db *datab
 		return nil
 	}
 
+	log.Printf("[DEBUG] Read %d message(s) from stream", len(messages))
 	successCount := 0
+	errorCount := 0
 	for _, msg := range messages {
 		if err := processMessage(db, msg); err != nil {
+			log.Printf("[ERROR] Failed to process message %s: %v", msg.ID, err)
+			errorCount++
 			// Don't ACK failed messages - they'll be retried
 			continue
 		}
@@ -113,7 +118,10 @@ func processMessages(ctx context.Context, valkeyClient *valkey.Client, db *datab
 	}
 
 	if successCount > 0 {
-		log.Printf("Inserted %d metric(s) to PostgreSQL", successCount)
+		log.Printf("[SUCCESS] Inserted %d metric(s) to PostgreSQL", successCount)
+	}
+	if errorCount > 0 {
+		log.Printf("[WARN] Failed to process %d message(s)", errorCount)
 	}
 
 	return nil
@@ -160,17 +168,19 @@ func processMessage(db *database.DB, msg valkey.StreamMessage) error {
 }
 
 func upsertServer(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {
+	serverIDText := serverID.String()
+
 	query := `
-		INSERT INTO submarines.servers (id, hostname, kernel, kernel_version, distro, distro_version, architecture, cpu_cores, last_seen_at, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO admiral.servers (id, server_id, hostname, kernel, kernel_version, distro, distro_version, architecture, cpu_cores, last_seen_at, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (id) DO UPDATE SET
 			hostname = EXCLUDED.hostname,
-			kernel = COALESCE(EXCLUDED.kernel, servers.kernel),
-			kernel_version = COALESCE(EXCLUDED.kernel_version, servers.kernel_version),
-			distro = COALESCE(EXCLUDED.distro, servers.distro),
-			distro_version = COALESCE(EXCLUDED.distro_version, servers.distro_version),
-			architecture = COALESCE(EXCLUDED.architecture, servers.architecture),
-			cpu_cores = COALESCE(EXCLUDED.cpu_cores, servers.cpu_cores),
+			kernel = COALESCE(EXCLUDED.kernel, admiral.servers.kernel),
+			kernel_version = COALESCE(EXCLUDED.kernel_version, admiral.servers.kernel_version),
+			distro = COALESCE(EXCLUDED.distro, admiral.servers.distro),
+			distro_version = COALESCE(EXCLUDED.distro_version, admiral.servers.distro_version),
+			architecture = COALESCE(EXCLUDED.architecture, admiral.servers.architecture),
+			cpu_cores = COALESCE(EXCLUDED.cpu_cores, admiral.servers.cpu_cores),
 			last_seen_at = EXCLUDED.last_seen_at,
 			status = EXCLUDED.status,
 			updated_at = CURRENT_TIMESTAMP
@@ -188,13 +198,13 @@ func upsertServer(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) e
 		cpuCores = &report.SystemInfo.CPUCores
 	}
 
-	_, err := tx.Exec(query, serverID, report.Hostname, kernel, kernelVersion, distro, distroVersion, architecture, cpuCores, time.Now(), "active")
+	_, err := tx.Exec(query, serverID, serverIDText, report.Hostname, kernel, kernelVersion, distro, distroVersion, architecture, cpuCores, time.Now(), "active")
 	return err
 }
 
 func insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {
 	query := `
-		INSERT INTO submarines.metrics (
+		INSERT INTO admiral.metrics (
 			server_id,
 			timestamp,
 			cpu_usage_percent,

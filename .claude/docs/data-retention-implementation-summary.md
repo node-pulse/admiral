@@ -98,7 +98,7 @@ Created comprehensive docs:
 ┌─────────────────────────────────────────────────────────┐
 │  4. Cleaner deletes old metrics (batch = 10k)           │
 │                                                          │
-│     DELETE FROM submarines.metrics                      │
+│     DELETE FROM admiral.metrics                      │
 │     WHERE timestamp < NOW() - INTERVAL '48 hours'       │
 │     LIMIT 10000                                         │
 │                                                          │
@@ -139,7 +139,7 @@ docker compose run --rm submarines-cleaner
 
 # 4. Verify metrics deleted
 docker compose exec postgres psql -U postgres -d node_pulse_admiral \
-  -c "SELECT MIN(timestamp), MAX(timestamp), COUNT(*) FROM submarines.metrics;"
+  -c "SELECT MIN(timestamp), MAX(timestamp), COUNT(*) FROM admiral.metrics;"
 
 # 5. Change retention to 48h
 docker compose exec postgres psql -U postgres -d node_pulse_admiral \
@@ -257,14 +257,14 @@ SELECT
     ELSE '> 72h'
   END AS age_bucket,
   COUNT(*) AS count
-FROM submarines.metrics
+FROM admiral.metrics
 GROUP BY age_bucket;
 
 -- Database size
 SELECT pg_size_pretty(pg_database_size('node_pulse_admiral'));
 
 -- Metrics table size
-SELECT pg_size_pretty(pg_total_relation_size('submarines.metrics'));
+SELECT pg_size_pretty(pg_total_relation_size('admiral.metrics'));
 ```
 
 ---
@@ -329,7 +329,7 @@ If issues arise:
 
 ## Security Considerations
 
-- ✅ Cleaner requires write access to `submarines.metrics`
+- ✅ Cleaner requires write access to `admiral.metrics`
 - ✅ Read-only access to `flagship.settings`
 - ✅ No access to user data or authentication
 - ✅ Runs with same PostgreSQL credentials as other services

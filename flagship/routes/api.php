@@ -7,6 +7,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::prefix('dashboard')->group(function () {
         Route::get('/stats', [DashboardController::class, 'stats']);
         Route::get('/servers', [DashboardController::class, 'servers']);
+        Route::get('/servers-with-metrics', [DashboardController::class, 'serversWithMetrics']);
         Route::get('/metrics', [DashboardController::class, 'metrics']);
     });
 });

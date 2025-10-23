@@ -1,27 +1,30 @@
 # Flagship Rails Dashboard - Implementation Plan
 
 **Date:** 2025-10-22
-**Goal:** Build a web dashboard in Flagship (Ruby on Rails 8) to display metrics from `submarines.metrics` with authentication, CRUD operations, and charts.
+**Goal:** Build a web dashboard in Flagship (Ruby on Rails 8) to display metrics from `admiral.metrics` with authentication, CRUD operations, and charts.
 
 ---
 
 ## Implementation Phases
 
 ### Phase 1: Foundation
+
 - **Authentication** - Simple session-based auth (Kratos integration later)
 - **Gems** - Add chartkick, pagy (pagination)
 - **Base Layout** - Sidebar navigation, topbar with user info
 
 ### Phase 2: Models
+
 - Create ActiveRecord models for:
-  - `Server` (reads from `submarines.servers`)
-  - `Metric` (reads from `submarines.metrics`)
-  - `Alert` (reads from `submarines.alerts`)
-  - `AlertRule` (reads/writes to `submarines.alert_rules`)
+  - `Server` (reads from `admiral.servers`)
+  - `Metric` (reads from `admiral.metrics`)
+  - `Alert` (reads from `admiral.alerts`)
+  - `AlertRule` (reads/writes to `admiral.alert_rules`)
   - `Setting` (reads/writes to `flagship.settings`)
-- Configure `self.table_name = "submarines.servers"` to read from submarines schema
+- Configure `self.table_name = "admiral.servers"` to read from submarines schema
 
 ### Phase 3: Core Features
+
 - **Dashboard** - Overview stats, server list, recent alerts
 - **Servers** - List, detail view with metrics
 - **Metrics/Charts** - Time-series charts (CPU, Memory, Disk, Network)
@@ -30,6 +33,7 @@
 - **Settings** - System configuration
 
 ### Phase 4: Polish
+
 - **UI Components** - Tailwind-based cards, tables, badges
 - **Real-time** - Optional ActionCable for live updates
 - **Search/Filter** - Filter servers by status, alerts by severity
@@ -100,7 +104,7 @@ patch "settings", to: "settings#update"
 
 ## Notes
 
-- **Read-only from submarines schema** - Flagship only writes to `flagship.settings` and `submarines.alert_rules`
+- **Read-only from submarines schema** - Flagship only writes to `flagship.settings` and `admiral.alert_rules`
 - **No migrations needed** - All tables created by Submarines migrations
 - **Schema isolation** - Each service has its own schema in shared PostgreSQL database
 - **Simple first, polish later** - Focus on functionality before perfection

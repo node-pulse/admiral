@@ -46,10 +46,12 @@ The library parses SQL files using these regex patterns:
 ```
 
 This means:
+
 - Everything **before** `-- Down Migration` comment = **up migration**
 - Everything **after** `-- Down Migration` comment = **down migration**
 
 The regex is **case-insensitive** and allows **flexible whitespace**, so these all work:
+
 - `-- Up Migration` ✅
 - `-- up migration` ✅
 - `-- DOWN MIGRATION` ✅
@@ -88,6 +90,7 @@ The migration configuration is in `migrations.json`:
 ```
 
 Key settings:
+
 - `migration-file-language: "sql"` - Use SQL files instead of JavaScript/TypeScript
 - `migrations-table: "pgmigrations"` - Tracks which migrations have been run
 - `check-order: true` - Ensures migrations run in the correct order
@@ -119,6 +122,7 @@ docker compose run --rm migrate
 ```
 
 This uses the `migrate` service defined in `compose.yml`, which automatically:
+
 - Connects to the PostgreSQL database
 - Runs all pending migrations
 - Exits when complete
@@ -150,22 +154,22 @@ Edit the generated file following this template:
 -- Description of what this migration does
 
 -- Example: Add new column
-ALTER TABLE submarines.metrics
+ALTER TABLE admiral.metrics
     ADD COLUMN IF NOT EXISTS new_field DOUBLE PRECISION;
 
 -- Example: Create index
 CREATE INDEX IF NOT EXISTS idx_metrics_new_field
-    ON submarines.metrics(new_field);
+    ON admiral.metrics(new_field);
 
 
 -- Down Migration
 -- Rollback the changes
 
 -- Drop index first (reverse order)
-DROP INDEX IF EXISTS submarines.idx_metrics_new_field;
+DROP INDEX IF EXISTS admiral.idx_metrics_new_field;
 
 -- Drop column
-ALTER TABLE submarines.metrics
+ALTER TABLE admiral.metrics
     DROP COLUMN IF EXISTS new_field;
 ```
 
@@ -180,6 +184,7 @@ docker compose run --rm migrate
 ### 1. Always Write Down Migrations
 
 Every migration should have a corresponding rollback. This allows you to:
+
 - Test the migration locally and roll back if needed
 - Safely revert problematic migrations in production
 - Understand the full impact of a schema change
@@ -232,7 +237,7 @@ Always specify the schema explicitly:
 
 ```sql
 -- Good: Explicit schema
-ALTER TABLE submarines.metrics ADD COLUMN ...;
+ALTER TABLE admiral.metrics ADD COLUMN ...;
 
 -- Bad: Relies on search_path
 ALTER TABLE metrics ADD COLUMN ...;
@@ -244,11 +249,11 @@ Add helpful comments explaining why:
 
 ```sql
 -- Add disk metrics to support new agent payload format (v1.2.0)
-ALTER TABLE submarines.metrics
+ALTER TABLE admiral.metrics
     ADD COLUMN IF NOT EXISTS disk_used_gb DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS disk_total_gb DOUBLE PRECISION;
 
-COMMENT ON COLUMN submarines.metrics.disk_used_gb IS 'Disk space used in gigabytes';
+COMMENT ON COLUMN admiral.metrics.disk_used_gb IS 'Disk space used in gigabytes';
 ```
 
 ## Database Schemas
@@ -302,33 +307,33 @@ Here's a complete example from the project:
 -- Add disk and processes metrics to the schema
 -- Extends the metrics table to match the full agent JSON payload
 
-ALTER TABLE submarines.metrics
+ALTER TABLE admiral.metrics
     ADD COLUMN IF NOT EXISTS disk_used_gb DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS disk_total_gb DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS disk_usage_percent DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS disk_mount_point VARCHAR(255);
 
-ALTER TABLE submarines.metrics
+ALTER TABLE admiral.metrics
     ADD COLUMN IF NOT EXISTS processes JSONB;
 
 CREATE INDEX IF NOT EXISTS idx_metrics_processes
-    ON submarines.metrics USING GIN(processes);
+    ON admiral.metrics USING GIN(processes);
 
-COMMENT ON COLUMN submarines.metrics.disk_used_gb IS 'Disk space used in gigabytes';
-COMMENT ON COLUMN submarines.metrics.processes IS 'Process information including top_cpu and top_memory arrays';
+COMMENT ON COLUMN admiral.metrics.disk_used_gb IS 'Disk space used in gigabytes';
+COMMENT ON COLUMN admiral.metrics.processes IS 'Process information including top_cpu and top_memory arrays';
 
 
 -- Down Migration
 -- Rollback disk and processes metrics addition
 
-ALTER TABLE submarines.metrics
+ALTER TABLE admiral.metrics
     DROP COLUMN IF EXISTS disk_used_gb,
     DROP COLUMN IF EXISTS disk_total_gb,
     DROP COLUMN IF EXISTS disk_usage_percent,
     DROP COLUMN IF EXISTS disk_mount_point,
     DROP COLUMN IF EXISTS processes;
 
-DROP INDEX IF EXISTS submarines.idx_metrics_processes;
+DROP INDEX IF EXISTS admiral.idx_metrics_processes;
 ```
 
 ## Resources
