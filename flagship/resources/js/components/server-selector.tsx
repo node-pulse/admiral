@@ -69,7 +69,9 @@ export function ServerSelector({
                 params.append('limit', '100');
 
                 // Use servers-with-metrics endpoint to only show servers that have data
-                const response = await fetch(`/api/dashboard/servers-with-metrics?${params}`);
+                const response = await fetch(
+                    `/api/dashboard/servers-with-metrics?${params}`,
+                );
                 const data = await response.json();
                 setServers(data.servers);
             } catch (error) {
@@ -86,7 +88,7 @@ export function ServerSelector({
         if (multiSelect) {
             if (selectedServers.includes(serverId)) {
                 onSelectionChange(
-                    selectedServers.filter((id) => id !== serverId)
+                    selectedServers.filter((id) => id !== serverId),
                 );
             } else {
                 onSelectionChange([...selectedServers, serverId]);
@@ -126,7 +128,7 @@ export function ServerSelector({
                     <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0">
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                 <Command>
                     <CommandInput
                         placeholder="Search servers..."
@@ -150,33 +152,39 @@ export function ServerSelector({
                                             className={cn(
                                                 'mr-2 size-4',
                                                 selectedServers.includes(
-                                                    server.id
+                                                    server.id,
                                                 )
                                                     ? 'opacity-100'
-                                                    : 'opacity-0'
+                                                    : 'opacity-0',
                                             )}
                                         />
                                         <div className="flex flex-1 flex-col">
                                             <div className="flex items-center justify-between">
-                                                <span>{server.display_name}</span>
+                                                <span>
+                                                    {server.display_name}
+                                                </span>
                                                 <span
                                                     className={cn(
                                                         'ml-2 size-2 rounded-full',
                                                         server.is_online
                                                             ? 'bg-green-500'
-                                                            : 'bg-red-500'
+                                                            : 'bg-red-500',
                                                     )}
                                                 />
                                             </div>
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                 {server.metric_count && (
                                                     <span>
-                                                        {server.metric_count.toLocaleString()} points
+                                                        {server.metric_count.toLocaleString()}{' '}
+                                                        points
                                                     </span>
                                                 )}
                                                 {server.last_metric_at && (
                                                     <span>
-                                                        • Last: {formatRelativeTime(server.last_metric_at)}
+                                                        • Last:{' '}
+                                                        {formatRelativeTime(
+                                                            server.last_metric_at,
+                                                        )}
                                                     </span>
                                                 )}
                                             </div>
