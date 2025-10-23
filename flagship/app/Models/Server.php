@@ -10,7 +10,7 @@ class Server extends Model
 {
     use HasUuids;
 
-    protected $table = 'admiral.servers';
+    protected $table = 'servers';
 
     protected $fillable = [
         'server_id',

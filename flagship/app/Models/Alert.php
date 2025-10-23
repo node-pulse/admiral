@@ -10,7 +10,7 @@ class Alert extends Model
 {
     use HasUuids;
 
-    protected $table = 'admiral.alerts';
+    protected $table = 'alerts';
 
     protected $fillable = [
         'server_id',

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Metric extends Model
 {
-    protected $table = 'admiral.metrics';
+    protected $table = 'metrics';
 
     public $timestamps = false;
 

@@ -19,7 +19,7 @@ class DashboardController extends Controller
         $offlineServers = $totalServers - $onlineServers;
 
         // Get recent alerts count
-        $activeAlerts = DB::table('admiral.alerts')
+        $activeAlerts = DB::table('alerts')
             ->where('status', 'active')
             ->count();
 
@@ -36,35 +36,35 @@ class DashboardController extends Controller
      */
     public function serversWithMetrics(Request $request)
     {
-        $query = DB::table('admiral.metrics')
+        $query = DB::table('metrics')
             ->select(
-                'admiral.servers.id',
-                'admiral.servers.server_id',
-                'admiral.servers.hostname',
-                'admiral.servers.name',
-                'admiral.servers.status',
-                'admiral.servers.last_seen_at',
-                DB::raw('MAX(admiral.metrics.timestamp) as last_metric_at'),
-                DB::raw('COUNT(admiral.metrics.id) as metric_count')
+                'servers.id',
+                'servers.server_id',
+                'servers.hostname',
+                'servers.name',
+                'servers.status',
+                'servers.last_seen_at',
+                DB::raw('MAX(metrics.timestamp) as last_metric_at'),
+                DB::raw('COUNT(metrics.id) as metric_count')
             )
-            ->join('admiral.servers', 'admiral.metrics.server_id', '=', 'admiral.servers.id')
+            ->join('servers', 'metrics.server_id', '=', 'servers.id')
             ->groupBy(
-                'admiral.servers.id',
-                'admiral.servers.server_id',
-                'admiral.servers.hostname',
-                'admiral.servers.name',
-                'admiral.servers.status',
-                'admiral.servers.last_seen_at'
+                'servers.id',
+                'servers.server_id',
+                'servers.hostname',
+                'servers.name',
+                'servers.status',
+                'servers.last_seen_at'
             )
-            ->orderBy('admiral.servers.hostname');
+            ->orderBy('servers.hostname');
 
         // Search filter
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
-                $q->where('admiral.servers.hostname', 'ilike', "%{$search}%")
-                    ->orWhere('admiral.servers.name', 'ilike', "%{$search}%")
-                    ->orWhere('admiral.servers.server_id', 'ilike', "%{$search}%");
+                $q->where('servers.hostname', 'ilike', "%{$search}%")
+                    ->orWhere('servers.name', 'ilike', "%{$search}%")
+                    ->orWhere('servers.server_id', 'ilike', "%{$search}%");
             });
         }
 
@@ -158,7 +158,7 @@ class DashboardController extends Controller
     {
         $request->validate([
             'server_ids' => 'required|array',
-            'server_ids.*' => 'uuid|exists:admiral.servers,id',
+            'server_ids.*' => 'uuid|exists:servers,id',
             'hours' => 'integer|min:1|max:168', // Max 7 days (168 hours)
             'metric_types' => 'array',
             'metric_types.*' => 'string|in:cpu,memory,disk,network',
