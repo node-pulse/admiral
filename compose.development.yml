@@ -281,12 +281,12 @@ services:
       submarines-ingest:
         condition: service_started
     volumes:
-      - ./flagship:/app
-      - /app/tmp
-      - ./logs/flagship:/app/log
+      - ./flagship:/rails
+      - /rails/tmp
+      - ./logs/flagship:/rails/log
     networks:
       - node-pulse-admiral
-    command: bin/dev
+    command: sh -c "rm -f tmp/pids/server.pid && bundle exec rails server -b 0.0.0.0"
 
   # Next.js Cruiser - Public Site
   cruiser:

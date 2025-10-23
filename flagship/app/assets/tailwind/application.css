@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+/* Custom reusable components */
+@layer components {
+  /* Buttons */
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors font-medium;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors font-medium;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1 text-sm;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-white rounded-lg shadow p-6;
+  }
+
+  .card-header {
+    @apply px-6 py-4 border-b border-gray-200;
+  }
+
+  .card-title {
+    @apply text-lg font-semibold text-gray-900;
+  }
+
+  .card-body {
+    @apply p-6;
+  }
+
+  /* Tables */
+  .table-default {
+    @apply min-w-full divide-y divide-gray-200;
+  }
+
+  .table-header {
+    @apply bg-gray-50;
+  }
+
+  .table-header-cell {
+    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+  }
+
+  .table-body {
+    @apply bg-white divide-y divide-gray-200;
+  }
+
+  .table-cell {
+    @apply px-6 py-4 whitespace-nowrap text-sm;
+  }
+
+  /* Stats Cards */
+  .stat-card {
+    @apply bg-white rounded-lg shadow p-6;
+  }
+
+  .stat-value {
+    @apply text-3xl font-semibold;
+  }
+
+  .stat-label {
+    @apply text-sm font-medium text-gray-600;
+  }
+
+  /* Badges */
+  .badge {
+    @apply px-2 py-1 text-xs font-semibold rounded-full;
+  }
+
+  .badge-green {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .badge-red {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .badge-yellow {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-blue {
+    @apply bg-blue-100 text-blue-800;
+  }
+
+  .badge-gray {
+    @apply bg-gray-100 text-gray-800;
+  }
+
+  /* Page headers */
+  .page-header {
+    @apply mb-6 flex items-center justify-between;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold text-gray-800;
+  }
+
+  /* Links */
+  .link-primary {
+    @apply text-blue-600 hover:text-blue-800 transition-colors;
+  }
+
+  .link-danger {
+    @apply text-red-600 hover:text-red-800 transition-colors;
+  }
+}
