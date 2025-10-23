@@ -52,7 +52,7 @@ NodePulse uses a **tiered feature model** to provide value at different price po
 ### Technical Implementation
 
 - **Storage**: Plain PostgreSQL 18
-- **Retention**: Configured in `flagship.settings` table
+- **Retention**: Configured in `admiral.settings` table
 - **Cleanup**: `submarines-cleaner` binary (runs hourly via cron)
 - **Default**: 24 hours retention
 
@@ -167,7 +167,7 @@ NodePulse uses a **tiered feature model** to provide value at different price po
 
 ### Phase 2: Feature Flags
 
-- Add `tier` column to `flagship.settings`
+- Add `tier` column to `admiral.settings`
 - Add Pro feature detection (TimescaleDB, S3)
 - UI shows "Upgrade to Pro" badges
 - Backend checks tier before enabling features
@@ -243,10 +243,10 @@ submarines-aggregator (Continuous aggregates computation)
 
 ## Configuration
 
-### Flagship Settings Table (`flagship.settings`)
+### Flagship Settings Table (`admiral.settings`)
 
 ```sql
-CREATE TABLE flagship.settings (
+CREATE TABLE admiral.settings (
   key VARCHAR(100) PRIMARY KEY,
   value JSONB NOT NULL,
   description TEXT,
@@ -255,7 +255,7 @@ CREATE TABLE flagship.settings (
 );
 
 -- Example settings
-INSERT INTO flagship.settings (key, value, description, tier) VALUES
+INSERT INTO admiral.settings (key, value, description, tier) VALUES
   ('retention_hours', '24', 'Metrics retention period (hours)', 'free'),
   ('tier', '"free"', 'Current tier (free or pro)', 'free'),
   ('license_key', 'null', 'Pro license key', 'pro'),

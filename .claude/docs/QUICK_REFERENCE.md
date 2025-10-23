@@ -22,11 +22,11 @@ docker compose run --rm -e DRY_RUN=true submarines-cleaner
 
 # Change retention to 48 hours
 docker compose exec postgres psql -U postgres -d node_pulse_admiral \
-  -c "UPDATE flagship.settings SET value = '48'::jsonb WHERE key = 'retention_hours';"
+  -c "UPDATE admiral.settings SET value = '48'::jsonb WHERE key = 'retention_hours';"
 
 # View current retention settings
 docker compose exec postgres psql -U postgres -d node_pulse_admiral \
-  -c "SELECT * FROM flagship.settings WHERE key IN ('retention_hours', 'retention_enabled');"
+  -c "SELECT * FROM admiral.settings WHERE key IN ('retention_hours', 'retention_enabled');"
 
 # Check metrics age distribution
 docker compose exec postgres psql -U postgres -d node_pulse_admiral \
@@ -114,7 +114,7 @@ sudo systemctl list-timers
 → Ensure `flagship-migrate` has run: `docker compose run --rm flagship-migrate`
 
 **Want to keep data longer?**
-→ Change retention hours: `UPDATE flagship.settings SET value = '72'::jsonb WHERE key = 'retention_hours';`
+→ Change retention hours: `UPDATE admiral.settings SET value = '72'::jsonb WHERE key = 'retention_hours';`
 
 **Need Pro features?**
 → See `.claude/docs/tiering-strategy.md` for upgrade path

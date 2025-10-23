@@ -470,7 +470,7 @@ docker compose logs submarines-digest | grep "Connected to PostgreSQL"
 ```bash
 # Check retention setting in database (flagship settings table)
 docker compose exec postgres psql -U nodepulse -d nodepulse -c \
-  "SELECT key, value FROM flagship.settings WHERE key LIKE '%retention%'"
+  "SELECT key, value FROM admiral.settings WHERE key LIKE '%retention%'"
 
 # Check for old data
 docker compose exec postgres psql -U nodepulse -d nodepulse -c \
@@ -553,7 +553,7 @@ To change it, update the database:
 
 ```bash
 docker compose exec postgres psql -U nodepulse -d nodepulse -c \
-  "UPDATE flagship.settings SET value = '168' WHERE key = 'metrics_retention_hours'"
+  "UPDATE admiral.settings SET value = '168' WHERE key = 'metrics_retention_hours'"
 ```
 
 Or via Flagship admin dashboard (if available).

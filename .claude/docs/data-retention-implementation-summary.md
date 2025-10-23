@@ -16,7 +16,7 @@ Defined NodePulse's product tiers:
 
 ### 2. **Flagship Settings Table** (migrate/migrations/20251021000002_add_flagship_settings.sql)
 
-Created `flagship.settings` table to store system configuration:
+Created `admiral.settings` table to store system configuration:
 
 - `retention_hours`: How long to keep metrics (24/48/72)
 - `retention_enabled`: Enable/disable automatic cleanup
@@ -38,7 +38,7 @@ Built a dedicated data retention cleanup service:
 
 **Features**:
 
-- ✅ Reads retention policy from `flagship.settings`
+- ✅ Reads retention policy from `admiral.settings`
 - ✅ Deletes metrics older than configured hours
 - ✅ Batch deletion (10k rows at a time) to avoid locks
 - ✅ Dry-run mode for testing
@@ -73,7 +73,7 @@ Created comprehensive docs:
 │  1. Admin configures retention in Flagship              │
 │     (UI to be built, or via SQL for now)                │
 │                                                          │
-│     UPDATE flagship.settings                            │
+│     UPDATE admiral.settings                            │
 │     SET value = '48'::jsonb                             │
 │     WHERE key = 'retention_hours';                      │
 └────────────────────┬────────────────────────────────────┘
@@ -89,7 +89,7 @@ Created comprehensive docs:
 ┌─────────────────────────────────────────────────────────┐
 │  3. Cleaner reads retention policy                      │
 │                                                          │
-│     SELECT value FROM flagship.settings                 │
+│     SELECT value FROM admiral.settings                 │
 │     WHERE key = 'retention_hours'                       │
 │     → Returns: 48                                       │
 └────────────────────┬────────────────────────────────────┘
@@ -132,7 +132,7 @@ docker compose run --rm -e DRY_RUN=true submarines-cleaner
 
 # 2. Verify default retention (24h)
 docker compose exec postgres psql -U postgres -d node_pulse_admiral \
-  -c "SELECT * FROM flagship.settings WHERE key = 'retention_hours';"
+  -c "SELECT * FROM admiral.settings WHERE key = 'retention_hours';"
 
 # 3. Run actual cleanup
 docker compose run --rm submarines-cleaner
@@ -143,7 +143,7 @@ docker compose exec postgres psql -U postgres -d node_pulse_admiral \
 
 # 5. Change retention to 48h
 docker compose exec postgres psql -U postgres -d node_pulse_admiral \
-  -c "UPDATE flagship.settings SET value = '48'::jsonb WHERE key = 'retention_hours';"
+  -c "UPDATE admiral.settings SET value = '48'::jsonb WHERE key = 'retention_hours';"
 
 # 6. Run again (should delete less)
 docker compose run --rm submarines-cleaner
@@ -200,28 +200,28 @@ sudo systemctl start nodepulse-cleaner.timer
 
 ```sql
 -- 24 hours retention (default)
-UPDATE flagship.settings SET value = '24'::jsonb WHERE key = 'retention_hours';
-UPDATE flagship.settings SET value = 'true'::jsonb WHERE key = 'retention_enabled';
+UPDATE admiral.settings SET value = '24'::jsonb WHERE key = 'retention_hours';
+UPDATE admiral.settings SET value = 'true'::jsonb WHERE key = 'retention_enabled';
 ```
 
 ### Free Tier (Extended)
 
 ```sql
 -- 48 hours retention
-UPDATE flagship.settings SET value = '48'::jsonb WHERE key = 'retention_hours';
+UPDATE admiral.settings SET value = '48'::jsonb WHERE key = 'retention_hours';
 
 -- Or 72 hours retention
-UPDATE flagship.settings SET value = '72'::jsonb WHERE key = 'retention_hours';
+UPDATE admiral.settings SET value = '72'::jsonb WHERE key = 'retention_hours';
 ```
 
 ### Pro Tier (Future)
 
 ```sql
 -- 7 days retention
-UPDATE flagship.settings SET value = '168'::jsonb WHERE key = 'retention_hours';
-UPDATE flagship.settings SET value = '"pro"'::jsonb WHERE key = 'tier';
-UPDATE flagship.settings SET value = 'true'::jsonb WHERE key = 'timescaledb_enabled';
-UPDATE flagship.settings SET value = 'true'::jsonb WHERE key = 's3_archival_enabled';
+UPDATE admiral.settings SET value = '168'::jsonb WHERE key = 'retention_hours';
+UPDATE admiral.settings SET value = '"pro"'::jsonb WHERE key = 'tier';
+UPDATE admiral.settings SET value = 'true'::jsonb WHERE key = 'timescaledb_enabled';
+UPDATE admiral.settings SET value = 'true'::jsonb WHERE key = 's3_archival_enabled';
 ```
 
 ---
@@ -321,7 +321,7 @@ None - this is a new feature with no impact on existing functionality.
 
 If issues arise:
 
-1. **Disable retention**: `UPDATE flagship.settings SET value = 'false'::jsonb WHERE key = 'retention_enabled';`
+1. **Disable retention**: `UPDATE admiral.settings SET value = 'false'::jsonb WHERE key = 'retention_enabled';`
 2. **Remove cron**: Comment out cron job
 3. **Restore data**: If needed, restore from backup (no automated restore yet)
 
@@ -330,7 +330,7 @@ If issues arise:
 ## Security Considerations
 
 - ✅ Cleaner requires write access to `admiral.metrics`
-- ✅ Read-only access to `flagship.settings`
+- ✅ Read-only access to `admiral.settings`
 - ✅ No access to user data or authentication
 - ✅ Runs with same PostgreSQL credentials as other services
 - ✅ Idempotent (safe to run multiple times)
@@ -397,6 +397,6 @@ For questions or issues:
 
 - **2025-10-21**: Initial implementation complete
   - Created cleaner binary
-  - Added flagship.settings table
+  - Added admiral.settings table
   - Documented tiering strategy
   - Integrated into Docker Compose

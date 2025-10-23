@@ -12,7 +12,7 @@ import (
 func (c *Cleaner) CleanOldMetrics(ctx context.Context) error {
 	logInfo("Starting metrics retention cleanup...")
 
-	// Read retention settings from flagship.settings
+	// Read retention settings from admiral.settings
 	retentionSettings, err := c.getRetentionSettings(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to read retention settings: %w", err)
@@ -38,11 +38,11 @@ func (c *Cleaner) CleanOldMetrics(ctx context.Context) error {
 	}
 
 	if totalRows == 0 {
-		logInfo("No metrics to clean up")
+		logInfo(fmt.Sprintf("✓ No old metrics to clean up (retention: %dh, all metrics are recent)", retentionSettings.RetentionHours))
 		return nil
 	}
 
-	logInfo(fmt.Sprintf("Found %d metrics older than %d hours", totalRows, retentionSettings.RetentionHours))
+	logInfo(fmt.Sprintf("⚠ Found %d metrics older than %d hours - starting deletion...", totalRows, retentionSettings.RetentionHours))
 
 	if c.cfg.DryRun {
 		logInfo(fmt.Sprintf("[DRY RUN] Would delete %d old metric records", totalRows))
@@ -75,7 +75,7 @@ func (c *Cleaner) CleanOldMetrics(ctx context.Context) error {
 		}
 
 		deletedTotal += rowsAffected
-		logInfo(fmt.Sprintf("Deleted batch: %d rows (total: %d/%d)", rowsAffected, deletedTotal, totalRows))
+		logInfo(fmt.Sprintf("🗑️ Deleted batch: %d rows (progress: %d/%d)", rowsAffected, deletedTotal, totalRows))
 
 		// Check context cancellation
 		select {
@@ -86,11 +86,11 @@ func (c *Cleaner) CleanOldMetrics(ctx context.Context) error {
 		}
 	}
 
-	logInfo(fmt.Sprintf("Deleted %d old metric records", deletedTotal))
+	logInfo(fmt.Sprintf("✅ Cleanup complete - deleted %d old metric records", deletedTotal))
 	return nil
 }
 
-// getRetentionSettings reads retention policy from flagship.settings
+// getRetentionSettings reads retention policy from admiral.settings
 func (c *Cleaner) getRetentionSettings(ctx context.Context) (*models.RetentionSettings, error) {
 	// Default values (Free tier)
 	settings := &models.RetentionSettings{
@@ -98,18 +98,21 @@ func (c *Cleaner) getRetentionSettings(ctx context.Context) (*models.RetentionSe
 		Enabled:        true,
 	}
 
-	// Read from flagship.settings
+	// Read from admiral.settings
 	query := `
 		SELECT key, value
-		FROM flagship.settings
+		FROM admiral.settings
 		WHERE key IN ('retention_hours', 'retention_enabled')
 	`
 
 	rows, err := c.db.QueryContext(ctx, query)
 	if err != nil {
-		// If flagship.settings table doesn't exist yet, use defaults
-		if err == sql.ErrNoRows {
-			logInfo("flagship.settings table not found, using defaults")
+		// If admiral.settings table doesn't exist yet, use defaults
+		errMsg := err.Error()
+		if err == sql.ErrNoRows ||
+		   errMsg == `pq: relation "admiral.settings" does not exist` ||
+		   errMsg == `relation "admiral.settings" does not exist` {
+			logInfo("admiral.settings table not found, using defaults (retention: 24h)")
 			return settings, nil
 		}
 		return nil, fmt.Errorf("query failed: %w", err)

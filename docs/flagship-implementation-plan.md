@@ -20,7 +20,7 @@
   - `Metric` (reads from `admiral.metrics`)
   - `Alert` (reads from `admiral.alerts`)
   - `AlertRule` (reads/writes to `admiral.alert_rules`)
-  - `Setting` (reads/writes to `flagship.settings`)
+  - `Setting` (reads/writes to `admiral.settings`)
 - Configure `self.table_name = "admiral.servers"` to read from submarines schema
 
 ### Phase 3: Core Features
@@ -104,7 +104,7 @@ patch "settings", to: "settings#update"
 
 ## Notes
 
-- **Read-only from submarines schema** - Flagship only writes to `flagship.settings` and `admiral.alert_rules`
+- **Read-only from submarines schema** - Flagship only writes to `admiral.settings` and `admiral.alert_rules`
 - **No migrations needed** - All tables created by Submarines migrations
 - **Schema isolation** - Each service has its own schema in shared PostgreSQL database
 - **Simple first, polish later** - Focus on functionality before perfection

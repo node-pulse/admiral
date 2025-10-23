@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Setting represents a configuration setting stored in flagship.settings
+// Setting represents a configuration setting stored in admiral.settings
 type Setting struct {
 	Key         string    `json:"key"`
 	Value       JSONValue `json:"value"`
