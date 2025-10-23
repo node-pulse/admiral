@@ -2,13 +2,29 @@
 # Uses FrankenPHP - a modern, Go-based PHP application server
 # Traefik handles reverse proxy, FrankenPHP serves HTTP directly
 
+# Build stage for Node.js assets
+FROM node:22-alpine AS node-builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --production=false
+
+# Copy source files
+COPY . .
+
+# Build assets
+RUN npm run build
+
+# Production stage
 FROM dunglas/frankenphp:latest-php8.2-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \
-    postgresql-dev \
-    nodejs \
-    npm
+    postgresql-dev
 
 # Install PHP extensions
 RUN install-php-extensions \
@@ -28,14 +44,11 @@ WORKDIR /app
 # Copy application files
 COPY . .
 
+# Copy built assets from node-builder stage
+COPY --from=node-builder /app/public/build /app/public/build
+
 # Install PHP dependencies (production)
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
-# Install Node dependencies and build assets
-RUN npm ci --production=false && \
-    npm run build && \
-    npm cache clean --force && \
-    rm -rf node_modules
 
 # Create storage directories and set permissions
 RUN mkdir -p storage/logs storage/framework/{sessions,views,cache} bootstrap/cache && \
