@@ -347,6 +347,83 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     CONFIG["DATABASE_URL"]="$DATABASE_URL"
 
     # =============================================================================
+    # Review Configuration
+    # =============================================================================
+    while true; do
+        echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${BLUE}Configuration Review${NC}"
+        echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+
+        echo -e "${GREEN}PostgreSQL:${NC}"
+        echo "  User:     ${CONFIG[POSTGRES_USER]}"
+        echo "  Password: ${CONFIG[POSTGRES_PASSWORD]:0:8}****"
+        echo "  Database: ${CONFIG[POSTGRES_DB]}"
+        echo ""
+
+        echo -e "${GREEN}Valkey/Redis:${NC}"
+        echo "  Password: ${CONFIG[VALKEY_PASSWORD]:0:8}****"
+        echo ""
+
+        echo -e "${GREEN}Submarines (Go-Gin):${NC}"
+        echo "  Port:       ${CONFIG[PORT]}"
+        echo "  Ingest:     ${CONFIG[INGEST_PORT]}"
+        echo "  Status:     ${CONFIG[STATUS_PORT]}"
+        echo "  Gin Mode:   ${CONFIG[GIN_MODE]}"
+        echo "  JWT Secret: ${CONFIG[JWT_SECRET]:0:8}****"
+        echo ""
+
+        echo -e "${GREEN}Flagship (Laravel):${NC}"
+        echo "  App Name:   ${CONFIG[APP_NAME]}"
+        echo "  App Env:    ${CONFIG[APP_ENV]}"
+        echo "  App Debug:  ${CONFIG[APP_DEBUG]}"
+        echo "  App URL:    ${CONFIG[APP_URL]}"
+        echo "  App Key:    ${CONFIG[APP_KEY]:0:12}****"
+        echo ""
+
+        echo -e "${GREEN}Cruiser (Next.js):${NC}"
+        echo "  API URL:         ${CONFIG[NEXT_PUBLIC_API_URL]}"
+        echo "  Kratos URL:      ${CONFIG[NEXT_PUBLIC_KRATOS_URL]}"
+        echo "  Better Auth URL: ${CONFIG[BETTER_AUTH_URL]}"
+        echo ""
+
+        echo -e "${GREEN}Production:${NC}"
+        echo "  Domain: ${CONFIG[DOMAIN]}"
+        echo ""
+
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        read -p "Is this configuration correct? (yes/no/restart): " confirm
+
+        case "$confirm" in
+            [Yy]es|[Yy])
+                echo ""
+                echo -e "${GREEN}✓ Configuration confirmed${NC}"
+                echo ""
+                break
+                ;;
+            [Nn]o|[Nn])
+                echo ""
+                echo -e "${YELLOW}Configuration aborted by user${NC}"
+                echo "Exiting without making changes..."
+                exit 0
+                ;;
+            [Rr]estart|[Rr])
+                echo ""
+                echo -e "${YELLOW}Restarting configuration...${NC}"
+                echo ""
+                # Clear CONFIG array and restart
+                unset CONFIG
+                declare -A CONFIG
+                exec "$0" "$@"
+                ;;
+            *)
+                echo -e "${RED}Invalid option. Please enter 'yes', 'no', or 'restart'${NC}"
+                echo ""
+                ;;
+        esac
+    done
+
+    # =============================================================================
     # Write .env file
     # =============================================================================
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
