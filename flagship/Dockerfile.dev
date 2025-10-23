@@ -1,0 +1,113 @@
+# Development Dockerfile for Laravel
+# Includes development tools and hot reload capabilities
+
+# ------------------------------------------------------------
+# Stage 1: Development image
+# ------------------------------------------------------------
+FROM php:8.3-cli-alpine
+
+# Install system dependencies and development tools
+RUN apk add --no-cache \
+    curl \
+    git \
+    bash \
+    nodejs \
+    npm \
+    icu-dev \
+    libzip-dev \
+    oniguruma-dev \
+    postgresql-dev \
+    linux-headers \
+    $PHPIZE_DEPS \
+    && docker-php-ext-install -j$(nproc) \
+    intl \
+    mbstring \
+    zip \
+    bcmath \
+    pcntl \
+    pdo_pgsql \
+    pgsql \
+    && docker-php-ext-enable opcache
+
+# Install Xdebug for debugging
+RUN pecl install xdebug \
+    && docker-php-ext-enable xdebug
+
+# Install Redis extension (useful for development)
+RUN pecl install redis \
+    && docker-php-ext-enable redis
+
+# Configure PHP for development
+RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
+
+# Configure Xdebug
+RUN echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.log=/tmp/xdebug.log" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Create non-root user
+RUN addgroup -g 1000 -S www && \
+    adduser -u 1000 -S www -G www
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Set environment
+ENV APP_ENV=local \
+    APP_DEBUG=true \
+    COMPOSER_ALLOW_SUPERUSER=1 \
+    NODE_ENV=development
+
+# Copy composer files first for better caching
+COPY composer.json composer.lock ./
+
+# Install PHP dependencies including dev dependencies
+RUN composer install \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist
+
+# Copy package files for npm
+COPY package*.json ./
+
+# Install Node dependencies
+RUN npm install
+
+# Copy the rest of the application
+COPY . .
+
+# Generate autoloader
+RUN composer dump-autoload --optimize
+
+# Create storage directories and set permissions
+RUN mkdir -p storage/logs \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/framework/cache \
+    storage/framework/testing \
+    storage/app/public \
+    bootstrap/cache \
+    && chown -R www:www storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+# Copy development entrypoint script
+COPY docker/entrypoint-dev.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Switch to non-root user
+USER www
+
+# Expose ports
+EXPOSE 8000 5173 9003
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000 || exit 1
+
+# Start development server
+CMD ["/entrypoint.sh"]

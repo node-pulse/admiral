@@ -17,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # Expose port for status service
-EXPOSE 8082
+EXPOSE 8081
 
 # Use air for hot reloading with status configuration
 CMD ["air", "-c", ".air.status.toml"]

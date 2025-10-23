@@ -178,7 +178,7 @@ services:
     environment:
       <<: *common-variables
     ports:
-      - "8081:8082" # Expose on 8081 for development
+      - "8081:8081"
     depends_on:
       postgres:
         condition: service_healthy
@@ -191,14 +191,14 @@ services:
   flagship:
     build:
       context: ./flagship
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev # Development build with hot reload
     container_name: node-pulse-flagship
     env_file:
       - .env
-    environment:
-      <<: *common-variables
     ports:
-      - "8000:3000" # Expose on 8000 for development
+      - "8000:8000" # Laravel dev server
+      - "5173:5173" # Vite dev server
+      - "9003:9003" # Xdebug port
     depends_on:
       postgres:
         condition: service_healthy
@@ -209,10 +209,8 @@ services:
       submarines-ingest:
         condition: service_started
     volumes:
-      - ./flagship:/app
-      - /app/vendor
-      - /app/node_modules
-      - /app/storage
+      - ./flagship:/var/www/html # Mount entire app for hot reload
+      - ./logs/flagship:/var/www/html/storage/logs
     networks:
       - node-pulse-admiral
 
@@ -228,7 +226,7 @@ services:
     environment:
       <<: *common-variables
     ports:
-      - "8082:3000" # Expose on 8082 for development
+      - "3000:3000"
     depends_on:
       - submarines-ingest
       - postgres

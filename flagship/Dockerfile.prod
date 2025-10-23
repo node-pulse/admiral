@@ -1,0 +1,147 @@
+# Production Dockerfile for Laravel without Octane
+# Optimized for minimal size and security
+
+# ------------------------------------------------------------
+# Stage 1: PHP Base
+# ------------------------------------------------------------
+FROM php:8.3-fpm-alpine AS php-base
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    nginx \
+    supervisor \
+    icu-dev \
+    libzip-dev \
+    oniguruma-dev \
+    postgresql-dev \
+    && docker-php-ext-install -j$(nproc) \
+    intl \
+    mbstring \
+    zip \
+    bcmath \
+    pcntl \
+    pdo_pgsql \
+    pgsql \
+    opcache \
+    && docker-php-ext-enable opcache
+
+# Configure PHP for production
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+
+# Configure OPcache for production
+RUN echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
+    && echo "opcache.interned_strings_buffer=8" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
+    && echo "opcache.max_accelerated_files=4000" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
+    && echo "opcache.revalidate_freq=2" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
+    && echo "opcache.fast_shutdown=1" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
+    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
+
+# ------------------------------------------------------------
+# Stage 2: Composer dependencies
+# ------------------------------------------------------------
+FROM composer:2 AS vendor
+
+WORKDIR /app
+
+# Copy composer files
+COPY composer.json composer.lock ./
+
+# Install production dependencies only
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-scripts \
+    --prefer-dist \
+    --optimize-autoloader
+
+# ------------------------------------------------------------
+# Stage 3: Frontend assets (with PHP for Laravel wayfinder)
+# ------------------------------------------------------------
+FROM php:8.3-cli-alpine AS frontend
+
+# Install Node.js and npm
+RUN apk add --no-cache nodejs npm
+
+# Install PHP extensions needed by Laravel
+RUN apk add --no-cache \
+    icu-dev libzip-dev oniguruma-dev postgresql-dev \
+    && docker-php-ext-install -j$(nproc) \
+    intl mbstring zip bcmath pcntl pdo_pgsql pgsql
+
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+# Copy composer files and install PHP dependencies
+COPY composer.json composer.lock ./
+RUN composer install --no-scripts --prefer-dist
+
+# Copy package files and install Node dependencies
+COPY package*.json ./
+RUN npm ci
+
+# Copy application code
+COPY . .
+
+# Generate optimized autoloader for artisan commands
+RUN composer dump-autoload --optimize
+
+# Build assets (now PHP is available for wayfinder)
+RUN npm run build
+
+# ------------------------------------------------------------
+# Stage 4: Production image
+# ------------------------------------------------------------
+FROM php-base AS production
+
+# Set environment
+ENV APP_ENV=production \
+    APP_DEBUG=false
+
+# Create non-root user
+RUN addgroup -g 1000 -S www && \
+    adduser -u 1000 -S www -G www
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy application code
+COPY --chown=www:www . .
+
+# Copy vendor from composer stage
+COPY --from=vendor --chown=www:www /app/vendor ./vendor
+
+# Copy built assets from frontend stage
+COPY --from=frontend --chown=www:www /app/public/build ./public/build
+
+# Create storage directories and set permissions
+RUN mkdir -p storage/logs \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/framework/cache \
+    storage/framework/testing \
+    storage/app/public \
+    bootstrap/cache \
+    && chown -R www:www storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+# Copy configuration files
+COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
+COPY docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/entrypoint.sh /entrypoint.sh
+
+# Make entrypoint executable
+RUN chmod +x /entrypoint.sh
+
+# Create necessary directories for logs
+RUN mkdir -p /var/log/php-fpm /var/log/supervisor
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]

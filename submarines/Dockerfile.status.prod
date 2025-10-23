@@ -35,7 +35,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /build/status /status
 
 # Expose port
-EXPOSE 8082
+EXPOSE 8081
 
 # Run binary
 ENTRYPOINT ["/status"]
