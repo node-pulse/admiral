@@ -45,11 +45,18 @@ rails credentials:edit
 **Development:**
 
 - Rails automatically reads from `flagship/config/master.key`
-- No need to add to `.env` file
+- **DO NOT** add `RAILS_MASTER_KEY` to `.env` file
 
-**Production:**
+**Production (Docker Compose):**
 
-- The `deploy.sh` script creates the key and adds it to `.env` automatically
+- Rails reads from `flagship/config/master.key` (mounted as volume)
+- **DO NOT** add `RAILS_MASTER_KEY` to `.env` file
+- The master key is kept separate from environment variables for security
+
+**Production (Cloud/Kubernetes):**
+
+- Set `RAILS_MASTER_KEY` as environment variable (outside of `.env` file)
+- Use secrets management (AWS Secrets Manager, Kubernetes Secrets, etc.)
 
 ### 3. Run Database Migrations
 
@@ -154,16 +161,17 @@ chmod 600 ~/.ssh/authorized_keys
 
 **DO:**
 
-- ✅ Store `RAILS_MASTER_KEY` in your password manager (1Password, LastPass, etc.)
-- ✅ Backup the key to a secure location
-- ✅ Use environment variables in production
-- ✅ Restrict access to `.env` file (chmod 600)
+- ✅ Backup `config/master.key` to your password manager (1Password, LastPass, etc.)
+- ✅ Store the master key in a secure location (separate from application code)
+- ✅ Restrict file permissions on `config/master.key` (chmod 600)
+- ✅ Use environment variables **only in cloud environments** (not in `.env` file)
 
 **DON'T:**
 
 - ❌ Commit `config/master.key` to git (already gitignored)
+- ❌ Add `RAILS_MASTER_KEY` to `.env` file (defeats the purpose of gitignoring master.key)
 - ❌ Share master key in Slack, email, or unencrypted channels
-- ❌ Store master key in plain text on production servers
+- ❌ Store master key in plain text in version control
 - ❌ Use the same master key across different environments
 
 ### SSH Key Best Practices
