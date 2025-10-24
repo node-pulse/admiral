@@ -304,7 +304,7 @@ export function SSHTerminal({
             onConnectionChange?.(false);
         };
 
-        ws.onclose = (event) => {
+        ws.onclose = () => {
             const wasConnected = connectionStatus === 'connected';
             terminal.writeln('\r\n\x1b[33m✗ Connection closed\x1b[0m\r\n');
 

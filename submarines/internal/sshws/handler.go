@@ -164,10 +164,18 @@ func (h *Handler) handleAuth(c *gin.Context, ws *websocket.Conn, sessionID, serv
 	}
 
 	// Determine authentication method and configure
+	// Priority: User-provided password > Database private key
+	// If user explicitly provides a password, use it (regardless of key in DB)
 	var authMethod string
 
-	// Try private key authentication
-	if privateKeyContent.Valid && privateKeyContent.String != "" {
+	if msg.Password != "" {
+		// Use password authentication (session-only, never stored in database)
+		// This is intended for initial setup to allow users to connect and configure SSH keys
+		authMethod = "password"
+		log.Printf("[%s] Using password authentication (session-only)", sessionID)
+		sshConfig.Auth = []ssh.AuthMethod{ssh.Password(msg.Password)}
+	} else if privateKeyContent.Valid && privateKeyContent.String != "" {
+		// Try private key authentication
 		authMethod = "private_key"
 		log.Printf("[%s] Using SSH key authentication", sessionID)
 
@@ -194,12 +202,6 @@ func (h *Handler) handleAuth(c *gin.Context, ws *websocket.Conn, sessionID, serv
 		}
 
 		sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
-	} else if msg.Password != "" {
-		// Use password authentication (session-only, never stored in database)
-		// This is intended for initial setup to allow users to connect and configure SSH keys
-		authMethod = "password"
-		log.Printf("[%s] Using password authentication (session-only)", sessionID)
-		sshConfig.Auth = []ssh.AuthMethod{ssh.Password(msg.Password)}
 	} else {
 		h.sendMessage(ws, map[string]interface{}{
 			"type":    "error",
