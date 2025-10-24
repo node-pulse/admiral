@@ -164,8 +164,9 @@ func (h *Handler) handleAuth(ws *websocket.Conn, sessionID, serverID string, msg
 
 		sshConfig.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
 	} else if msg.Password != "" {
-		// Fall back to password authentication
-		log.Printf("[%s] Using password authentication", sessionID)
+		// Use password authentication (session-only, never stored in database)
+		// This is intended for initial setup to allow users to connect and configure SSH keys
+		log.Printf("[%s] Using password authentication (session-only)", sessionID)
 		sshConfig.Auth = []ssh.AuthMethod{ssh.Password(msg.Password)}
 	} else {
 		h.sendMessage(ws, map[string]interface{}{
