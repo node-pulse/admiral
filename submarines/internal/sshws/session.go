@@ -139,14 +139,52 @@ func (sl *SessionLogger) LogSessionEnd(status, disconnectReason string) error {
 		log.Printf("[Session Logger] Failed to log session end: %v", err)
 		return fmt.Errorf("failed to log session end: %w", err)
 	}
-
-	log.Printf("[Session Logger] Session %s ended (status: %s, reason: %s)",
-		sl.sessionID, status, disconnectReason)
 	return nil
 }
 
 // LogSessionFailure logs a failed SSH connection attempt
 func (sl *SessionLogger) LogSessionFailure(reason string) error {
+	// First, insert the session record if it doesn't exist yet
+	// This ensures we have a record even for failed connection attempts
+	query := `
+		INSERT INTO admiral.ssh_sessions (
+			session_id,
+			server_id,
+			user_id,
+			better_auth_id,
+			ip_address,
+			user_agent,
+			started_at,
+			status,
+			auth_method,
+			ssh_username,
+			ssh_host,
+			ssh_port,
+			host_key_fingerprint
+		) VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'active', $7, $8, $9, $10, $11)
+		ON CONFLICT (session_id) DO NOTHING
+	`
+
+	_, err := sl.db.Exec(query,
+		sl.sessionID,
+		sl.serverID,
+		sl.userID,
+		sl.betterAuthID,
+		sl.ipAddress,
+		sl.userAgent,
+		sl.authMethod,
+		sl.sshUsername,
+		sl.sshHost,
+		sl.sshPort,
+		sl.hostKeyFp,
+	)
+
+	if err != nil {
+		log.Printf("[Session Logger] Failed to insert session record: %v", err)
+		// Continue anyway to try to end the session
+	}
+
+	// Now properly end the session with failed status
 	return sl.LogSessionEnd("failed", reason)
 }
 

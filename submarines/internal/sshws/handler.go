@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -168,12 +169,16 @@ func (h *Handler) handleAuth(c *gin.Context, ws *websocket.Conn, sessionID, serv
 	// If user explicitly provides a password, use it (regardless of key in DB)
 	var authMethod string
 
-	if msg.Password != "" {
+
+	// Trim whitespace from password to handle edge cases
+	password := strings.TrimSpace(msg.Password)
+
+	if password != "" {
 		// Use password authentication (session-only, never stored in database)
 		// This is intended for initial setup to allow users to connect and configure SSH keys
 		authMethod = "password"
 		log.Printf("[%s] Using password authentication (session-only)", sessionID)
-		sshConfig.Auth = []ssh.AuthMethod{ssh.Password(msg.Password)}
+		sshConfig.Auth = []ssh.AuthMethod{ssh.Password(password)}
 	} else if privateKeyContent.Valid && privateKeyContent.String != "" {
 		// Try private key authentication
 		authMethod = "private_key"
