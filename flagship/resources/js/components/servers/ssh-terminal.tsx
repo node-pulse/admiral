@@ -470,10 +470,31 @@ export function SSHTerminal({
             )}
 
             <div
-                ref={terminalRef}
-                className="overflow-hidden rounded-lg border border-gray-700"
-                style={{ height: '600px' }}
-            />
+                className="rounded-lg border border-gray-700 bg-[#1e1e1e]"
+                style={{ height: '600px', padding: '8px' }}
+            >
+                <style>
+                    {`
+                        .xterm-viewport::-webkit-scrollbar {
+                            width: 6px;
+                        }
+                        .xterm-viewport::-webkit-scrollbar-track {
+                            background: #1e1e1e;
+                        }
+                        .xterm-viewport::-webkit-scrollbar-thumb {
+                            background: #3a3a3a;
+                            border-radius: 4px;
+                        }
+                        .xterm-viewport::-webkit-scrollbar-thumb:hover {
+                            background: #4a4a4a;
+                        }
+                    `}
+                </style>
+                <div
+                    ref={terminalRef}
+                    style={{ height: '100%', width: '100%' }}
+                />
+            </div>
 
             {!serverConnected && !showPasswordPrompt && (
                 <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
