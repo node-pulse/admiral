@@ -104,8 +104,6 @@ export default function Servers() {
     );
     const [selectedKeyId, setSelectedKeyId] = useState<string>('');
 
-    console.log('selectedServer :>> ', selectedServer);
-
     useEffect(() => {
         fetchServers();
         fetchPrivateKeys();

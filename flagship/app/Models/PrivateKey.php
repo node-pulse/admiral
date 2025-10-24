@@ -43,10 +43,11 @@ class PrivateKey extends Model
     {
         $masterKey = config('app.master_key');
 
-        if (!$masterKey) {
+        if (empty($masterKey)) {
             throw new \RuntimeException(
                 'Master encryption key not configured. ' .
-                'Please set MASTER_KEY environment variable or create config/master.key file'
+                'Please ensure /secrets/master.key exists and is mounted. ' .
+                'Run deploy.sh to generate the key.'
             );
         }
 

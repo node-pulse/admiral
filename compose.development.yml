@@ -135,6 +135,7 @@ services:
       - .env
     environment:
       <<: *common-variables
+      MASTER_KEY_PATH: /secrets/master.key
     ports:
       - "8080:8080" # Hardcoded for Cloudflare Tunnel
     depends_on:
@@ -146,6 +147,7 @@ services:
         condition: service_healthy
     volumes:
       - ./submarines:/app
+      - ./secrets:/secrets:ro
     networks:
       - node-pulse-admiral
 
@@ -189,6 +191,30 @@ services:
     networks:
       - node-pulse-admiral
 
+  # Go Submarines SSH WebSocket - Interactive terminal access
+  submarines-sshws:
+    build:
+      context: ./submarines
+      dockerfile: Dockerfile.sshws.dev
+    container_name: node-pulse-submarines-sshws
+    env_file:
+      - .env
+    environment:
+      <<: *common-variables
+      MASTER_KEY_PATH: /secrets/master.key
+    ports:
+      - "6001:6001" # local development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      flagship-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./submarines:/app
+      - ./secrets:/secrets:ro
+    networks:
+      - node-pulse-admiral
+
   # Laravel Flagship - Admin Dashboard
   flagship:
     build:
@@ -213,36 +239,7 @@ services:
     volumes:
       - ./flagship:/var/www/html # Mount entire app for hot reload
       - ./logs/flagship:/var/www/html/storage/logs
-    networks:
-      - node-pulse-admiral
-
-  # SSH WebSocket Server - Node.js based interactive terminal
-  ssh-ws:
-    build:
-      context: ./ssh-ws-server
-      dockerfile: Dockerfile.dev
-    container_name: node-pulse-ssh-ws
-    env_file:
-      - .env
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_DATABASE: ${POSTGRES_DB:-node_pulse_admiral}
-      DB_USERNAME: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      WS_PORT: 6001
-      NODE_ENV: development
-      SSH_MASTER_KEY: e78e93131740cda850f1b0fe941933e031d3a643bbba53e8f1547204cb8b4da5
-    ports:
-      - "6001:6001" # SSH WebSocket server
-    depends_on:
-      postgres:
-        condition: service_healthy
-      flagship-migrate:
-        condition: service_completed_successfully
-    volumes:
-      - ./ssh-ws-server:/app # Mount for hot reload
-      - /app/node_modules # Exclude node_modules
+      - ./secrets:/secrets:ro
     networks:
       - node-pulse-admiral
 

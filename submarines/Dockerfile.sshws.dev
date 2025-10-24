@@ -1,0 +1,23 @@
+# Development Dockerfile for SSH WebSocket Service
+FROM golang:1.25-alpine
+
+WORKDIR /app
+
+# Install air for hot reload
+RUN go install github.com/air-verse/air@latest
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Create air config for sshws
+RUN mkdir -p /app/tmp
+
+# Expose SSH WebSocket port
+EXPOSE 6001
+
+# Run with air (hot reload)
+CMD ["air", "-c", ".air.sshws.toml"]

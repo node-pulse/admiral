@@ -116,14 +116,18 @@ return [
     */
 
     'master_key' => (function() {
-        // Priority 1: Read from config/master.key file (Rails-style, most secure)
-        $masterKeyPath = base_path('config/master.key');
-        if (file_exists($masterKeyPath)) {
-            return trim(file_get_contents($masterKeyPath));
+        $keyPath = '/secrets/master.key';
+
+        // If file doesn't exist (e.g., during Docker build), return empty string
+        // Error will be thrown when actually trying to use it
+        if (!file_exists($keyPath)) {
+            return '';
         }
 
-        // Priority 2: Fall back to MASTER_KEY environment variable
-        return env('MASTER_KEY');
+        $key = trim(file_get_contents($keyPath));
+
+        // Return empty string if file is empty - error on usage, not on config load
+        return $key;
     })(),
 
     'previous_keys' => [

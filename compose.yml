@@ -116,6 +116,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      MASTER_KEY_PATH: /secrets/master.key
     ports:
       - "8080:8080"
     depends_on:
@@ -125,6 +127,8 @@ services:
         condition: service_healthy
       kratos:
         condition: service_healthy
+    volumes:
+      - ./secrets:/secrets:ro
     networks:
       - node-pulse-admiral
 
@@ -158,6 +162,27 @@ services:
     networks:
       - node-pulse-admiral
 
+  # Go Submarines SSH WebSocket - Interactive terminal access
+  submarines-sshws:
+    image: ghcr.io/node-pulse/node-pulse-submarines-sshws:latest
+    container_name: node-pulse-submarines-sshws
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MASTER_KEY_PATH: /secrets/master.key
+    ports:
+      - "127.0.0.1:6001:6001" # Localhost only - not exposed publicly
+    depends_on:
+      postgres:
+        condition: service_healthy
+      flagship-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./secrets:/secrets:ro
+    networks:
+      - node-pulse-admiral
+
   # Laravel Flagship - Admin Dashboard
   flagship:
     image: ghcr.io/node-pulse/node-pulse-flagship:latest
@@ -184,34 +209,7 @@ services:
         condition: service_started
     volumes:
       - ./logs/flagship:/var/www/html/storage/logs # Mount logs for persistence
-      - ./flagship/config/master.key:/var/www/html/config/master.key:ro # Mount master key (read-only)
-    networks:
-      - node-pulse-admiral
-
-  # Flagship SSH WebSocket Server - Interactive terminal
-  flagship-ws:
-    image: ghcr.io/node-pulse/node-pulse-flagship:latest
-    container_name: node-pulse-flagship-ws
-    restart: unless-stopped
-    env_file:
-      - .env
-    command: php artisan ssh:websocket-server --host=0.0.0.0 --port=6001
-    ports:
-      - "6001:6001" # SSH WebSocket server
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.ssh-ws.rule=Host(`${FLAGSHIP_DOMAIN:-localhost}`) && PathPrefix(`/ws/ssh/`)"
-      - "traefik.http.routers.ssh-ws.entrypoints=websecure"
-      - "traefik.http.routers.ssh-ws.tls=true"
-      - "traefik.http.services.ssh-ws.loadbalancer.server.port=6001"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      flagship-migrate:
-        condition: service_completed_successfully
-    volumes:
-      - ./logs/flagship-ssh:/var/www/html/storage/logs # Mount logs for persistence
-      - ./flagship/config/master.key:/var/www/html/config/master.key:ro # Mount master key (read-only)
+      - ./secrets:/secrets:ro # Mount shared secrets directory (read-only)
     networks:
       - node-pulse-admiral
 

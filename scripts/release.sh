@@ -26,6 +26,7 @@ fi
 # Create release directory structure
 echo "Creating release directory structure..."
 mkdir -p "$RELEASE_DIR"
+mkdir -p "$RELEASE_DIR/secrets"
 
 # Copy deployment files
 echo "Copying deployment files..."
@@ -42,6 +43,11 @@ fi
 # Copy documentation
 if [ -f "$PROJECT_ROOT/README.md" ]; then
     cp "$PROJECT_ROOT/README.md" "$RELEASE_DIR/"
+fi
+
+# Copy secrets README (but not the actual secrets!)
+if [ -f "$PROJECT_ROOT/secrets/README.md" ]; then
+    cp "$PROJECT_ROOT/secrets/README.md" "$RELEASE_DIR/secrets/"
 fi
 
 # Create deployment README
@@ -155,14 +161,17 @@ nodepulse-admiral-{version}/
 ├── .env.example             # Environment variables template
 ├── deploy.sh                # Interactive deployment script
 ├── README.md                # Project documentation
-└── DEPLOY.md                # This file
+├── DEPLOY.md                # This file
+└── secrets/                 # Secrets directory (created during deployment)
+    ├── README.md            # Secrets documentation
+    └── master.key           # Master encryption key (auto-generated)
 ```
 
 ## Configuration Files
 
 - **compose.yml**: Docker services configuration
 - **.env**: Environment variables (create from .env.example)
-- **/etc/nodepulse/cleaner.env**: Cleaner service configuration
+- **secrets/master.key**: Master encryption key (auto-generated during deployment)
 
 ## Support
 

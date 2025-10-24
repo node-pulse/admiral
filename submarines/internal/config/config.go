@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -29,7 +30,10 @@ type Config struct {
 
 	// JWT
 	JWTSecret string
-	
+
+	// Encryption
+	MasterKey string
+
 	// Cleaner-specific
 	DryRun           bool
 	LogLevel         string
@@ -61,6 +65,9 @@ func Load() *Config {
 		// JWT
 		JWTSecret: getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 
+		// Encryption
+		MasterKey: loadMasterKey(),
+
 		// Cleaner-specific
 		DryRun:           getEnv("DRY_RUN", "false") == "true",
 		LogLevel:         getEnv("LOG_LEVEL", "info"),
@@ -83,4 +90,29 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// loadMasterKey loads the master encryption key from file
+// Requires /secrets/master.key to be mounted (no fallbacks)
+func loadMasterKey() string {
+	masterKeyPath := getEnv("MASTER_KEY_PATH", "/secrets/master.key")
+
+	data, err := os.ReadFile(masterKeyPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Master encryption key not found at %s\n", masterKeyPath)
+		fmt.Fprintf(os.Stderr, "Please ensure:\n")
+		fmt.Fprintf(os.Stderr, "  1. The secrets directory is mounted: ./secrets:/secrets:ro\n")
+		fmt.Fprintf(os.Stderr, "  2. The master.key file exists in the secrets directory\n")
+		fmt.Fprintf(os.Stderr, "  3. Run deploy.sh to generate the key if needed\n")
+		fmt.Fprintf(os.Stderr, "Error details: %v\n", err)
+		os.Exit(1)
+	}
+
+	key := strings.TrimSpace(string(data))
+	if key == "" {
+		fmt.Fprintf(os.Stderr, "ERROR: Master encryption key file is empty at %s\n", masterKeyPath)
+		os.Exit(1)
+	}
+
+	return key
 }

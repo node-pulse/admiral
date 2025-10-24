@@ -4,6 +4,9 @@
 .env.*.local
 .env.production
 
+# Secrets
+secrets/
+
 # Docker volumes
 postgres_data/
 valkey_data/

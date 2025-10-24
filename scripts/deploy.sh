@@ -266,7 +266,28 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    MASTER_KEY_FILE="$PROJECT_ROOT/flagship/config/master.key"
+    SECRETS_DIR="$PROJECT_ROOT/secrets"
+    MASTER_KEY_FILE="$SECRETS_DIR/master.key"
+    LEGACY_KEY_FILE="$PROJECT_ROOT/flagship/config/master.key"
+
+    # Create secrets directory if it doesn't exist
+    mkdir -p "$SECRETS_DIR"
+
+    # Check for legacy key location and migrate if needed
+    if [ -f "$LEGACY_KEY_FILE" ] && [ ! -f "$MASTER_KEY_FILE" ]; then
+        echo -e "${YELLOW}Found master key in legacy location${NC}"
+        echo "  Old location: $LEGACY_KEY_FILE"
+        echo "  New location: $MASTER_KEY_FILE"
+        echo ""
+        read -p "Migrate key to new shared location? (Y/n): " migrate_key
+        if [[ ! "$migrate_key" =~ ^[Nn]$ ]]; then
+            cp "$LEGACY_KEY_FILE" "$MASTER_KEY_FILE"
+            chmod 600 "$MASTER_KEY_FILE"
+            echo -e "${GREEN}✓ Master key migrated successfully${NC}"
+            echo -e "${CYAN}  (Legacy file kept for backward compatibility)${NC}"
+            echo ""
+        fi
+    fi
 
     if [ -f "$MASTER_KEY_FILE" ]; then
         echo -e "${YELLOW}✓ Master key file already exists${NC}"
@@ -281,8 +302,8 @@ if [ "$SKIP_CONFIG" != "true" ]; then
             cp "$MASTER_KEY_FILE" "$backup_file"
             echo -e "${GREEN}✓ Backed up existing key to $backup_file${NC}"
 
-            # Generate new key (simple random string, 32 characters)
-            new_master_key=$(openssl rand -hex 16)
+            # Generate new key (64 character hex string for AES-256)
+            new_master_key=$(openssl rand -hex 32)
             echo "$new_master_key" > "$MASTER_KEY_FILE"
             chmod 600 "$MASTER_KEY_FILE"
             echo -e "${GREEN}✓ New master key generated${NC}"
@@ -291,16 +312,14 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     else
         echo -e "${CYAN}Generating new master key for SSH private key encryption...${NC}"
 
-        # Create config directory if it doesn't exist
-        mkdir -p "$(dirname "$MASTER_KEY_FILE")"
-
-        # Generate new key (simple random string, 32 characters)
-        new_master_key=$(openssl rand -hex 16)
+        # Generate new key (64 character hex string for AES-256)
+        new_master_key=$(openssl rand -hex 32)
         echo "$new_master_key" > "$MASTER_KEY_FILE"
         chmod 600 "$MASTER_KEY_FILE"
 
         echo -e "${GREEN}✓ Master key generated successfully${NC}"
         echo "  Location: $MASTER_KEY_FILE"
+        echo "  Format: 64-character hex (32 bytes for AES-256-CBC)"
         echo "  Permissions: 600 (owner read/write only)"
         echo ""
         echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -642,7 +661,11 @@ echo -e "${BLUE}Verifying Master Key${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
-MASTER_KEY_FILE="$PROJECT_ROOT/flagship/config/master.key"
+SECRETS_DIR="$PROJECT_ROOT/secrets"
+MASTER_KEY_FILE="$SECRETS_DIR/master.key"
+
+# Ensure secrets directory exists
+mkdir -p "$SECRETS_DIR"
 
 if [ ! -f "$MASTER_KEY_FILE" ]; then
     echo -e "${RED}✗ Master key file not found!${NC}"
@@ -652,16 +675,14 @@ if [ ! -f "$MASTER_KEY_FILE" ]; then
     echo -e "${YELLOW}Creating it now...${NC}"
     echo ""
 
-    # Create config directory if it doesn't exist
-    mkdir -p "$(dirname "$MASTER_KEY_FILE")"
-
-    # Generate new key
-    new_master_key=$(openssl rand -hex 16)
+    # Generate new key (64 character hex string for AES-256)
+    new_master_key=$(openssl rand -hex 32)
     echo "$new_master_key" > "$MASTER_KEY_FILE"
     chmod 600 "$MASTER_KEY_FILE"
 
     echo -e "${GREEN}✓ Master key generated${NC}"
     echo "  Location: $MASTER_KEY_FILE"
+    echo "  Format: 64-character hex (32 bytes for AES-256-CBC)"
     echo ""
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${YELLOW}⚠️  IMPORTANT: BACKUP THIS KEY!${NC}"
