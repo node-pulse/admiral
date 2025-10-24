@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { privateKeys as privateKeysRoute } from '@/routes';
+import { sshKeys as sshKeysRoute } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { Copy, Key, Link2, Plus, Search, Server, Trash2 } from 'lucide-react';
@@ -39,7 +39,7 @@ import { toast } from 'sonner';
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'SSH Keys',
-        href: privateKeysRoute().url,
+        href: sshKeysRoute().url,
     },
 ];
 
@@ -342,7 +342,7 @@ export default function PrivateKeys() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="SSH Keys" />
 
-            <div className="AdmiralPrivateKeys flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+            <div className="AdmiralSSHKeys flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>

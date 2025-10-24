@@ -10,10 +10,10 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard, privateKeys, servers } from '@/routes';
+import { dashboard, sshKeys, servers, sshSessions } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, Key, LayoutGrid, Server } from 'lucide-react';
+import { BookOpen, Folder, Key, LayoutGrid, Server, Terminal } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -29,8 +29,13 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'SSH Keys',
-        href: privateKeys(),
+        href: sshKeys(),
         icon: Key,
+    },
+    {
+        title: 'SSH Sessions',
+        href: sshSessions(),
+        icon: Terminal,
     },
 ];
 

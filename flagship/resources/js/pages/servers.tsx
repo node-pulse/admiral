@@ -38,10 +38,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import {
-    privateKeys as privateKeysRoute,
-    servers as serversRoute,
-} from '@/routes';
+import { servers as serversRoute, sshKeys as sshKeysRoute } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import {
@@ -306,7 +303,7 @@ export default function Servers() {
     };
 
     const navigateToSSHKeys = () => {
-        router.visit(privateKeysRoute().url);
+        router.visit(sshKeysRoute().url);
     };
 
     return (

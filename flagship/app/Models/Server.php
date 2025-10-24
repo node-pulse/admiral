@@ -64,6 +64,11 @@ class Server extends Model
             ->withTimestamps();
     }
 
+    public function sshSessions(): HasMany
+    {
+        return $this->hasMany(SshSession::class);
+    }
+
     /**
      * Get the primary SSH key for this server
      */

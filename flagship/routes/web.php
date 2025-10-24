@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PrivateKeysController;
 use App\Http\Controllers\ServersController;
+use App\Http\Controllers\SshSessionsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -47,6 +48,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/{id}', [PrivateKeysController::class, 'update'])->name('ssh-keys.update');
         Route::delete('/{id}', [PrivateKeysController::class, 'destroy'])->name('ssh-keys.destroy');
         Route::get('/{id}/download-public', [PrivateKeysController::class, 'downloadPublicKey'])->name('ssh-keys.download-public');
+    });
+
+    // SSH Sessions management
+    Route::prefix('ssh-sessions')->group(function () {
+        Route::get('/', [SshSessionsController::class, 'page'])->name('ssh-sessions');
+        Route::get('/list', [SshSessionsController::class, 'index'])->name('ssh-sessions.index');
+        Route::get('/{id}', [SshSessionsController::class, 'show'])->name('ssh-sessions.show');
+        Route::post('/{id}/terminate', [SshSessionsController::class, 'terminate'])->name('ssh-sessions.terminate');
     });
 });
 
