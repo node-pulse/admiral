@@ -1,3 +1,4 @@
+import { Captcha } from '@/components/captcha';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,8 @@ import AuthLayout from '@/layouts/auth-layout';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 interface LoginProps {
     status?: string;
@@ -22,6 +24,11 @@ export default function Login({
     canResetPassword,
     canRegister,
 }: LoginProps) {
+    const { captcha } = usePage<{
+        captcha: { enabled: { login: boolean } };
+    }>().props;
+    const [captchaToken, setCaptchaToken] = useState<string>('');
+
     return (
         <AuthLayout
             title="Log in to your account"
@@ -33,6 +40,7 @@ export default function Login({
                 {...store.form()}
                 resetOnSuccess={['password']}
                 className="flex flex-col gap-6"
+                data={{ captcha_token: captchaToken }}
             >
                 {({ processing, errors }) => (
                     <>
@@ -86,11 +94,30 @@ export default function Login({
                                 <Label htmlFor="remember">Remember me</Label>
                             </div>
 
+                            {captcha.enabled.login && (
+                                <div className="mt-4">
+                                    <Captcha
+                                        onVerify={(token) =>
+                                            setCaptchaToken(token)
+                                        }
+                                        onError={() => setCaptchaToken('')}
+                                        onExpire={() => setCaptchaToken('')}
+                                    />
+                                    <InputError
+                                        message={errors.captcha_token}
+                                        className="mt-2"
+                                    />
+                                </div>
+                            )}
+
                             <Button
                                 type="submit"
                                 className="mt-4 w-full"
                                 tabIndex={4}
-                                disabled={processing}
+                                disabled={
+                                    processing ||
+                                    (captcha.enabled.login && !captchaToken)
+                                }
                                 data-test="login-button"
                             >
                                 {processing && <Spinner />}

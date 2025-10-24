@@ -13,6 +13,11 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
+// Override Fortify's password reset link request to add CAPTCHA validation
+Route::post('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'store'])
+    ->middleware('guest')
+    ->name('password.email');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return Inertia::render('dashboard');

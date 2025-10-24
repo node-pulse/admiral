@@ -1,17 +1,24 @@
 // Components
 import { login } from '@/routes';
 import { email } from '@/routes/password';
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
 
+import { Captcha } from '@/components/captcha';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
+import { useState } from 'react';
 
 export default function ForgotPassword({ status }: { status?: string }) {
+    const { captcha } = usePage<{
+        captcha: { enabled: { forgot_password: boolean } };
+    }>().props;
+    const [captchaToken, setCaptchaToken] = useState<string>('');
+
     return (
         <AuthLayout
             title="Forgot password"
@@ -26,7 +33,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
             )}
 
             <div className="space-y-6">
-                <Form {...email.form()}>
+                <Form {...email.form()} data={{ captcha_token: captchaToken }}>
                     {({ processing, errors }) => (
                         <>
                             <div className="grid gap-2">
@@ -43,10 +50,30 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                 <InputError message={errors.email} />
                             </div>
 
+                            {captcha.enabled.forgot_password && (
+                                <div className="mt-4">
+                                    <Captcha
+                                        onVerify={(token) =>
+                                            setCaptchaToken(token)
+                                        }
+                                        onError={() => setCaptchaToken('')}
+                                        onExpire={() => setCaptchaToken('')}
+                                    />
+                                    <InputError
+                                        message={errors.captcha_token}
+                                        className="mt-2"
+                                    />
+                                </div>
+                            )}
+
                             <div className="my-6 flex items-center justify-start">
                                 <Button
                                     className="w-full"
-                                    disabled={processing}
+                                    disabled={
+                                        processing ||
+                                        (captcha.enabled.forgot_password &&
+                                            !captchaToken)
+                                    }
                                     data-test="email-password-reset-link-button"
                                 >
                                     {processing && (

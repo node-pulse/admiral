@@ -31,6 +31,7 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+        $this->configureCaptchaValidation();
     }
 
     /**
@@ -40,6 +41,21 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
+
+        // Add CAPTCHA validation to login and password reset requests
+        Fortify::authenticateUsing(function (Request $request) {
+            $captchaService = app(\App\Services\CaptchaService::class);
+
+            // Validate CAPTCHA if enabled for login
+            if ($captchaService->isEnabled('login')) {
+                $request->validate([
+                    'captcha_token' => ['required', new \App\Rules\CaptchaRule($request->ip())],
+                ]);
+            }
+
+            // Let Fortify handle the actual authentication
+            return null;
+        });
     }
 
     /**
@@ -86,6 +102,23 @@ class FortifyServiceProvider extends ServiceProvider
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
 
             return Limit::perMinute(5)->by($throttleKey);
+        });
+    }
+
+    /**
+     * Configure CAPTCHA validation for password reset requests.
+     */
+    private function configureCaptchaValidation(): void
+    {
+        // Use Laravel's request macro to add CAPTCHA validation before Fortify processes
+        Request::macro('validateCaptchaIfEnabled', function (string $feature) {
+            $captchaService = app(\App\Services\CaptchaService::class);
+
+            if ($captchaService->isEnabled($feature)) {
+                $this->validate([
+                    'captcha_token' => ['required', new \App\Rules\CaptchaRule($this->ip())],
+                ]);
+            }
         });
     }
 }

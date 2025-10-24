@@ -23,6 +23,10 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        $middleware->alias([
+            'captcha.password.reset' => \App\Http\Middleware\ValidateCaptchaForPasswordReset::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

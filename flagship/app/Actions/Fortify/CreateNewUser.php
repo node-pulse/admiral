@@ -18,7 +18,9 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
-        Validator::make($input, [
+        $captchaService = app(\App\Services\CaptchaService::class);
+
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'required',
@@ -28,7 +30,14 @@ class CreateNewUser implements CreatesNewUsers
                 Rule::unique(User::class),
             ],
             'password' => $this->passwordRules(),
-        ])->validate();
+        ];
+
+        // Add CAPTCHA validation if enabled
+        if ($captchaService->isEnabled('register')) {
+            $rules['captcha_token'] = ['required', new \App\Rules\CaptchaRule(request()->ip())];
+        }
+
+        Validator::make($input, $rules)->validate();
 
         return User::create([
             'name' => $input['name'],
