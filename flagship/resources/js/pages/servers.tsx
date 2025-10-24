@@ -612,23 +612,8 @@ export default function Servers() {
                 <DialogContent className="flex max-h-[90vh] w-[80vw] !max-w-none flex-col">
                     <DialogHeader>
                         <DialogTitle>
-                            {`SSH Terminal - ${selectedServer?.display_name} - ${selectedServer?.id}`}
+                            {`SSH Terminal - ${selectedServer?.display_name}`}
                         </DialogTitle>
-                        <DialogDescription className="flex items-center gap-4">
-                            <span>
-                                {selectedServer?.ssh_username}@
-                                {selectedServer?.ssh_host}:
-                                {selectedServer?.ssh_port}
-                            </span>
-                            {serverConnected && (
-                                <span>
-                                    <div className="flex items-center text-sm text-green-500">
-                                        ● Connected - Interactive terminal
-                                        (supports vim, nano, top, etc.)
-                                    </div>
-                                </span>
-                            )}
-                        </DialogDescription>
                     </DialogHeader>
                     <div className="w-full flex-1 overflow-hidden">
                         {selectedServer && (

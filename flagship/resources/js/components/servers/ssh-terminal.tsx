@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,8 +7,9 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import { AlertCircle } from 'lucide-react';
+import { CheckCircle, Loader2, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { ServerData } from '../../types/servers';
 
 interface SSHTerminalProps {
@@ -31,10 +32,15 @@ export function SSHTerminal({
     const wsRef = useRef<WebSocket | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
 
-    const [error, setError] = useState<string | null>(null);
+    const [errorType, setErrorType] = useState<
+        'websocket' | 'auth' | 'network' | 'server' | null
+    >(null);
     const [password, setPassword] = useState('');
     const [showPasswordPrompt, setShowPasswordPrompt] = useState(true);
     const [connecting, setConnecting] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState<
+        'disconnected' | 'connecting' | 'connected' | 'error'
+    >('disconnected');
 
     useEffect(() => {
         if (!terminalRef.current) return;
@@ -159,7 +165,8 @@ export function SSHTerminal({
         }
 
         setConnecting(true);
-        setError(null);
+        setErrorType(null);
+        setConnectionStatus('connecting');
 
         const terminal = xtermRef.current;
         console.log('[SSH Terminal] Using terminal instance:', terminal);
@@ -215,6 +222,7 @@ export function SSHTerminal({
                         setServerConnected(true);
                         setShowPasswordPrompt(false);
                         setConnecting(false);
+                        setConnectionStatus('connected');
                         onConnectionChange?.(true);
                         terminal.focus(); // Focus terminal after successful auth
 
@@ -241,19 +249,32 @@ export function SSHTerminal({
                         );
                         break;
 
-                    case 'error':
+                    case 'error': {
                         terminal.writeln(
                             `\r\n\x1b[31m✗ Error: ${data.message}\x1b[0m\r\n`,
                         );
-                        setError(data.message);
+
+                        const { helpMessage, errorType } = getErrorDetails(
+                            data.message,
+                        );
+
+                        toast.error('SSH Connection Failed', {
+                            description: `${data.message}\n\n${helpMessage}`,
+                            duration: 6000,
+                        });
+
+                        setErrorType(errorType);
+                        setConnectionStatus('error');
                         setConnecting(false);
                         break;
+                    }
 
                     case 'disconnected':
                         terminal.writeln(
                             `\r\n\x1b[33m${data.message}\x1b[0m\r\n`,
                         );
                         setServerConnected(false);
+                        setConnectionStatus('disconnected');
                         onConnectionChange?.(false);
                         break;
                 }
@@ -266,23 +287,152 @@ export function SSHTerminal({
             terminal.writeln(
                 '\r\n\x1b[31m✗ WebSocket connection error\x1b[0m\r\n',
             );
-            setError('WebSocket connection failed. Is the SSH server running?');
+
+            const errorMsg =
+                'Failed to establish WebSocket connection to SSH service.';
+            const helpMsg =
+                'The SSH WebSocket service (submarines-sshws) may not be running. Contact your administrator.';
+
+            toast.error('WebSocket Connection Failed', {
+                description: `${errorMsg}\n\n${helpMsg}`,
+                duration: 6000,
+            });
+
+            setErrorType('websocket');
+            setConnectionStatus('error');
             setConnecting(false);
             onConnectionChange?.(false);
         };
 
-        ws.onclose = () => {
-            terminal.writeln(
-                '\r\n\x1b[33m✗ WebSocket connection closed\x1b[0m\r\n',
-            );
+        ws.onclose = (event) => {
+            const wasConnected = connectionStatus === 'connected';
+            terminal.writeln('\r\n\x1b[33m✗ Connection closed\x1b[0m\r\n');
+
+            if (wasConnected) {
+                // Connection was established and then closed
+                terminal.writeln(
+                    '\x1b[33mYour SSH session has ended.\x1b[0m\r\n',
+                );
+                terminal.writeln(
+                    '\x1b[90mClick "Reconnect" below to start a new session.\x1b[0m\r\n',
+                );
+            }
+
             setServerConnected(false);
+            setConnectionStatus('disconnected');
             setConnecting(false);
             onConnectionChange?.(false);
         };
     };
 
+    const getErrorDetails = (
+        errorMessage: string,
+    ): {
+        helpMessage: string;
+        errorType: 'websocket' | 'auth' | 'network' | 'server';
+    } => {
+        if (
+            errorMessage.includes('authentication') ||
+            errorMessage.includes('password') ||
+            errorMessage.includes('key')
+        ) {
+            return {
+                helpMessage:
+                    'Check that your SSH key is correct or try entering the password.',
+                errorType: 'auth',
+            };
+        }
+
+        if (
+            errorMessage.includes('network') ||
+            errorMessage.includes('timeout') ||
+            errorMessage.includes('unreachable')
+        ) {
+            return {
+                helpMessage:
+                    'Check that the server is reachable and the SSH port is accessible.',
+                errorType: 'network',
+            };
+        }
+
+        if (
+            errorMessage.includes('fingerprint') ||
+            errorMessage.includes('MITM')
+        ) {
+            return {
+                helpMessage:
+                    'SSH host key verification failed. The server may have been rebuilt or compromised.',
+                errorType: 'server',
+            };
+        }
+
+        return {
+            helpMessage:
+                'Please verify your connection settings and try again.',
+            errorType: 'server',
+        };
+    };
+
+    const getStatusBadge = () => {
+        switch (connectionStatus) {
+            case 'disconnected':
+                return (
+                    <Badge variant="secondary" className="flex w-fit gap-1.5">
+                        <WifiOff className="h-3 w-3" />
+                        Disconnected
+                    </Badge>
+                );
+            case 'connecting':
+                return (
+                    <Badge variant="secondary" className="flex w-fit gap-1.5">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Connecting...
+                    </Badge>
+                );
+            case 'connected':
+                return (
+                    <Badge
+                        variant="default"
+                        className="flex w-fit gap-1.5 bg-green-600"
+                    >
+                        <CheckCircle className="h-3 w-3" />
+                        Connected
+                    </Badge>
+                );
+            case 'error':
+                return (
+                    <Badge variant="destructive" className="flex w-fit gap-1.5">
+                        <WifiOff className="h-3 w-3" />
+                        Connection Failed
+                    </Badge>
+                );
+        }
+    };
+
     return (
         <div className="flex flex-col gap-2">
+            {/* Connection Status Indicator */}
+            <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
+                <div className="flex items-center gap-3">
+                    {getStatusBadge()}
+                    {server && (
+                        <>
+                            <span className="text-sm text-muted-foreground">
+                                {server.ssh_username}@{server.ssh_host}:
+                                {server.ssh_port || 22}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                                -
+                            </span>
+
+                            <span className="text-sm text-muted-foreground">
+                                {server.id}
+                            </span>
+                        </>
+                    )}
+                </div>
+            </div>
+
             {showPasswordPrompt && (
                 <div className="space-y-4 rounded-lg border bg-muted/50 p-4">
                     <div className="space-y-2">
@@ -319,26 +469,6 @@ export function SSHTerminal({
                 </div>
             )}
 
-            {error && !serverConnected && (
-                <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                        {error}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="ml-4"
-                            onClick={() => {
-                                setError(null);
-                                setShowPasswordPrompt(true);
-                            }}
-                        >
-                            Try Again
-                        </Button>
-                    </AlertDescription>
-                </Alert>
-            )}
-
             <div
                 ref={terminalRef}
                 className="overflow-hidden rounded-lg border border-gray-700"
@@ -346,15 +476,24 @@ export function SSHTerminal({
             />
 
             {!serverConnected && !showPasswordPrompt && (
-                <div className="text-center">
+                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                        Connection closed
+                    </p>
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                        Your SSH session has ended. Click the button below to
+                        start a new session.
+                    </p>
                     <Button
-                        variant="outline"
                         onClick={() => {
                             setShowPasswordPrompt(true);
-                            setError(null);
+                            setErrorType(null);
+                            setConnectionStatus('disconnected');
                         }}
+                        className="w-full"
+                        variant="default"
                     >
-                        Reconnect
+                        Reconnect to Server
                     </Button>
                 </div>
             )}
