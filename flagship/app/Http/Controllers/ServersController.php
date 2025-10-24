@@ -336,4 +336,23 @@ class ServersController extends Controller
             'note' => 'This will use phpseclib or similar to test the connection',
         ]);
     }
+
+    /**
+     * Reset SSH host key fingerprint
+     * Use this when a server has been rebuilt or the host key has legitimately changed
+     */
+    public function resetHostKey(string $id)
+    {
+        $server = Server::findOrFail($id);
+
+        $previousFingerprint = $server->ssh_host_key_fingerprint;
+        $server->ssh_host_key_fingerprint = null;
+        $server->save();
+
+        return response()->json([
+            'message' => 'SSH host key fingerprint reset successfully',
+            'note' => 'Next SSH connection will establish a new trust relationship (TOFU)',
+            'previous_fingerprint' => $previousFingerprint,
+        ]);
+    }
 }

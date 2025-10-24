@@ -525,15 +525,27 @@ export default function PrivateKeys() {
                                             <TableCell>
                                                 {key.servers_count > 0 ? (
                                                     <div className="flex flex-col gap-1">
-                                                        {key.servers.slice(0, 3).map((server) => (
-                                                            <div key={server.id} className="flex items-center gap-1 text-sm">
-                                                                <Server className="h-3 w-3 text-muted-foreground" />
-                                                                <span>{server.display_name}</span>
-                                                            </div>
-                                                        ))}
-                                                        {key.servers_count > 3 && (
+                                                        {key.servers
+                                                            .slice(0, 3)
+                                                            .map((server) => (
+                                                                <div
+                                                                    key={
+                                                                        server.id
+                                                                    }
+                                                                    className="flex items-center gap-1 text-sm"
+                                                                >
+                                                                    <Server className="h-3 w-3 text-muted-foreground" />
+                                                                    <span>
+                                                                        {
+                                                                            server.display_name
+                                                                        }
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        {key.servers_count >
+                                                            3 && (
                                                             <span className="text-xs text-muted-foreground">
-                                                                +{key.servers_count - 3} more
+                                                                {`+${key.servers_count - 3} more`}
                                                             </span>
                                                         )}
                                                     </div>
@@ -552,7 +564,9 @@ export default function PrivateKeys() {
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() =>
-                                                            openManageServers(key)
+                                                            openManageServers(
+                                                                key,
+                                                            )
                                                         }
                                                     >
                                                         <Link2 className="mr-1 h-4 w-4" />
@@ -628,12 +642,16 @@ export default function PrivateKeys() {
             </div>
 
             {/* Manage Servers Dialog */}
-            <Dialog open={manageServersOpen} onOpenChange={setManageServersOpen}>
+            <Dialog
+                open={manageServersOpen}
+                onOpenChange={setManageServersOpen}
+            >
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Attach SSH Key to Server</DialogTitle>
                         <DialogDescription>
-                            Attach "{keyToManage?.name}" to a server for SSH access
+                            Attach "{keyToManage?.name}" to a server for SSH
+                            access
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -655,9 +673,13 @@ export default function PrivateKeys() {
                                                 value={server.id}
                                             >
                                                 <div className="flex flex-col">
-                                                    <span>{server.display_name}</span>
+                                                    <span>
+                                                        {server.display_name}
+                                                    </span>
                                                     <span className="text-xs text-muted-foreground">
-                                                        {server.ssh_username}@{server.ssh_host}:{server.ssh_port}
+                                                        {server.ssh_username}@
+                                                        {server.ssh_host}:
+                                                        {server.ssh_port}
                                                     </span>
                                                 </div>
                                             </SelectItem>

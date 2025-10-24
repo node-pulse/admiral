@@ -78,7 +78,7 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 		switch msg.Type {
 		case "auth":
 			// handleAuth will take over the WebSocket reading, so return after calling it
-			h.handleAuth(ws, sessionID, serverID, msg)
+			h.handleAuth(c, ws, sessionID, serverID, msg)
 			return
 		case "ping":
 			h.sendMessage(ws, map[string]interface{}{"type": "pong"})
@@ -91,7 +91,7 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 }
 
 // handleAuth handles authentication and SSH connection establishment
-func (h *Handler) handleAuth(ws *websocket.Conn, sessionID, serverID string, msg Message) {
+func (h *Handler) handleAuth(c *gin.Context, ws *websocket.Conn, sessionID, serverID string, msg Message) {
 	log.Printf("[%s] Auth request for server %s", sessionID, serverID)
 
 	// Fetch server details from database
@@ -129,15 +129,46 @@ func (h *Handler) handleAuth(ws *websocket.Conn, sessionID, serverID string, msg
 		return
 	}
 
-	// Prepare SSH client config
+	// Initialize session logger for audit logging
+	sessionLogger := NewSessionLogger(h.db, sessionID, serverID)
+	sessionLogger.SetSSHDetails(sshUsername, sshHost, sshPort)
+
+	// Capture client IP address
+	clientIP := c.ClientIP()
+	sessionLogger.SetIPAddress(clientIP)
+
+	// Capture user agent
+	userAgent := c.Request.UserAgent()
+	if userAgent != "" {
+		sessionLogger.SetUserAgent(userAgent)
+	}
+
+	// TODO: Capture user_id from authentication middleware
+	// TODO: Capture better_auth_id from authentication middleware
+	// These will be set once auth middleware is implemented
+
+	// Check if session recording is enabled from database settings
+	// Disabled by default for privacy (controlled via admiral.settings table)
+	recordingEnabled := h.getRecordingSetting()
+	sessionLogger.EnableRecording(recordingEnabled)
+	if recordingEnabled {
+		log.Printf("[%s] ⚠️  WARNING: Session recording is ENABLED - all keystrokes and output will be recorded", sessionID)
+	}
+
+	// Prepare SSH client config with TOFU host key verification
+	hostKeyVerifier := NewHostKeyVerifier(h.db, serverID)
 	sshConfig := &ssh.ClientConfig{
 		User:            sshUsername,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: Implement proper host key verification
+		HostKeyCallback: hostKeyVerifier.GetHostKeyCallback(),
 		Timeout:         10 * time.Second,
 	}
 
+	// Determine authentication method and configure
+	var authMethod string
+
 	// Try private key authentication
 	if privateKeyContent.Valid && privateKeyContent.String != "" {
+		authMethod = "private_key"
 		log.Printf("[%s] Using SSH key authentication", sessionID)
 
 		// Decrypt private key
@@ -166,6 +197,7 @@ func (h *Handler) handleAuth(ws *websocket.Conn, sessionID, serverID string, msg
 	} else if msg.Password != "" {
 		// Use password authentication (session-only, never stored in database)
 		// This is intended for initial setup to allow users to connect and configure SSH keys
+		authMethod = "password"
 		log.Printf("[%s] Using password authentication (session-only)", sessionID)
 		sshConfig.Auth = []ssh.AuthMethod{ssh.Password(msg.Password)}
 	} else {
@@ -176,6 +208,9 @@ func (h *Handler) handleAuth(ws *websocket.Conn, sessionID, serverID string, msg
 		return
 	}
 
+	// Set auth method for logging
+	sessionLogger.SetAuthMethod(authMethod)
+
 	// Connect to SSH server
 	addr := fmt.Sprintf("%s:%d", sshHost, sshPort)
 	log.Printf("[%s] Connecting to %s@%s", sessionID, sshUsername, addr)
@@ -183,6 +218,10 @@ func (h *Handler) handleAuth(ws *websocket.Conn, sessionID, serverID string, msg
 	client, err := ssh.Dial("tcp", addr, sshConfig)
 	if err != nil {
 		log.Printf("[%s] SSH connection failed: %v", sessionID, err)
+
+		// Log session failure
+		sessionLogger.LogSessionFailure(fmt.Sprintf("SSH dial failed: %v", err))
+
 		h.sendMessage(ws, map[string]interface{}{
 			"type":    "error",
 			"message": fmt.Sprintf("SSH connection failed: %v", err),
@@ -190,6 +229,16 @@ func (h *Handler) handleAuth(ws *websocket.Conn, sessionID, serverID string, msg
 		return
 	}
 	defer client.Close()
+
+	// Note: Host key is already verified by hostKeyVerifier and stored in DB
+	// We could fetch it here for logging if needed, but it's already in the servers table
+	// For now, leaving it empty in session log to avoid duplication
+
+	// Log session start (connection successful)
+	if err := sessionLogger.LogSessionStart(); err != nil {
+		log.Printf("[%s] Warning: Failed to log session start: %v", sessionID, err)
+		// Don't fail the connection if logging fails
+	}
 
 	// Request a session
 	session, err := client.NewSession()
@@ -348,6 +397,12 @@ func (h *Handler) handleAuth(ws *websocket.Conn, sessionID, serverID string, msg
 	// Wait for session to finish
 	<-done
 	log.Printf("[%s] SSH session closed", sessionID)
+
+	// Log session end
+	if err := sessionLogger.LogSessionEnd("completed", "normal_close"); err != nil {
+		log.Printf("[%s] Warning: Failed to log session end: %v", sessionID, err)
+	}
+
 	h.sendMessage(ws, map[string]interface{}{
 		"type":    "disconnected",
 		"message": "SSH connection closed",
@@ -368,4 +423,24 @@ type Message struct {
 	Password string `json:"password"`
 	Cols     int    `json:"cols"`
 	Rows     int    `json:"rows"`
+}
+
+// getRecordingSetting retrieves the SSH session recording setting from database
+// Returns false by default (safe/private mode)
+func (h *Handler) getRecordingSetting() bool {
+	var value string
+	query := `SELECT value FROM admiral.settings WHERE key = 'ssh_session_recording_enabled'`
+
+	err := h.db.QueryRow(query).Scan(&value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("[Settings] ssh_session_recording_enabled not found, defaulting to false")
+		} else {
+			log.Printf("[Settings] Failed to fetch ssh_session_recording_enabled: %v, defaulting to false", err)
+		}
+		return false
+	}
+
+	// Parse JSONB boolean value (stored as "true" or "false" string in JSONB)
+	return value == "true"
 }

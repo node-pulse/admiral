@@ -32,6 +32,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // SSH connection testing
         Route::post('/{id}/test-connection', [ServersController::class, 'testConnection'])->name('servers.test-connection');
+
+        // SSH host key management
+        Route::post('/{id}/reset-host-key', [ServersController::class, 'resetHostKey'])->name('servers.reset-host-key');
     });
 
     // SSH Private Keys management
