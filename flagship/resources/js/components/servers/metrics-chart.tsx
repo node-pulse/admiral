@@ -114,7 +114,7 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         }
 
         // Create a map of all timestamps
-        const timestampMap = new Map<string, Record<string, string>>();
+        const timestampMap = new Map<string, Record<string, number | string>>();
 
         metricsData.forEach((serverMetric) => {
             serverMetric.data_points.forEach((point) => {
@@ -127,6 +127,7 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
                 }
 
                 const dataPoint = timestampMap.get(point.timestamp);
+                if (!dataPoint) return;
 
                 // Add metric value for this server
                 if (
@@ -151,11 +152,9 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
                     // For network, we'll show upload + download in MB
                     const upload = point.network_upload_bytes || 0;
                     const download = point.network_download_bytes || 0;
-                    dataPoint[serverMetric.display_name] = (
-                        (upload + download) /
-                        1024 /
-                        1024
-                    ).toFixed(2);
+                    dataPoint[serverMetric.display_name] = parseFloat(
+                        ((upload + download) / 1024 / 1024).toFixed(2),
+                    );
                 }
             });
         });

@@ -4,15 +4,27 @@ namespace App\Http\Controllers;
 
 use App\Models\PrivateKey;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class PrivateKeysController extends Controller
 {
+    /**
+     * Display private keys page
+     */
+    public function page()
+    {
+        return Inertia::render('private-keys');
+    }
+
     /**
      * List all private keys (without private key content)
      */
     public function index(Request $request)
     {
         $query = PrivateKey::query()
+            ->with(['servers' => function ($query) {
+                $query->select('servers.id', 'servers.hostname', 'servers.name');
+            }])
             ->withCount('servers')
             ->orderBy('created_at', 'desc');
 
@@ -38,6 +50,14 @@ class PrivateKeysController extends Controller
                     'fingerprint' => $key->fingerprint,
                     'public_key' => $key->public_key,
                     'servers_count' => $key->servers_count,
+                    'servers' => $key->servers->map(function ($server) {
+                        return [
+                            'id' => $server->id,
+                            'hostname' => $server->hostname,
+                            'name' => $server->name,
+                            'display_name' => $server->name ?: $server->hostname,
+                        ];
+                    }),
                     'created_at' => $key->created_at->toIso8601String(),
                     'updated_at' => $key->updated_at->toIso8601String(),
                 ];

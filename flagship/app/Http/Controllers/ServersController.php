@@ -184,7 +184,7 @@ class ServersController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'hostname' => 'required|string|max:255',
+            'hostname' => 'nullable|string|max:255',
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'ssh_host' => 'nullable|string|max:255',
@@ -193,6 +193,23 @@ class ServersController extends Controller
             'tags' => 'nullable|array',
             'metadata' => 'nullable|array',
         ]);
+
+        // Generate a temporary server_id if not provided by agent
+        if (!isset($validated['server_id'])) {
+            $validated['server_id'] = \Illuminate\Support\Str::uuid()->toString();
+        }
+
+        // Use hostname as fallback if name not provided
+        if (!isset($validated['hostname']) && !isset($validated['name'])) {
+            return response()->json([
+                'message' => 'Either hostname or name must be provided',
+            ], 422);
+        }
+
+        // Default hostname to name if not provided
+        if (!isset($validated['hostname'])) {
+            $validated['hostname'] = $validated['name'];
+        }
 
         $server = Server::create($validated);
 

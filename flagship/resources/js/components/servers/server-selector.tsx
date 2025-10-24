@@ -128,7 +128,7 @@ export function ServerSelector({
                     <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+            <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
                 <Command>
                     <CommandInput
                         placeholder="Search servers..."

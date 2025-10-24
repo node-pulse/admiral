@@ -188,6 +188,33 @@ services:
     networks:
       - node-pulse-admiral
 
+  # Flagship SSH WebSocket Server - Interactive terminal
+  flagship-ws:
+    image: ghcr.io/node-pulse/node-pulse-flagship:latest
+    container_name: node-pulse-flagship-ws
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: php artisan ssh:websocket-server --host=0.0.0.0 --port=6001
+    ports:
+      - "6001:6001" # SSH WebSocket server
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ssh-ws.rule=Host(`${FLAGSHIP_DOMAIN:-localhost}`) && PathPrefix(`/ws/ssh/`)"
+      - "traefik.http.routers.ssh-ws.entrypoints=websecure"
+      - "traefik.http.routers.ssh-ws.tls=true"
+      - "traefik.http.services.ssh-ws.loadbalancer.server.port=6001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      flagship-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./logs/flagship-ssh:/var/www/html/storage/logs # Mount logs for persistence
+      - ./flagship/config/master.key:/var/www/html/config/master.key:ro # Mount master key (read-only)
+    networks:
+      - node-pulse-admiral
+
   # Next.js Cruiser - Public Site
   cruiser:
     image: ghcr.io/node-pulse/node-pulse-cruiser:latest

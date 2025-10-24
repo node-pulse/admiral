@@ -1,6 +1,6 @@
-import { DashboardStatsCard } from '@/components/dashboard-stats-card';
-import { MetricsChart } from '@/components/metrics-chart';
-import { ServerSelector } from '@/components/server-selector';
+import { DashboardStatsCard } from '@/components/dashboard/dashboard-stats-card';
+import { MetricsChart } from '@/components/servers/metrics-chart';
+import { ServerSelector } from '@/components/servers/server-selector';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';

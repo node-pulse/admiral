@@ -11,6 +11,7 @@ RUN apk add --no-cache \
     curl \
     nginx \
     supervisor \
+    openssh-client \
     icu-dev \
     libzip-dev \
     oniguruma-dev \

@@ -36,7 +36,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // SSH Private Keys management
     Route::prefix('private-keys')->group(function () {
-        Route::get('/', [PrivateKeysController::class, 'index'])->name('private-keys.index');
+        Route::get('/', [PrivateKeysController::class, 'page'])->name('private-keys');
+        Route::get('/list', [PrivateKeysController::class, 'index'])->name('private-keys.index');
         Route::get('/{id}', [PrivateKeysController::class, 'show'])->name('private-keys.show');
         Route::post('/generate', [PrivateKeysController::class, 'generate'])->name('private-keys.generate');
         Route::post('/import', [PrivateKeysController::class, 'import'])->name('private-keys.import');

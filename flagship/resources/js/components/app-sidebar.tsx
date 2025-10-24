@@ -10,10 +10,10 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard, servers } from '@/routes';
+import { dashboard, privateKeys, servers } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
+import { BookOpen, Folder, Key, LayoutGrid, Server } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -25,7 +25,12 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Servers',
         href: servers(),
-        icon: LayoutGrid,
+        icon: Server,
+    },
+    {
+        title: 'SSH Keys',
+        href: privateKeys(),
+        icon: Key,
     },
 ];
 
