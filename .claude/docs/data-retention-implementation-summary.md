@@ -9,7 +9,7 @@
 
 ### 1. **Tiering Strategy** (.claude/docs/tiering-strategy.md)
 
-Defined NodePulse's product tiers:
+Defined Node Pulse's product tiers:
 
 - **Free Tier**: 24/48/72 hours retention (user configurable)
 - **Pro Tier**: Extended retention + TimescaleDB + S3 archival + advanced features

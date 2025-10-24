@@ -1,6 +1,6 @@
-# NodePulse Admiral - Deployment Guide
+# Node Pulse Admiral - Deployment Guide
 
-Complete guide for deploying NodePulse Admiral in development and production environments.
+Complete guide for deploying Node Pulse Admiral in development and production environments.
 
 ## Table of Contents
 

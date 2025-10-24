@@ -1,8 +1,8 @@
-# NodePulse Data Retention - Quick Reference
+# Node Pulse Data Retention - Quick Reference
 
 ## TL;DR
 
-NodePulse now has **configurable data retention** for metrics:
+Node Pulse now has **configurable data retention** for metrics:
 
 - **Free tier**: 24h / 48h / 72h (user choice)
 - **Pro tier**: 7d / 30d / 90d + TimescaleDB + S3 archival

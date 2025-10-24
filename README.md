@@ -1,6 +1,6 @@
 # Node Pulse Admiral
 
-A comprehensive agent fleet management dashboard for monitoring NodePulse agents across your infrastructure.
+A comprehensive agent fleet management dashboard for monitoring Node Pulse agents across your infrastructure.
 
 ## Architecture
 
@@ -95,7 +95,7 @@ Agents send metrics to:
 POST http://your-domain/metrics
 ```
 
-Example payload (matches NodePulse agent format):
+Example payload (matches Node Pulse agent format):
 
 ```json
 {
@@ -134,9 +134,9 @@ Example payload (matches NodePulse agent format):
 - `GET /api/servers` - List all servers
 - `GET /api/servers/:id/metrics` - Get metrics for a specific server
 
-## Configuring NodePulse Agents
+## Configuring Node Pulse Agents
 
-Update your NodePulse agent configuration (`/etc/node-pulse/nodepulse.yml`):
+Update your Node Pulse agent configuration (`/etc/node-pulse/nodepulse.yml`):
 
 ```yaml
 server:

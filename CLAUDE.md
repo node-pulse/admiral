@@ -1,8 +1,8 @@
-# NodePulse Dashboard - Claude Context
+# Node Pulse Dashboard - Claude Context
 
 ## Project Overview
 
-**NodePulse Dashboard** is an agent fleet management system for monitoring Linux servers. It consists of:
+**Node Pulse Dashboard** is an agent fleet management system for monitoring Linux servers. It consists of:
 
 1. **Submarines** (Go-Gin) - High-performance metrics ingestion pipeline
 
@@ -121,7 +121,7 @@ The agent currently sends metrics using a **simple JSON format** (see `../agent/
 
 ## Future Protocol: NPI v1
 
-A more advanced **NodePulse Envelope Protocol (NPI)** is being designed:
+A more advanced **Node Pulse Envelope Protocol (NPI)** is being designed:
 
 - **Specification**: `.claude/docs/node-pulse-ingest-protocol.md`
 - **OpenAPI Schema**: `.claude/docs/npi.yml`
@@ -419,6 +419,6 @@ DIGEST_ID=digest-2 go run cmd/digest/main.go
 
 ## Contact & Support
 
-- **Project**: NodePulse Agent Fleet Management
+- **Project**: Node Pulse Agent Fleet Management
 - **Status**: Development / MVP
 - **License**: MIT

@@ -9,7 +9,7 @@
 
 ## 1. Overview
 
-**Node Pulse Envelope Protocol (NPI)** defines a unified, extensible message format used by NodePulse agents to transmit telemetry, probe results, and security events to a control plane.
+**Node Pulse Envelope Protocol (NPI)** defines a unified, extensible message format used by Node Pulse agents to transmit telemetry, probe results, and security events to a control plane.
 
 NPI is **transport-agnostic** — it can operate over HTTP, WebSocket, gRPC stream, or other reliable protocols. All payloads share a common **Envelope** structure, enabling consistent parsing, storage, and version evolution.
 

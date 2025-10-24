@@ -1,4 +1,4 @@
-# NodePulse Tiering Strategy
+# Node Pulse Tiering Strategy
 
 **Version**: 1.0
 **Last Updated**: 2025-10-21
@@ -8,7 +8,7 @@
 
 ## Overview
 
-NodePulse uses a **tiered feature model** to provide value at different price points while maintaining a fully functional free tier for small teams and hobby projects.
+Node Pulse uses a **tiered feature model** to provide value at different price points while maintaining a fully functional free tier for small teams and hobby projects.
 
 ---
 
@@ -285,19 +285,19 @@ LOG_LEVEL=info
 
 **Dashboard Historical View**:
 
-> 📊 Want to see metrics beyond 72 hours? Upgrade to **NodePulse Pro** for extended retention and historical analysis.
+> 📊 Want to see metrics beyond 72 hours? Upgrade to **Node Pulse Pro** for extended retention and historical analysis.
 
 **Settings Page**:
 
-> ⚙️ Configure retention up to 90 days with **NodePulse Pro**. Includes TimescaleDB performance and S3 archival.
+> ⚙️ Configure retention up to 90 days with **Node Pulse Pro**. Includes TimescaleDB performance and S3 archival.
 
 **Alerting Rules**:
 
-> 🔔 Need multi-condition alerts or webhooks? **NodePulse Pro** unlocks advanced alerting features.
+> 🔔 Need multi-condition alerts or webhooks? **Node Pulse Pro** unlocks advanced alerting features.
 
 **Export Button** (disabled):
 
-> 📥 Export metrics to CSV/JSON with **NodePulse Pro** for compliance reporting.
+> 📥 Export metrics to CSV/JSON with **Node Pulse Pro** for compliance reporting.
 
 ---
 

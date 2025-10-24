@@ -2,7 +2,7 @@
 
 # Default target - show help
 help:
-	@echo "NodePulse Admiral - Available Make Targets"
+	@echo "Node Pulse Admiral - Available Make Targets"
 	@echo ""
 	@echo "Git Operations:"
 	@echo "  make push          - Push to origin/main and push all tags"
