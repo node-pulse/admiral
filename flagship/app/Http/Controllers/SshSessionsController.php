@@ -150,7 +150,50 @@ class SshSessionsController extends Controller
         }
 
         // TODO: Implement actual session termination via WebSocket
-        // For now, just mark as terminated in database
+        // For now, just mark as terminated in database (does not actually kill the connection)
+        //
+        // Advanced Feature - Full Implementation Requirements:
+        // 1. Maintain registry of active WebSocket connections in submarines-sshws (session_id -> ws connection map)
+        // 2. Add API endpoint: POST /v1/ssh/sessions/:session_id/terminate in submarines-sshws
+        // 3. When terminate() is called from Flagship:
+        //    - Update database (current implementation) ✓
+        //    - Send HTTP POST to submarines-sshws terminate endpoint
+        //    - submarines-sshws closes WebSocket + SSH connection
+        //    - User sees "Connection terminated by administrator" message
+        //
+        // Access Control Considerations (Multi-tenancy):
+        // - Add organization_id/team_id to ssh_sessions table
+        // - Admins can only terminate sessions within their organization/team
+        // - Super admins can terminate any session (security incidents)
+        // - Audit log: who terminated which session (compliance requirement)
+        // - Optional: Require termination reason (e.g., "Security incident", "Policy violation")
+        //
+        // Use Cases:
+        // - Security: Detected compromised account, need immediate disconnect
+        // - Compliance: Emergency kill switch for audit/regulatory requirements
+        // - Policy: Enforce session time limits (auto-terminate after X hours)
+        // - Maintenance: Kick all users before server maintenance window
+        //
+        // IMPORTANT LIMITATION - Visibility Scope:
+        // This system ONLY tracks SSH connections made through the Admiral web terminal.
+        // It does NOT see:
+        // - Direct SSH connections (ssh user@server from local terminal)
+        // - SFTP/SCP file transfers
+        // - SSH tunnels or port forwarding
+        // - Connections from other SSH clients (PuTTY, iTerm, etc.)
+        //
+        // For complete SSH session visibility and security monitoring, consider integrating
+        // a host-based security agent like Syntra (https://github.com/SyntraSecurity/SyntraAgent) which:
+        // - Monitors all SSH connections at the OS level (reads /var/log/auth.log, wtmp, etc.)
+        // - Detects unauthorized direct SSH access
+        // - Reports failed login attempts and brute force attacks
+        // - Tracks session activity for all users (not just web terminal users)
+        // - Provides real-time alerts for suspicious SSH activity
+        //
+        // Architecture for full SSH visibility:
+        // Admiral Web Terminal -> This system (web-based SSH audit log)
+        // Direct SSH Access -> Syntra Agent -> Central Security Dashboard
+        // Combined view gives complete picture of all server access
         $session->update([
             'status' => 'terminated',
             'disconnect_reason' => 'Terminated by administrator',
