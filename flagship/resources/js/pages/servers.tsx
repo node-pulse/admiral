@@ -135,7 +135,7 @@ export default function Servers() {
 
     const fetchPrivateKeys = async () => {
         try {
-            const response = await fetch('/private-keys/list');
+            const response = await fetch('/ssh-keys/list');
             const data = await response.json();
             setPrivateKeys(data.private_keys.data || []);
         } catch (error) {

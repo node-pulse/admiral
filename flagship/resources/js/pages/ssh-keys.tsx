@@ -133,7 +133,7 @@ export default function PrivateKeys() {
             }
 
             const response = await fetch(
-                `/private-keys/list?${params.toString()}`,
+                `/ssh-keys/list?${params.toString()}`,
                 {
                     headers: {
                         Accept: 'application/json',
@@ -208,7 +208,7 @@ export default function PrivateKeys() {
 
     const handleGenerate = async () => {
         try {
-            const response = await fetch('/private-keys/generate', {
+            const response = await fetch('/ssh-keys/generate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -248,7 +248,7 @@ export default function PrivateKeys() {
 
     const handleImport = async () => {
         try {
-            const response = await fetch('/private-keys/import', {
+            const response = await fetch('/ssh-keys/import', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -290,7 +290,7 @@ export default function PrivateKeys() {
         if (!selectedKey) return;
 
         try {
-            const response = await fetch(`/private-keys/${selectedKey.id}`, {
+            const response = await fetch(`/ssh-keys/${selectedKey.id}`, {
                 method: 'DELETE',
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,

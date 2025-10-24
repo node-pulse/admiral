@@ -9,11 +9,11 @@ use Inertia\Inertia;
 class PrivateKeysController extends Controller
 {
     /**
-     * Display private keys page
+     * Display SSH keys page
      */
     public function page()
     {
-        return Inertia::render('private-keys');
+        return Inertia::render('ssh-keys');
     }
 
     /**

@@ -37,16 +37,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/reset-host-key', [ServersController::class, 'resetHostKey'])->name('servers.reset-host-key');
     });
 
-    // SSH Private Keys management
-    Route::prefix('private-keys')->group(function () {
-        Route::get('/', [PrivateKeysController::class, 'page'])->name('private-keys');
-        Route::get('/list', [PrivateKeysController::class, 'index'])->name('private-keys.index');
-        Route::get('/{id}', [PrivateKeysController::class, 'show'])->name('private-keys.show');
-        Route::post('/generate', [PrivateKeysController::class, 'generate'])->name('private-keys.generate');
-        Route::post('/import', [PrivateKeysController::class, 'import'])->name('private-keys.import');
-        Route::put('/{id}', [PrivateKeysController::class, 'update'])->name('private-keys.update');
-        Route::delete('/{id}', [PrivateKeysController::class, 'destroy'])->name('private-keys.destroy');
-        Route::get('/{id}/download-public', [PrivateKeysController::class, 'downloadPublicKey'])->name('private-keys.download-public');
+    // SSH Keys management
+    Route::prefix('ssh-keys')->group(function () {
+        Route::get('/', [PrivateKeysController::class, 'page'])->name('ssh-keys');
+        Route::get('/list', [PrivateKeysController::class, 'index'])->name('ssh-keys.index');
+        Route::get('/{id}', [PrivateKeysController::class, 'show'])->name('ssh-keys.show');
+        Route::post('/generate', [PrivateKeysController::class, 'generate'])->name('ssh-keys.generate');
+        Route::post('/import', [PrivateKeysController::class, 'import'])->name('ssh-keys.import');
+        Route::put('/{id}', [PrivateKeysController::class, 'update'])->name('ssh-keys.update');
+        Route::delete('/{id}', [PrivateKeysController::class, 'destroy'])->name('ssh-keys.destroy');
+        Route::get('/{id}/download-public', [PrivateKeysController::class, 'downloadPublicKey'])->name('ssh-keys.download-public');
     });
 });
 
