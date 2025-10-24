@@ -9,6 +9,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -32,7 +38,16 @@ import AppLayout from '@/layouts/app-layout';
 import { sshKeys as sshKeysRoute } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
-import { Copy, Key, Link2, Plus, Search, Server, Trash2 } from 'lucide-react';
+import {
+    Copy,
+    Key,
+    Link2,
+    MoreVertical,
+    Plus,
+    Search,
+    Server,
+    Trash2,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -95,7 +110,8 @@ export default function PrivateKeys() {
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedKey, setSelectedKey] = useState<PrivateKeyData | null>(null);
-    const [manageServersOpen, setManageServersOpen] = useState(false);
+    const [viewServersDialogOpen, setViewServersDialogOpen] = useState(false);
+    const [attachServerDialogOpen, setAttachServerDialogOpen] = useState(false);
     const [keyToManage, setKeyToManage] = useState<PrivateKeyData | null>(null);
     const [availableServers, setAvailableServers] = useState<ServerData[]>([]);
     const [selectedServerId, setSelectedServerId] = useState<string>('');
@@ -162,10 +178,15 @@ export default function PrivateKeys() {
         }
     };
 
-    const openManageServers = (key: PrivateKeyData) => {
+    const openViewServersDialog = (key: PrivateKeyData) => {
+        setKeyToManage(key);
+        setViewServersDialogOpen(true);
+    };
+
+    const openAttachServerDialog = (key: PrivateKeyData) => {
         setKeyToManage(key);
         setSelectedServerId('');
-        setManageServersOpen(true);
+        setAttachServerDialogOpen(true);
         fetchServers();
     };
 
@@ -187,7 +208,7 @@ export default function PrivateKeys() {
             });
 
             if (response.ok) {
-                setManageServersOpen(false);
+                setSelectedServerId('');
                 fetchPrivateKeys();
                 toast.success('SSH key attached successfully', {
                     description: `Key "${keyToManage.name}" has been attached to the server`,
@@ -482,6 +503,7 @@ export default function PrivateKeys() {
                                         <TableHead>Name</TableHead>
                                         <TableHead>Fingerprint</TableHead>
                                         <TableHead>Servers</TableHead>
+                                        <TableHead>Public Key</TableHead>
                                         <TableHead>Created</TableHead>
                                         <TableHead className="text-right">
                                             Actions
@@ -504,14 +526,14 @@ export default function PrivateKeys() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <code className="text-xs">
+                                                <div className="flex max-w-[200px] items-center gap-2">
+                                                    <code className="truncate text-xs">
                                                         {key.fingerprint}
                                                     </code>
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        className="h-6 w-6"
+                                                        className="h-6 w-6 shrink-0"
                                                         onClick={() =>
                                                             copyToClipboard(
                                                                 key.fingerprint,
@@ -524,85 +546,112 @@ export default function PrivateKeys() {
                                             </TableCell>
                                             <TableCell>
                                                 {key.servers_count > 0 ? (
-                                                    <div className="flex flex-col gap-1">
-                                                        {key.servers
-                                                            .slice(0, 3)
-                                                            .map((server) => (
-                                                                <div
-                                                                    key={
-                                                                        server.id
-                                                                    }
-                                                                    className="flex items-center gap-1 text-sm"
-                                                                >
-                                                                    <Server className="h-3 w-3 text-muted-foreground" />
-                                                                    <span>
-                                                                        {
-                                                                            server.display_name
-                                                                        }
-                                                                    </span>
-                                                                </div>
-                                                            ))}
-                                                        {key.servers_count >
-                                                            3 && (
-                                                            <span className="text-xs text-muted-foreground">
-                                                                {`+${key.servers_count - 3} more`}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            openViewServersDialog(
+                                                                key,
+                                                            )
+                                                        }
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <Server className="h-4 w-4" />
+                                                        <span>
+                                                            {key.servers_count}
+                                                        </span>
+                                                        <span className="text-muted-foreground">
+                                                            {key.servers_count ===
+                                                            1
+                                                                ? 'server'
+                                                                : 'servers'}
+                                                        </span>
+                                                    </Button>
                                                 ) : (
-                                                    <Badge variant="secondary">
-                                                        Unused
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="flex w-fit items-center gap-1"
+                                                    >
+                                                        <Server className="h-3 w-3" />
+                                                        Not attached
                                                     </Badge>
                                                 )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        copyToClipboard(
+                                                            key.public_key,
+                                                            'public_key',
+                                                        )
+                                                    }
+                                                >
+                                                    <Copy className="mr-2 h-3 w-3" />
+                                                    Copy
+                                                </Button>
                                             </TableCell>
                                             <TableCell className="text-sm">
                                                 {formatDate(key.created_at)}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            openManageServers(
-                                                                key,
-                                                            )
-                                                        }
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger
+                                                        asChild
                                                     >
-                                                        <Link2 className="mr-1 h-4 w-4" />
-                                                        Attach to Server
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            copyToClipboard(
-                                                                key.public_key,
-                                                                'public_key',
-                                                            )
-                                                        }
-                                                        className="cursor-pointer"
-                                                    >
-                                                        <Copy className="mr-1 h-4 w-4" />
-                                                        Copy
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => {
-                                                            setSelectedKey(key);
-                                                            setDeleteDialogOpen(
-                                                                true,
-                                                            );
-                                                        }}
-                                                        disabled={
-                                                            key.servers_count >
-                                                            0
-                                                        }
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                        >
+                                                            <MoreVertical className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        {key.servers_count >
+                                                            0 && (
+                                                            <DropdownMenuItem
+                                                                onClick={() =>
+                                                                    openViewServersDialog(
+                                                                        key,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Server className="mr-2 h-4 w-4" />
+                                                                View Attached
+                                                                Servers
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                openAttachServerDialog(
+                                                                    key,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Link2 className="mr-2 h-4 w-4" />
+                                                            Attach to Server
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => {
+                                                                setSelectedKey(
+                                                                    key,
+                                                                );
+                                                                setDeleteDialogOpen(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                            disabled={
+                                                                key.servers_count >
+                                                                0
+                                                            }
+                                                            className="text-destructive focus:text-destructive"
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Delete Key
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -641,10 +690,81 @@ export default function PrivateKeys() {
                 )}
             </div>
 
-            {/* Manage Servers Dialog */}
+            {/* View Attached Servers Dialog */}
             <Dialog
-                open={manageServersOpen}
-                onOpenChange={setManageServersOpen}
+                open={viewServersDialogOpen}
+                onOpenChange={setViewServersDialogOpen}
+            >
+                <DialogContent className="!max-w-5xl">
+                    <DialogHeader>
+                        <DialogTitle>
+                            Servers Using "{keyToManage?.name}"
+                        </DialogTitle>
+                        <DialogDescription>
+                            This SSH key is attached to{' '}
+                            {keyToManage?.servers_count || 0}{' '}
+                            {keyToManage?.servers_count === 1
+                                ? 'server'
+                                : 'servers'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[500px] overflow-y-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Server</TableHead>
+                                    <TableHead>SSH Host</TableHead>
+                                    <TableHead>Username</TableHead>
+                                    <TableHead>Port</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {keyToManage?.servers?.map((server) => (
+                                    <TableRow key={server.id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Server className="h-4 w-4 text-muted-foreground" />
+                                                <span className="font-medium">
+                                                    {server.display_name}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <code className="text-xs">
+                                                {server.ssh_host ||
+                                                    server.hostname}
+                                            </code>
+                                        </TableCell>
+                                        <TableCell>
+                                            <code className="text-xs">
+                                                {server.ssh_username}
+                                            </code>
+                                        </TableCell>
+                                        <TableCell>
+                                            <code className="text-xs">
+                                                {server.ssh_port}
+                                            </code>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setViewServersDialogOpen(false)}
+                        >
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Attach Key to Server Dialog */}
+            <Dialog
+                open={attachServerDialogOpen}
+                onOpenChange={setAttachServerDialogOpen}
             >
                 <DialogContent>
                     <DialogHeader>
@@ -694,7 +814,7 @@ export default function PrivateKeys() {
                     <DialogFooter>
                         <Button
                             variant="outline"
-                            onClick={() => setManageServersOpen(false)}
+                            onClick={() => setAttachServerDialogOpen(false)}
                         >
                             Cancel
                         </Button>
@@ -702,6 +822,7 @@ export default function PrivateKeys() {
                             onClick={handleAttachToServer}
                             disabled={!selectedServerId}
                         >
+                            <Link2 className="mr-2 h-4 w-4" />
                             Attach Key
                         </Button>
                     </DialogFooter>
