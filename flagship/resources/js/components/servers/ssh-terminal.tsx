@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -183,20 +184,19 @@ export function SSHTerminal({
                 host: server?.ssh_host,
                 port: server?.ssh_port || 22,
                 username: server?.ssh_username,
-                privateKey: server?.primary_private_key?.private_key_content,
                 password: password || undefined,
                 rows: terminal.rows,
                 cols: terminal.cols,
             };
 
             // Remove undefined values
-            Object.keys(authMessage).forEach((key) => {
-                if (authMessage[key] === undefined) {
-                    delete authMessage[key];
-                }
-            });
+            const cleanedMessage = Object.fromEntries(
+                Object.entries(authMessage).filter(
+                    ([_, value]) => value !== undefined,
+                ),
+            );
 
-            ws.send(JSON.stringify(authMessage));
+            ws.send(JSON.stringify(cleanedMessage));
         };
 
         ws.onmessage = (event) => {
@@ -217,8 +217,6 @@ export function SSHTerminal({
                         setConnecting(false);
                         onConnectionChange?.(true);
                         terminal.focus(); // Focus terminal after successful auth
-                        // Clear the terminal and prepare for fresh output
-                        terminal.clear();
 
                         try {
                             ws.send(JSON.stringify({ type: 'ping' }));

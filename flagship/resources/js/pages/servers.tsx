@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { SSHTerminal } from '@/components/servers/ssh-terminal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -102,6 +103,8 @@ export default function Servers() {
         null,
     );
     const [selectedKeyId, setSelectedKeyId] = useState<string>('');
+
+    console.log('selectedServer :>> ', selectedServer);
 
     useEffect(() => {
         fetchServers();
