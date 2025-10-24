@@ -471,7 +471,7 @@ export function SSHTerminal({
 
             <div
                 className="rounded-lg border border-gray-700 bg-[#1e1e1e]"
-                style={{ height: '600px', padding: '8px' }}
+                style={{ height: '600px', padding: '8px 8px 16px 8px' }}
             >
                 <style>
                     {`
