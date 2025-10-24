@@ -232,7 +232,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       WS_PORT: 6001
       NODE_ENV: development
-      RAILS_MASTER_KEY: e78e93131740cda850f1b0fe941933e031d3a643bbba53e8f1547204cb8b4da5
+      SSH_MASTER_KEY: e78e93131740cda850f1b0fe941933e031d3a643bbba53e8f1547204cb8b4da5
     ports:
       - "6001:6001" # SSH WebSocket server
     depends_on:

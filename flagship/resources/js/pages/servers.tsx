@@ -625,14 +625,14 @@ export default function Servers() {
                                 {selectedServer?.ssh_host}:
                                 {selectedServer?.ssh_port}
                             </span>
-                            <span>
-                                {serverConnected && (
+                            {serverConnected && (
+                                <span>
                                     <div className="flex items-center text-sm text-green-500">
                                         ● Connected - Interactive terminal
                                         (supports vim, nano, top, etc.)
                                     </div>
-                                )}
-                            </span>
+                                </span>
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="w-full flex-1 overflow-hidden">
