@@ -268,26 +268,9 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     SECRETS_DIR="$PROJECT_ROOT/secrets"
     MASTER_KEY_FILE="$SECRETS_DIR/master.key"
-    LEGACY_KEY_FILE="$PROJECT_ROOT/flagship/config/master.key"
 
     # Create secrets directory if it doesn't exist
     mkdir -p "$SECRETS_DIR"
-
-    # Check for legacy key location and migrate if needed
-    if [ -f "$LEGACY_KEY_FILE" ] && [ ! -f "$MASTER_KEY_FILE" ]; then
-        echo -e "${YELLOW}Found master key in legacy location${NC}"
-        echo "  Old location: $LEGACY_KEY_FILE"
-        echo "  New location: $MASTER_KEY_FILE"
-        echo ""
-        read -p "Migrate key to new shared location? (Y/n): " migrate_key
-        if [[ ! "$migrate_key" =~ ^[Nn]$ ]]; then
-            cp "$LEGACY_KEY_FILE" "$MASTER_KEY_FILE"
-            chmod 600 "$MASTER_KEY_FILE"
-            echo -e "${GREEN}✓ Master key migrated successfully${NC}"
-            echo -e "${CYAN}  (Legacy file kept for backward compatibility)${NC}"
-            echo ""
-        fi
-    fi
 
     if [ -f "$MASTER_KEY_FILE" ]; then
         echo -e "${YELLOW}✓ Master key file already exists${NC}"
