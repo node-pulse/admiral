@@ -97,7 +97,7 @@ export function SSHTerminal({
         }, 100);
 
         // Show welcome message
-        terminal.writeln('\x1b[1;32mNodePulse SSH Terminal\x1b[0m');
+        terminal.writeln('\x1b[1;32mNode Pulse SSH Terminal\x1b[0m');
         terminal.writeln('WebSocket-based interactive terminal');
         terminal.writeln(
             'Supports: vim, nano, top, and all interactive programs\r\n',
