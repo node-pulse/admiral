@@ -40,10 +40,14 @@ export default function Login({
                 {...store.form()}
                 resetOnSuccess={['password']}
                 className="flex flex-col gap-6"
-                data={{ captcha_token: captchaToken }}
             >
                 {({ processing, errors }) => (
                     <>
+                        <input
+                            type="hidden"
+                            name="captcha_token"
+                            value={captchaToken}
+                        />
                         <div className="grid gap-6">
                             <div className="grid gap-2">
                                 <Label htmlFor="email">Email address</Label>

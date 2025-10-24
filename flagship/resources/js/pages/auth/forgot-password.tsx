@@ -33,9 +33,14 @@ export default function ForgotPassword({ status }: { status?: string }) {
             )}
 
             <div className="space-y-6">
-                <Form {...email.form()} data={{ captcha_token: captchaToken }}>
+                <Form {...email.form()}>
                     {({ processing, errors }) => (
                         <>
+                            <input
+                                type="hidden"
+                                name="captcha_token"
+                                value={captchaToken}
+                            />
                             <div className="grid gap-2">
                                 <Label htmlFor="email">Email address</Label>
                                 <Input

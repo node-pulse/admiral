@@ -370,6 +370,102 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo ""
 
     # =============================================================================
+    # CAPTCHA Configuration
+    # =============================================================================
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}CAPTCHA Anti-Bot Protection (Optional)${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    echo -e "${CYAN}Choose CAPTCHA provider:${NC}"
+    echo "  1) Cloudflare Turnstile (recommended - privacy-friendly)"
+    echo "  2) Google reCAPTCHA v2 (checkbox)"
+    echo "  3) Google reCAPTCHA v3 (invisible)"
+    echo "  4) None (disable CAPTCHA)"
+    echo ""
+
+    read -p "Select option [1-4] (default: 4): " captcha_choice
+    captcha_choice="${captcha_choice:-4}"
+
+    case "$captcha_choice" in
+        1)
+            CONFIG["CAPTCHA_PROVIDER"]="turnstile"
+            echo ""
+            echo -e "${CYAN}Get your Turnstile keys at: https://dash.cloudflare.com/${NC}"
+            echo ""
+            prompt_config "TURNSTILE_SITE_KEY" "" "Turnstile Site Key"
+            prompt_config "TURNSTILE_SECRET_KEY" "" "Turnstile Secret Key" "true"
+            CONFIG["RECAPTCHA_V2_SITE_KEY"]=""
+            CONFIG["RECAPTCHA_V2_SECRET_KEY"]=""
+            CONFIG["RECAPTCHA_V3_SITE_KEY"]=""
+            CONFIG["RECAPTCHA_V3_SECRET_KEY"]=""
+            CONFIG["RECAPTCHA_V3_SCORE_THRESHOLD"]="0.5"
+            ;;
+        2)
+            CONFIG["CAPTCHA_PROVIDER"]="recaptcha_v2"
+            echo ""
+            echo -e "${CYAN}Get your reCAPTCHA v2 keys at: https://www.google.com/recaptcha/admin${NC}"
+            echo ""
+            prompt_config "RECAPTCHA_V2_SITE_KEY" "" "reCAPTCHA v2 Site Key"
+            prompt_config "RECAPTCHA_V2_SECRET_KEY" "" "reCAPTCHA v2 Secret Key" "true"
+            CONFIG["TURNSTILE_SITE_KEY"]=""
+            CONFIG["TURNSTILE_SECRET_KEY"]=""
+            CONFIG["RECAPTCHA_V3_SITE_KEY"]=""
+            CONFIG["RECAPTCHA_V3_SECRET_KEY"]=""
+            CONFIG["RECAPTCHA_V3_SCORE_THRESHOLD"]="0.5"
+            ;;
+        3)
+            CONFIG["CAPTCHA_PROVIDER"]="recaptcha_v3"
+            echo ""
+            echo -e "${CYAN}Get your reCAPTCHA v3 keys at: https://www.google.com/recaptcha/admin${NC}"
+            echo ""
+            prompt_config "RECAPTCHA_V3_SITE_KEY" "" "reCAPTCHA v3 Site Key"
+            prompt_config "RECAPTCHA_V3_SECRET_KEY" "" "reCAPTCHA v3 Secret Key" "true"
+            prompt_config "RECAPTCHA_V3_SCORE_THRESHOLD" "0.5" "Score threshold (0.0=bot to 1.0=human)"
+            CONFIG["TURNSTILE_SITE_KEY"]=""
+            CONFIG["TURNSTILE_SECRET_KEY"]=""
+            CONFIG["RECAPTCHA_V2_SITE_KEY"]=""
+            CONFIG["RECAPTCHA_V2_SECRET_KEY"]=""
+            ;;
+        4|*)
+            CONFIG["CAPTCHA_PROVIDER"]="none"
+            CONFIG["TURNSTILE_SITE_KEY"]=""
+            CONFIG["TURNSTILE_SECRET_KEY"]=""
+            CONFIG["RECAPTCHA_V2_SITE_KEY"]=""
+            CONFIG["RECAPTCHA_V2_SECRET_KEY"]=""
+            CONFIG["RECAPTCHA_V3_SITE_KEY"]=""
+            CONFIG["RECAPTCHA_V3_SECRET_KEY"]=""
+            CONFIG["RECAPTCHA_V3_SCORE_THRESHOLD"]="0.5"
+            echo ""
+            echo -e "${YELLOW}⚠️  CAPTCHA disabled - not recommended for production${NC}"
+            ;;
+    esac
+
+    echo ""
+
+    if [ "${CONFIG[CAPTCHA_PROVIDER]}" != "none" ]; then
+        echo -e "${CYAN}Enable CAPTCHA for which pages?${NC}"
+        read -p "Enable for Login page? (Y/n): " enable_login
+        CONFIG["CAPTCHA_ENABLE_LOGIN"]=$([[ ! "$enable_login" =~ ^[Nn]$ ]] && echo "true" || echo "false")
+
+        read -p "Enable for Registration page? (Y/n): " enable_register
+        CONFIG["CAPTCHA_ENABLE_REGISTER"]=$([[ ! "$enable_register" =~ ^[Nn]$ ]] && echo "true" || echo "false")
+
+        read -p "Enable for Forgot Password page? (Y/n): " enable_forgot
+        CONFIG["CAPTCHA_ENABLE_FORGOT_PASSWORD"]=$([[ ! "$enable_forgot" =~ ^[Nn]$ ]] && echo "true" || echo "false")
+
+        read -p "Enable for Reset Password page? (y/N): " enable_reset
+        CONFIG["CAPTCHA_ENABLE_RESET_PASSWORD"]=$([[ "$enable_reset" =~ ^[Yy]$ ]] && echo "true" || echo "false")
+    else
+        CONFIG["CAPTCHA_ENABLE_LOGIN"]="false"
+        CONFIG["CAPTCHA_ENABLE_REGISTER"]="false"
+        CONFIG["CAPTCHA_ENABLE_FORGOT_PASSWORD"]="false"
+        CONFIG["CAPTCHA_ENABLE_RESET_PASSWORD"]="false"
+    fi
+
+    echo ""
+
+    # =============================================================================
     # Cruiser Configuration (Next.js Frontend)
     # =============================================================================
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -446,6 +542,16 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         echo "  App Debug:  ${CONFIG[APP_DEBUG]}"
         echo "  App URL:    ${CONFIG[APP_URL]}"
         echo "  App Key:    ${CONFIG[APP_KEY]:0:12}****"
+        echo ""
+
+        echo -e "${GREEN}CAPTCHA Protection:${NC}"
+        echo "  Provider:          ${CONFIG[CAPTCHA_PROVIDER]}"
+        if [ "${CONFIG[CAPTCHA_PROVIDER]}" != "none" ]; then
+            echo "  Login:             ${CONFIG[CAPTCHA_ENABLE_LOGIN]}"
+            echo "  Registration:      ${CONFIG[CAPTCHA_ENABLE_REGISTER]}"
+            echo "  Forgot Password:   ${CONFIG[CAPTCHA_ENABLE_FORGOT_PASSWORD]}"
+            echo "  Reset Password:    ${CONFIG[CAPTCHA_ENABLE_RESET_PASSWORD]}"
+        fi
         echo ""
 
         echo -e "${GREEN}Cruiser (Next.js):${NC}"
@@ -595,6 +701,29 @@ MAIL_FROM_NAME="${CONFIG[MAIL_FROM_NAME]}"
 
 # Vite
 VITE_APP_NAME="${CONFIG[VITE_APP_NAME]}"
+
+# =============================================================================
+# CAPTCHA Configuration
+# =============================================================================
+# Options: turnstile, recaptcha_v2, recaptcha_v3, none
+CAPTCHA_PROVIDER=${CONFIG[CAPTCHA_PROVIDER]}
+CAPTCHA_ENABLE_LOGIN=${CONFIG[CAPTCHA_ENABLE_LOGIN]}
+CAPTCHA_ENABLE_REGISTER=${CONFIG[CAPTCHA_ENABLE_REGISTER]}
+CAPTCHA_ENABLE_FORGOT_PASSWORD=${CONFIG[CAPTCHA_ENABLE_FORGOT_PASSWORD]}
+CAPTCHA_ENABLE_RESET_PASSWORD=${CONFIG[CAPTCHA_ENABLE_RESET_PASSWORD]}
+
+# Cloudflare Turnstile (get keys at: https://dash.cloudflare.com/)
+TURNSTILE_SITE_KEY=${CONFIG[TURNSTILE_SITE_KEY]}
+TURNSTILE_SECRET_KEY=${CONFIG[TURNSTILE_SECRET_KEY]}
+
+# Google reCAPTCHA v2 (get keys at: https://www.google.com/recaptcha/admin)
+RECAPTCHA_V2_SITE_KEY=${CONFIG[RECAPTCHA_V2_SITE_KEY]}
+RECAPTCHA_V2_SECRET_KEY=${CONFIG[RECAPTCHA_V2_SECRET_KEY]}
+
+# Google reCAPTCHA v3 (get keys at: https://www.google.com/recaptcha/admin)
+RECAPTCHA_V3_SITE_KEY=${CONFIG[RECAPTCHA_V3_SITE_KEY]}
+RECAPTCHA_V3_SECRET_KEY=${CONFIG[RECAPTCHA_V3_SECRET_KEY]}
+RECAPTCHA_V3_SCORE_THRESHOLD=${CONFIG[RECAPTCHA_V3_SCORE_THRESHOLD]}
 
 # =============================================================================
 # Cruiser Configuration (Next.js Frontend)

@@ -13,13 +13,13 @@ class CaptchaService
     public function __construct()
     {
         $this->provider = config('captcha.provider', 'turnstile');
-        $this->config = config('captcha.'.$this->provider, []);
+        $this->config = config("captcha.{$this->provider}", []);
     }
 
     /**
      * Verify the CAPTCHA response
      */
-    public function verify(string $response, string $ipAddress = null): bool
+    public function verify(string $response, ?string $ipAddress = null): bool
     {
         if ($this->provider === 'none' || empty($response)) {
             return $this->provider === 'none';
