@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { PrivateKeyData, ServerData, ServersResponse } from '../types/servers';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -63,44 +64,6 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: serversRoute().url,
     },
 ];
-
-interface ServerData {
-    id: string;
-    hostname: string;
-    name: string | null;
-    display_name: string;
-    description: string | null;
-    ssh_host: string | null;
-    ssh_port: number;
-    ssh_username: string;
-    has_ssh_key: boolean;
-    ssh_key_name: string | null;
-    is_reachable: boolean;
-    status: string;
-    is_online: boolean;
-    last_seen_at: string | null;
-    distro: string | null;
-    architecture: string | null;
-    cpu_cores: number | null;
-}
-
-interface ServersResponse {
-    servers: {
-        data: ServerData[];
-    };
-    meta: {
-        current_page: number;
-        per_page: number;
-        total: number;
-        last_page: number;
-    };
-}
-
-interface PrivateKeyData {
-    id: number;
-    name: string;
-    fingerprint: string;
-}
 
 export default function Servers() {
     const { props } = usePage();
@@ -120,6 +83,7 @@ export default function Servers() {
     const [selectedServer, setSelectedServer] = useState<ServerData | null>(
         null,
     );
+    const [serverConnected, setServerConnected] = useState(false);
     const [addServerOpen, setAddServerOpen] = useState(false);
     const [addServerForm, setAddServerForm] = useState({
         name: '',
@@ -650,12 +614,22 @@ export default function Servers() {
                 <DialogContent className="flex max-h-[90vh] w-[80vw] !max-w-none flex-col">
                     <DialogHeader>
                         <DialogTitle>
-                            SSH Terminal - {selectedServer?.display_name}
+                            {`SSH Terminal - ${selectedServer?.display_name} - ${selectedServer?.id}`}
                         </DialogTitle>
-                        <DialogDescription>
-                            {selectedServer?.ssh_username}@
-                            {selectedServer?.ssh_host}:
-                            {selectedServer?.ssh_port}
+                        <DialogDescription className="flex items-center gap-4">
+                            <span>
+                                {selectedServer?.ssh_username}@
+                                {selectedServer?.ssh_host}:
+                                {selectedServer?.ssh_port}
+                            </span>
+                            <span>
+                                {serverConnected && (
+                                    <div className="flex items-center text-sm text-green-500">
+                                        ● Connected - Interactive terminal
+                                        (supports vim, nano, top, etc.)
+                                    </div>
+                                )}
+                            </span>
                         </DialogDescription>
                     </DialogHeader>
                     <div className="w-full flex-1 overflow-hidden">
@@ -663,6 +637,8 @@ export default function Servers() {
                             <SSHTerminal
                                 serverId={selectedServer.id}
                                 server={selectedServer}
+                                serverConnected={serverConnected}
+                                setServerConnected={setServerConnected}
                                 onConnectionChange={(connected) => {
                                     console.log(
                                         'Connection status:',

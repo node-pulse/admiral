@@ -8,17 +8,13 @@ import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { AlertCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { ServerData } from '../../types/servers';
 
 interface SSHTerminalProps {
     serverId: string;
-    server?: {
-        ssh_host: string;
-        ssh_port: number;
-        ssh_username: string;
-        primary_private_key?: {
-            private_key_content: string;
-        };
-    };
+    server?: ServerData;
+    serverConnected: boolean;
+    setServerConnected: (connected: boolean) => void;
     onConnectionChange?: (connected: boolean) => void;
 }
 
@@ -26,12 +22,14 @@ export function SSHTerminal({
     serverId,
     server,
     onConnectionChange,
+    serverConnected,
+    setServerConnected,
 }: SSHTerminalProps) {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
-    const [connected, setConnected] = useState(false);
+
     const [error, setError] = useState<string | null>(null);
     const [password, setPassword] = useState('');
     const [showPasswordPrompt, setShowPasswordPrompt] = useState(true);
@@ -101,15 +99,12 @@ export function SSHTerminal({
         // Set up input handler that uses the WebSocket ref
         const inputHandler = terminal.onData((data) => {
             const socket = wsRef.current;
-            console.log('[SSH Terminal] Input handler called, wsRef.current:', socket, 'state:', socket?.readyState);
 
             if (!socket) {
-                console.error('[SSH Terminal] wsRef.current is null!');
                 return;
             }
 
             if (socket.readyState !== WebSocket.OPEN) {
-                console.error('[SSH Terminal] WebSocket not open, state:', socket.readyState);
                 return;
             }
 
@@ -118,11 +113,8 @@ export function SSHTerminal({
                 data: data,
             });
 
-            console.log('[SSH Terminal] Sending message to WebSocket:', message);
-
             try {
                 socket.send(message);
-                console.log('[SSH Terminal] Message sent successfully');
             } catch (error) {
                 console.error('[SSH Terminal] Error sending message:', error);
             }
@@ -198,7 +190,7 @@ export function SSHTerminal({
             };
 
             // Remove undefined values
-            Object.keys(authMessage).forEach(key => {
+            Object.keys(authMessage).forEach((key) => {
                 if (authMessage[key] === undefined) {
                     delete authMessage[key];
                 }
@@ -220,7 +212,7 @@ export function SSHTerminal({
                         terminal.writeln(
                             `\x1b[32m✓ ${data.message}\x1b[0m\r\n`,
                         );
-                        setConnected(true);
+                        setServerConnected(true);
                         setShowPasswordPrompt(false);
                         setConnecting(false);
                         onConnectionChange?.(true);
@@ -263,7 +255,7 @@ export function SSHTerminal({
                         terminal.writeln(
                             `\r\n\x1b[33m${data.message}\x1b[0m\r\n`,
                         );
-                        setConnected(false);
+                        setServerConnected(false);
                         onConnectionChange?.(false);
                         break;
                 }
@@ -285,14 +277,14 @@ export function SSHTerminal({
             terminal.writeln(
                 '\r\n\x1b[33m✗ WebSocket connection closed\x1b[0m\r\n',
             );
-            setConnected(false);
+            setServerConnected(false);
             setConnecting(false);
             onConnectionChange?.(false);
         };
     };
 
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-2">
             {showPasswordPrompt && (
                 <div className="space-y-4 rounded-lg border bg-muted/50 p-4">
                     <div className="space-y-2">
@@ -329,7 +321,7 @@ export function SSHTerminal({
                 </div>
             )}
 
-            {error && !connected && (
+            {error && !serverConnected && (
                 <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
@@ -355,17 +347,7 @@ export function SSHTerminal({
                 style={{ height: '600px' }}
             />
 
-            {connected && (
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>
-                        ● Connected - Interactive terminal (supports vim, nano,
-                        top, etc.)
-                    </span>
-                    <span className="text-green-500">● Live</span>
-                </div>
-            )}
-
-            {!connected && !showPasswordPrompt && (
+            {!serverConnected && !showPasswordPrompt && (
                 <div className="text-center">
                     <Button
                         variant="outline"
