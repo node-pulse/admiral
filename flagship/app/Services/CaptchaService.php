@@ -12,7 +12,7 @@ class CaptchaService
 
     public function __construct()
     {
-        $this->provider = config('captcha.provider', 'turnstile');
+        $this->provider = config('captcha.provider', null);
         $this->config = config("captcha.{$this->provider}", []);
     }
 
@@ -155,7 +155,7 @@ class CaptchaService
      */
     public function isEnabled(string $feature): bool
     {
-        if ($this->provider === 'none') {
+        if (empty($this->provider)) {
             return false;
         }
 
@@ -185,7 +185,7 @@ class CaptchaService
     public function getSiteKey(): ?string
     {
         // Don't return site key if CAPTCHA is disabled for all features
-        if ($this->provider === 'none' || !$this->isEnabledForAnyFeature()) {
+        if (empty($this->provider)  || !$this->isEnabledForAnyFeature()) {
             return null;
         }
 

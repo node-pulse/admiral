@@ -381,7 +381,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo "  1) Cloudflare Turnstile (recommended - privacy-friendly)"
     echo "  2) Google reCAPTCHA v2 (checkbox)"
     echo "  3) Google reCAPTCHA v3 (invisible)"
-    echo "  4) None (disable CAPTCHA)"
+    echo "  4) None (skip CAPTCHA configuration)"
     echo ""
 
     read -p "Select option [1-4] (default: 4): " captcha_choice
@@ -428,7 +428,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
             CONFIG["RECAPTCHA_V2_SECRET_KEY"]=""
             ;;
         4|*)
-            CONFIG["CAPTCHA_PROVIDER"]="none"
+            CONFIG["CAPTCHA_PROVIDER"]=""
             CONFIG["TURNSTILE_SITE_KEY"]=""
             CONFIG["TURNSTILE_SECRET_KEY"]=""
             CONFIG["RECAPTCHA_V2_SITE_KEY"]=""
@@ -436,31 +436,35 @@ if [ "$SKIP_CONFIG" != "true" ]; then
             CONFIG["RECAPTCHA_V3_SITE_KEY"]=""
             CONFIG["RECAPTCHA_V3_SECRET_KEY"]=""
             CONFIG["RECAPTCHA_V3_SCORE_THRESHOLD"]="0.5"
+            CONFIG["CAPTCHA_ENABLED_FEATURES"]=""
             echo ""
-            echo -e "${YELLOW}⚠️  CAPTCHA disabled - not recommended for production${NC}"
+            echo -e "${YELLOW}Skipping CAPTCHA configuration (can be enabled later)${NC}"
             ;;
     esac
 
     echo ""
 
-    if [ "${CONFIG[CAPTCHA_PROVIDER]}" != "none" ]; then
+    # Build comma-separated list of enabled features
+    if [ -n "${CONFIG[CAPTCHA_PROVIDER]}" ]; then
         echo -e "${CYAN}Enable CAPTCHA for which pages?${NC}"
+        enabled_features=()
+
         read -p "Enable for Login page? (Y/n): " enable_login
-        CONFIG["CAPTCHA_ENABLE_LOGIN"]=$([[ ! "$enable_login" =~ ^[Nn]$ ]] && echo "true" || echo "false")
+        [[ ! "$enable_login" =~ ^[Nn]$ ]] && enabled_features+=("login")
 
         read -p "Enable for Registration page? (Y/n): " enable_register
-        CONFIG["CAPTCHA_ENABLE_REGISTER"]=$([[ ! "$enable_register" =~ ^[Nn]$ ]] && echo "true" || echo "false")
+        [[ ! "$enable_register" =~ ^[Nn]$ ]] && enabled_features+=("register")
 
         read -p "Enable for Forgot Password page? (Y/n): " enable_forgot
-        CONFIG["CAPTCHA_ENABLE_FORGOT_PASSWORD"]=$([[ ! "$enable_forgot" =~ ^[Nn]$ ]] && echo "true" || echo "false")
+        [[ ! "$enable_forgot" =~ ^[Nn]$ ]] && enabled_features+=("forgot_password")
 
         read -p "Enable for Reset Password page? (y/N): " enable_reset
-        CONFIG["CAPTCHA_ENABLE_RESET_PASSWORD"]=$([[ "$enable_reset" =~ ^[Yy]$ ]] && echo "true" || echo "false")
+        [[ "$enable_reset" =~ ^[Yy]$ ]] && enabled_features+=("reset_password")
+
+        # Join array with commas
+        CONFIG["CAPTCHA_ENABLED_FEATURES"]=$(IFS=,; echo "${enabled_features[*]}")
     else
-        CONFIG["CAPTCHA_ENABLE_LOGIN"]="false"
-        CONFIG["CAPTCHA_ENABLE_REGISTER"]="false"
-        CONFIG["CAPTCHA_ENABLE_FORGOT_PASSWORD"]="false"
-        CONFIG["CAPTCHA_ENABLE_RESET_PASSWORD"]="false"
+        CONFIG["CAPTCHA_ENABLED_FEATURES"]=""
     fi
 
     echo ""
@@ -545,12 +549,11 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         echo ""
 
         echo -e "${GREEN}CAPTCHA Protection:${NC}"
-        echo "  Provider:          ${CONFIG[CAPTCHA_PROVIDER]}"
-        if [ "${CONFIG[CAPTCHA_PROVIDER]}" != "none" ]; then
-            echo "  Login:             ${CONFIG[CAPTCHA_ENABLE_LOGIN]}"
-            echo "  Registration:      ${CONFIG[CAPTCHA_ENABLE_REGISTER]}"
-            echo "  Forgot Password:   ${CONFIG[CAPTCHA_ENABLE_FORGOT_PASSWORD]}"
-            echo "  Reset Password:    ${CONFIG[CAPTCHA_ENABLE_RESET_PASSWORD]}"
+        if [ -n "${CONFIG[CAPTCHA_PROVIDER]}" ]; then
+            echo "  Provider:          ${CONFIG[CAPTCHA_PROVIDER]}"
+            echo "  Enabled Features:  ${CONFIG[CAPTCHA_ENABLED_FEATURES]}"
+        else
+            echo "  Status:            Disabled"
         fi
         echo ""
 
@@ -705,12 +708,13 @@ VITE_APP_NAME="${CONFIG[VITE_APP_NAME]}"
 # =============================================================================
 # CAPTCHA Configuration
 # =============================================================================
-# Options: turnstile, recaptcha_v2, recaptcha_v3, none
+# Options: turnstile, recaptcha_v2, recaptcha_v3
+# Leave empty or omit to disable CAPTCHA
 CAPTCHA_PROVIDER=${CONFIG[CAPTCHA_PROVIDER]}
-CAPTCHA_ENABLE_LOGIN=${CONFIG[CAPTCHA_ENABLE_LOGIN]}
-CAPTCHA_ENABLE_REGISTER=${CONFIG[CAPTCHA_ENABLE_REGISTER]}
-CAPTCHA_ENABLE_FORGOT_PASSWORD=${CONFIG[CAPTCHA_ENABLE_FORGOT_PASSWORD]}
-CAPTCHA_ENABLE_RESET_PASSWORD=${CONFIG[CAPTCHA_ENABLE_RESET_PASSWORD]}
+
+# Comma-separated list of features to enable CAPTCHA for
+# Available: login, register, forgot_password, reset_password
+CAPTCHA_ENABLED_FEATURES=${CONFIG[CAPTCHA_ENABLED_FEATURES]}
 
 # Cloudflare Turnstile (get keys at: https://dash.cloudflare.com/)
 TURNSTILE_SITE_KEY=${CONFIG[TURNSTILE_SITE_KEY]}

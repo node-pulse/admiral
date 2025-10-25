@@ -7,16 +7,17 @@ return [
     | CAPTCHA Provider
     |--------------------------------------------------------------------------
     |
-    | Supported providers: "turnstile", "recaptcha_v2", "recaptcha_v3", "none"
+    | Supported providers: "turnstile", "recaptcha_v2", "recaptcha_v3"
     |
     | - turnstile: Cloudflare Turnstile (privacy-friendly, free)
     | - recaptcha_v2: Google reCAPTCHA v2 (checkbox)
     | - recaptcha_v3: Google reCAPTCHA v3 (invisible, score-based)
-    | - none: Disable CAPTCHA (not recommended for production)
+    |
+    | If not set or empty, CAPTCHA will be disabled.
     |
     */
 
-    'provider' => env('CAPTCHA_PROVIDER', 'turnstile'),
+    'provider' => env('CAPTCHA_PROVIDER', null),
 
     /*
     |--------------------------------------------------------------------------
