@@ -6,6 +6,7 @@ use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -42,7 +43,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
 
-        // Add CAPTCHA validation to login and password reset requests
+        // Add CAPTCHA validation to login requests
         Fortify::authenticateUsing(function (Request $request) {
             $captchaService = app(\App\Services\CaptchaService::class);
 
@@ -53,7 +54,13 @@ class FortifyServiceProvider extends ServiceProvider
                 ]);
             }
 
-            // Let Fortify handle the actual authentication
+            // Perform the actual authentication using Laravel's Auth
+            $credentials = $request->only(Fortify::username(), 'password');
+
+            if (Auth::attempt($credentials, $request->boolean('remember'))) {
+                return Auth::user();
+            }
+
             return null;
         });
     }
