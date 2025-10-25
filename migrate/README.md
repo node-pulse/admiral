@@ -265,8 +265,6 @@ The project uses **multiple PostgreSQL schemas** for logical separation:
   - Read by: Flagship (Laravel) and Cruiser (Next.js)
 - **`better_auth`** - Next.js authentication (Better Auth)
   - Used by: Cruiser (Next.js)
-- **`kratos`** - Ory Kratos identity management (auto-managed)
-  - Managed by: Ory Kratos service
 
 ## Troubleshooting
 

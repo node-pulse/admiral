@@ -11,9 +11,7 @@ This project uses Docker Compose to orchestrate multiple services:
 - **Cruiser (Next.js)**: Modern React-based dashboard UI (secondary service)
 - **PostgreSQL 18**: Main database with separate schemas for each service
 - **Valkey**: Redis-compatible in-memory data store for message streams, caching, and sessions
-- **Ory Kratos**: Modern identity and user management
-- **pgweb**: Web-based PostgreSQL database browser
-- **Caddy**: Modern reverse proxy and web server
+- **Caddy**: Modern reverse proxy and web server with automatic HTTPS
 
 ## Prerequisites
 
@@ -62,27 +60,24 @@ This project uses Docker Compose to orchestrate multiple services:
 
 Once all services are running:
 
+- **Flagship (Admin Dashboard)**: http://localhost (via Caddy)
 - **Cruiser (Frontend)**: http://localhost:3000
-- **Submarines (Backend API)**: http://localhost:8080
-- **Kafka**: localhost:9092
-- **Caddy (Reverse Proxy)**: http://localhost:80
-- **Ory Kratos Public API**: http://localhost:4433
-- **Ory Kratos Admin API**: http://localhost:4434
-- **pgweb**: http://localhost:8081
+- **Submarines Ingest**: http://localhost:8080
+- **Submarines Status**: http://localhost:8082
 - **PostgreSQL**: localhost:5432
 - **Valkey**: localhost:6379
 
 ## Database Schemas
 
-The PostgreSQL database is organized into three schemas:
+The PostgreSQL database is organized into two schemas:
 
-1. **better_auth**: Authentication tables for Next.js (using better-auth)
-2. **kratos**: Identity management tables (managed by Ory Kratos)
-3. **backend**: Application tables for agent fleet management
+1. **better_auth**: Authentication tables for Cruiser (Next.js using better-auth)
+2. **admiral**: Application tables for agent fleet management (shared by Submarines and Flagship)
    - `servers`: Server/agent registry
    - `metrics`: Time-series metrics data
    - `alerts`: Alert records
    - `alert_rules`: Alert rule configurations
+   - `ssh_sessions`: SSH session audit logs
 
 ## API Endpoints
 
@@ -358,14 +353,13 @@ For production:
 4. Set `APP_ENV=production` and `APP_DEBUG=false` for Flagship
 5. Run `php artisan optimize` for Laravel optimization
 6. Build frontend assets with `npm run build`
-7. Configure proper domain in Caddyfile
-8. Enable HTTPS in Caddy
+7. Configure proper domains in `.env` (ADMIN_DOMAIN, INGEST_DOMAIN, etc.)
+8. Use `Caddyfile.prod` for automatic HTTPS via Let's Encrypt
 9. Set up proper backup strategy for PostgreSQL
 10. Configure monitoring and alerting
-11. Review and update Ory Kratos security settings
-12. Scale digest workers based on Valkey Stream lag
-13. Configure Laravel queue workers for background jobs
-14. Set up proper session and cache drivers
+11. Scale digest workers based on Valkey Stream lag
+12. Configure Laravel authentication and authorization
+13. Set up proper session and cache drivers
 
 ## License
 

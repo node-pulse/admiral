@@ -1,0 +1,100 @@
+# Caddy Configuration for Local Development
+# No HTTPS, simple HTTP routing
+
+# Global options for development
+{
+    # Disable automatic HTTPS for local development
+    auto_https off
+
+    # Enable debug logging
+    debug
+}
+
+# ------------------------------------------------------------
+# Admin Dashboard (Flagship - Laravel)
+# ------------------------------------------------------------
+localhost:8000, admin.localhost {
+    # Root directory for static files
+    root * /var/www/flagship/public
+
+    # PHP-FPM configuration
+    php_fastcgi flagship:9000 {
+        split .php
+        env APP_ENV local
+        env APP_DEBUG true
+    }
+
+    # Serve static files
+    file_server
+
+    # Laravel routing
+    try_files {path} {path}/ /index.php?{query}
+
+    # Verbose logging for development
+    log {
+        output stdout
+        format console
+        level DEBUG
+    }
+}
+
+# ------------------------------------------------------------
+# Metrics Ingestion (Submarines Ingest)
+# ------------------------------------------------------------
+localhost:8080, ingest.localhost {
+    reverse_proxy submarines-ingest:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# ------------------------------------------------------------
+# Status Pages (Submarines Status)
+# ------------------------------------------------------------
+localhost:8082, status.localhost {
+    reverse_proxy submarines-status:8082 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# ------------------------------------------------------------
+# Public App (Cruiser - Next.js)
+# ------------------------------------------------------------
+localhost:3000, app.localhost {
+    reverse_proxy cruiser:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# ------------------------------------------------------------
+# Vite Dev Server (Hot Module Replacement)
+# ------------------------------------------------------------
+localhost:5173 {
+    reverse_proxy flagship:5173 {
+        header_up Host {host}
+        header_up Upgrade {http.request.header.Upgrade}
+        header_up Connection {http.request.header.Connection}
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

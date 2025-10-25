@@ -14,11 +14,11 @@ Flagship is the web UI component of NodePulse Admiral:
 ## Technology Stack
 
 - **Framework**: Laravel 12 with React (Inertia.js)
-- **App Server**: FrankenPHP (Go-based, production-ready)
-- **Database**: PostgreSQL 18 (`backend` schema - shared with Submarines)
+- **App Server**: PHP-FPM 8.3
+- **Database**: PostgreSQL 18 (`admiral` schema - shared with Submarines)
 - **Cache/Sessions**: Valkey (Redis-compatible)
 - **Build Tool**: Vite
-- **Reverse Proxy**: Traefik (configured at admiral level)
+- **Reverse Proxy**: Caddy 2 (configured at admiral level)
 
 ## Quick Start
 
@@ -75,30 +75,31 @@ VALKEY_PASSWORD=your-password
 
 ### Database Schema
 
-Uses PostgreSQL schema: **`backend`**
+Uses PostgreSQL schema: **`admiral`**
 
-Flagship reads metrics data written by Submarines from the shared `backend` schema.
+Flagship reads metrics data written by Submarines from the shared `admiral` schema.
 
 The database has multiple schemas:
 
-- `backend` - Shared: Submarines writes metrics, Flagship reads
-- `kratos` - Ory Kratos identity data
+- `admiral` - Shared: Submarines writes metrics, Flagship reads
 - `better_auth` - Next.js (Cruiser) auth data
 
 ## Architecture
 
 ```
-Browser → Traefik → FrankenPHP (Go-based server :3000) → PostgreSQL (backend schema)
-                         ↓
-                    Valkey (cache/sessions)
+Browser → Caddy :80/:443 → PHP-FPM :9000 → PostgreSQL (admiral schema)
+              ↓
+         Static files (public/)
+              ↓
+         Valkey (cache/sessions)
 ```
 
 **Key Components:**
 
-- **FrankenPHP**: Go-based HTTP server (production-ready, high performance)
-- **Traefik**: Handles SSL/TLS, routing, load balancing
+- **PHP-FPM**: FastCGI Process Manager (port 9000, production-ready)
+- **Caddy**: Handles HTTP/HTTPS, static files, SSL/TLS via php_fastcgi directive
 - **Valkey**: Redis-compatible for sessions/cache
-- **Shared Schema**: Reads from `backend` schema where Submarines writes
+- **Shared Schema**: Reads from `admiral` schema where Submarines writes
 
 ## Development
 
@@ -138,13 +139,14 @@ Auto-built via GitHub Actions on push to `main`
 
 ### Dockerfile
 
-Production-ready build:
+Production-ready build (multi-stage):
 
-- **FrankenPHP** (Go-based PHP application server)
-- PHP 8.2 with PostgreSQL + Redis extensions
-- Laravel dependencies (optimized)
-- Pre-built frontend assets
-- Listens on port 3000
+- **PHP-FPM 8.3** (Alpine-based, lightweight)
+- PHP extensions: PostgreSQL, Redis, OPcache
+- Ansible installed for agent deployment
+- Laravel dependencies (optimized, production-only)
+- Pre-built frontend assets (Vite)
+- Exposes PHP-FPM on port 9000
 
 ### Local Build
 
@@ -175,10 +177,19 @@ See `admiral/compose.yml` for the full stack configuration.
 
 Flagship integrates with:
 
-- PostgreSQL (shared database, separate schema)
+- PostgreSQL (shared database, `admiral` schema)
 - Valkey (sessions/cache)
-- Traefik (reverse proxy)
-- Kratos (authentication)
+- Caddy (reverse proxy with php_fastcgi)
+
+### Production URLs
+
+When using `caddy/Caddyfile.prod`, Flagship is accessible at:
+- `https://admin.yourdomain.com` (automatic HTTPS via Let's Encrypt)
+
+### Development URLs
+
+When using `caddy/Caddyfile`, Flagship is accessible at:
+- `http://localhost` (HTTP only)
 
 ## License
 

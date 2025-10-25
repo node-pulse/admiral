@@ -1,4 +1,4 @@
-.PHONY: help push dev-up dev-down dev-logs dev-restart dev-rebuild dev-clean prod-up prod-down prod-logs prod-restart prod-rebuild prod-clean db-backup subs-logs subs-restart ingest-logs worker-logs status-logs flagship-logs cruiser-logs valkey-cli traefik-status traefik-routers traefik-services
+.PHONY: help push dev-up dev-down dev-logs dev-restart dev-rebuild dev-clean prod-up prod-down prod-logs prod-restart prod-rebuild prod-clean db-backup subs-logs subs-restart ingest-logs digest-logs status-logs flagship-logs cruiser-logs caddy-logs valkey-cli
 
 # Default target - show help
 help:
@@ -36,14 +36,10 @@ help:
 	@echo "  make status-logs   - Follow submarines-status logs"
 	@echo "  make flagship-logs - Follow flagship logs"
 	@echo "  make cruiser-logs  - Follow cruiser logs"
+	@echo "  make caddy-logs    - Follow caddy logs"
 	@echo ""
 	@echo "Utilities:"
-	@echo "  make valkey-cli       - Open valkey-cli interactive session"
-	@echo ""
-	@echo "Traefik Status (API):"
-	@echo "  make traefik-status   - Show Traefik overview"
-	@echo "  make traefik-routers  - Show all HTTP routers"
-	@echo "  make traefik-services - Show all services with health checks"
+	@echo "  make valkey-cli    - Open valkey-cli interactive session"
 
 # Git operations
 push:
@@ -115,15 +111,8 @@ flagship-logs:
 cruiser-logs:
 	docker compose logs -f cruiser
 
+caddy-logs:
+	docker compose logs -f caddy
+
 valkey-cli:
 	docker exec -it node-pulse-valkey valkey-cli -a $${VALKEY_PASSWORD:-valkeypassword}
-
-# Traefik status via API
-traefik-status:
-	@./scripts/traefik-status.sh overview
-
-traefik-routers:
-	@./scripts/traefik-status.sh routers
-
-traefik-services:
-	@./scripts/traefik-status.sh services

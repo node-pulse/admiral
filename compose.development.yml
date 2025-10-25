@@ -70,61 +70,6 @@ services:
       - node-pulse-admiral
     restart: "no"
 
-  # Kratos Migration - Run Kratos schema migrations (idempotent)
-  kratos-migrate:
-    image: oryd/kratos:v1.3.0@sha256:ba79570c5f7da0e73785ddba0ff5ac4f693e26ad54dd6149423598510fb80552
-    container_name: node-pulse-kratos-migrate
-    env_file:
-      - .env
-    environment:
-      # Note: Kratos requires search_path because it doesn't support schema-qualified table names in its internal queries
-      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
-    volumes:
-      - ./kratos:/etc/config/kratos
-    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
-    depends_on:
-      postgres:
-        condition: service_healthy
-      flagship-migrate:
-        condition: service_completed_successfully
-    networks:
-      - node-pulse-admiral
-    restart: "no"
-
-  # Ory Kratos - Identity and User Management
-  kratos:
-    image: oryd/kratos:v1.3.0@sha256:ba79570c5f7da0e73785ddba0ff5ac4f693e26ad54dd6149423598510fb80552
-    container_name: node-pulse-kratos
-    env_file:
-      - .env
-    environment:
-      # Note: Kratos requires search_path because it doesn't support schema-qualified table names in its internal queries
-      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
-      LOG_LEVEL: ${KRATOS_LOG_LEVEL:-info}
-    volumes:
-      - ./kratos:/etc/config/kratos
-    command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
-    ports:
-      - "4433:4433" # public API
-      - "4434:4434" # admin API
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kratos-migrate:
-        condition: service_completed_successfully
-    healthcheck:
-      test:
-        - CMD
-        - wget
-        - --spider
-        - --quiet
-        - http://localhost:4434/health/ready
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - node-pulse-admiral
-
   # Go-Gin Submarines Ingest - Agent Metrics Ingestion (HTTP -> Valkey Stream)
   submarines-ingest:
     build:
@@ -142,8 +87,6 @@ services:
       postgres:
         condition: service_healthy
       valkey:
-        condition: service_healthy
-      kratos:
         condition: service_healthy
     volumes:
       - ./submarines:/app

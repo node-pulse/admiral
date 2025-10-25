@@ -77,25 +77,23 @@ docker compose down
 
 ### Service Access
 
-| Port | Service           | URL                   |
-| ---- | ----------------- | --------------------- |
-| 8080 | Submarines Ingest | http://localhost:8080 |
-| 8081 | Submarines Status | http://localhost:8081 |
-| 8000 | Flagship (Rails)  | http://localhost:8000 |
-| 8082 | Cruiser (Next.js) | http://localhost:8082 |
-| 4433 | Kratos Public API | http://localhost:4433 |
-| 4434 | Kratos Admin API  | http://localhost:4434 |
-| 5432 | PostgreSQL        | localhost:5432        |
-| 6379 | Valkey (Redis)    | localhost:6379        |
+| Port | Service              | URL                   |
+| ---- | -------------------- | --------------------- |
+| 80   | Flagship (Laravel)   | http://localhost      |
+| 8080 | Submarines Ingest    | http://localhost:8080 |
+| 8082 | Submarines Status    | http://localhost:8082 |
+| 3000 | Cruiser (Next.js)    | http://localhost:3000 |
+| 5173 | Vite HMR (dev only)  | http://localhost:5173 |
+| 5432 | PostgreSQL           | localhost:5432        |
+| 6379 | Valkey (Redis)       | localhost:6379        |
 
 ### Health Checks (Development)
 
 ```bash
-curl http://localhost:8080/health  # Submarines Ingest
-curl http://localhost:8081/health  # Submarines Status
-curl http://localhost:8000/health  # Flagship
-curl http://localhost:8082/api/health  # Cruiser
-curl http://localhost:4433/health/ready  # Kratos
+curl http://localhost:8080/health       # Submarines Ingest
+curl http://localhost:8082/health       # Submarines Status
+curl http://localhost/health            # Flagship (via Caddy)
+curl http://localhost:3000/api/health   # Cruiser
 ```
 
 ### Cloudflare Tunnel (Optional)
@@ -148,7 +146,7 @@ cloudflared tunnel run nodepulse
 
 ## Production Deployment
 
-Production uses Traefik reverse proxy with automatic SSL/TLS via Let's Encrypt.
+Production uses Caddy reverse proxy with automatic SSL/TLS via Let's Encrypt.
 
 ### Prerequisites
 
@@ -156,16 +154,27 @@ Production uses Traefik reverse proxy with automatic SSL/TLS via Let's Encrypt.
 2. Server with ports 80, 443 accessible from internet
 3. Docker and Docker Compose installed
 
-### SSL Setup
+### Production Configuration
 
+1. **Configure domains in `.env`**:
 ```bash
-# Create htpasswd for Traefik dashboard
-htpasswd -nb admin your-secure-password > traefik/.htpasswd
+ADMIN_DOMAIN=admin.yourdomain.com
+INGEST_DOMAIN=ingest.yourdomain.com
+STATUS_DOMAIN=status.yourdomain.com
+APP_DOMAIN=app.yourdomain.com
+ACME_EMAIL=admin@yourdomain.com
+```
 
-# Ensure acme.json has correct permissions
-mkdir -p traefik_data/letsencrypt
-touch traefik_data/letsencrypt/acme.json
-chmod 600 traefik_data/letsencrypt/acme.json
+2. **Update compose.yml to use production Caddyfile**:
+```yaml
+caddy:
+  volumes:
+    - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+```
+
+3. **Create directories for Caddy data**:
+```bash
+mkdir -p caddy_data caddy_config logs/caddy
 ```
 
 ### Deploy
@@ -175,7 +184,7 @@ chmod 600 traefik_data/letsencrypt/acme.json
 docker compose up -d
 
 # Check certificate issuance
-docker compose logs traefik | grep -i acme
+docker compose logs caddy | grep -i acme
 
 # Verify services
 docker compose ps
@@ -185,12 +194,10 @@ docker compose ps
 
 | Subdomain              | Service           | Purpose                         |
 | ---------------------- | ----------------- | ------------------------------- |
-| api.yourdomain.com     | Submarines Ingest | Agent API                       |
-| status.yourdomain.com  | Submarines Status | Public status                   |
-| admin.yourdomain.com   | Flagship          | Admin dashboard (auth required) |
-| app.yourdomain.com     | Cruiser           | Public site                     |
-| auth.yourdomain.com    | Kratos            | Identity API                    |
-| traefik.yourdomain.com | Traefik           | Dashboard (auth required)       |
+| admin.yourdomain.com   | Flagship          | Admin dashboard (PHP-FPM)       |
+| ingest.yourdomain.com  | Submarines Ingest | Agent API (port 8080)           |
+| status.yourdomain.com  | Submarines Status | Public status (port 8082)       |
+| app.yourdomain.com     | Cruiser           | Public site (port 3000)         |
 
 ---
 
@@ -204,10 +211,9 @@ docker compose ps
 - **submarines-digest** - Background worker (Valkey → PostgreSQL + Cleanup)
 - **postgres** - PostgreSQL 18 database `:5432`
 - **valkey** - Message buffer `:6379`
-- **flagship** - Rails dashboard (if configured)
-- **cruiser** - Next.js frontend (if configured)
-- **kratos** - Identity & user management
-- **traefik** - Reverse proxy (production only)
+- **flagship** - Laravel dashboard with PHP-FPM `:9000`
+- **cruiser** - Next.js frontend with Better Auth `:3000`
+- **caddy** - Reverse proxy with automatic HTTPS `:80/:443`
 
 **Background Workers:**
 
@@ -249,7 +255,6 @@ INGEST_PORT=8080
 
 # Frontend
 NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_KRATOS_URL=http://localhost:4433
 BETTER_AUTH_SECRET=<auto-generated>
 BETTER_AUTH_URL=http://localhost:3000
 
@@ -483,14 +488,18 @@ docker compose logs submarines-digest | grep CLEANUP | tail -50
 ### SSL Certificate Issues
 
 ```bash
-# View Traefik logs
-docker compose logs traefik | grep -i error
+# View Caddy logs
+docker compose logs caddy | grep -i error
 
-# Delete and recreate certificate
-rm traefik_data/letsencrypt/acme.json
-touch traefik_data/letsencrypt/acme.json
-chmod 600 traefik_data/letsencrypt/acme.json
-docker compose restart traefik
+# Check certificate status
+docker compose logs caddy | grep -i acme
+
+# Restart Caddy to retry certificate issuance
+docker compose restart caddy
+
+# Clear Caddy data to force new certificate request
+rm -rf caddy_data/*
+docker compose restart caddy
 ```
 
 ---
@@ -506,23 +515,23 @@ docker compose restart traefik
 ### Network Security
 
 - Database not exposed to public internet
-- Only Docker network `admiral_default` can access internal services
-- Use firewall to restrict access to `:8080` (ingest endpoint)
-- Traefik handles SSL/TLS termination
+- Only Docker network `node-pulse-admiral` can access internal services
+- Use firewall to restrict access to ingest endpoint if needed
+- Caddy handles SSL/TLS termination automatically
 
 ### Security Checklist
 
 **Production:**
 
 - [ ] Change default passwords in `.env`
-- [ ] Update `.htpasswd` with strong passwords
 - [ ] Configure firewall (allow 80, 443, optionally 22)
-- [ ] Set up fail2ban for Traefik logs
+- [ ] Set up fail2ban for SSH protection
 - [ ] Enable automatic updates
 - [ ] Regular database backups
-- [ ] Monitor Traefik access logs
-- [ ] Restrict Traefik dashboard access
+- [ ] Monitor Caddy access logs (logs/caddy/)
 - [ ] Use strong JWT_SECRET and BETTER_AUTH_SECRET
+- [ ] Backup master.key file securely (encrypts SSH keys)
+- [ ] Configure domain DNS to point to server
 
 **Development:**
 
@@ -632,5 +641,6 @@ See enterprise deployment docs for details.
 - **Documentation**: See `scripts/README.md` for detailed script documentation
 - **GitHub**: https://github.com/nodepulse/admiral
 - **Issues**: https://github.com/nodepulse/admiral/issues
-- **TRAEFIK.md**: Detailed Traefik configuration
+- **caddy/README.md**: Detailed Caddy configuration and troubleshooting
+- **MIGRATION_TRAEFIK_TO_CADDY.md**: Migration guide from Traefik to Caddy
 - **CLAUDE.md**: Project overview and architecture

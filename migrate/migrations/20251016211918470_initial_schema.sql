@@ -6,14 +6,11 @@
 -- SECTION 1: Create Schemas
 -- ============================================================
 
--- Schema for Better Auth (Next.js authentication)
+-- Schema for Better Auth (Next.js Cruiser authentication)
 CREATE SCHEMA IF NOT EXISTS better_auth AUTHORIZATION admiral;
 
--- Schema for Ory Kratos (identity management)
-CREATE SCHEMA IF NOT EXISTS kratos AUTHORIZATION admiral;
-
--- Schema for Admiral (Unified schema for Submarines, Flagship, and Cruiser)
--- All application tables for Go-Gin backend, Laravel dashboard, and Next.js frontend
+-- Schema for Admiral (Unified schema for Submarines and Flagship)
+-- All application tables for Go-Gin backend and Laravel dashboard
 CREATE SCHEMA IF NOT EXISTS admiral AUTHORIZATION admiral;
 
 -- ============================================================
@@ -211,7 +208,5 @@ ON CONFLICT (name) DO NOTHING;
 -- Rollback initial schema migration
 
 -- Drop schemas with CASCADE (automatically drops all objects within)
--- This is safer and simpler than dropping individual objects
 DROP SCHEMA IF EXISTS admiral CASCADE;
 DROP SCHEMA IF EXISTS better_auth CASCADE;
--- Note: We don't drop kratos schema as it's managed by Ory Kratos migrations

@@ -74,11 +74,6 @@
 │  ┌────────────────────────────────────────────────┐   │
 │  │  Caddy Reverse Proxy :80/:443                  │   │
 │  └────────────────────────────────────────────────┘   │
-│                                                        │
-│  ┌──────────────────────┐                             │
-│  │  Ory Kratos          │                             │
-│  │  :4433/:4434         │                             │
-│  └──────────────────────┘                             │
 └────────────────────────────────────────────────────────┘
          ▲
          │ HTTPS
@@ -87,15 +82,12 @@
 
 ## Database Schemas
 
-PostgreSQL has 3 separate schemas:
+PostgreSQL has 2 separate schemas:
 
-1. **`better_auth`** - Next.js authentication (Better Auth)
-
+1. **`better_auth`** - Next.js Cruiser authentication (Better Auth)
    - `users`, `accounts`, `sessions`, `verification_tokens`
 
-2. **`kratos`** - Ory Kratos identity tables (auto-managed)
-
-3. **`backend`** - Application data
+2. **`admiral`** - Application data (shared by Submarines and Flagship)
    - `servers` - Agent/server registry
    - `metrics` - Time-series metrics data
    - `alerts` - Alert records
@@ -231,7 +223,6 @@ A more advanced **Node Pulse Envelope Protocol (NPI)** is being designed:
 - `compose.yml` - Docker Compose services definition
 - `caddy/Caddyfile` - Reverse proxy configuration
 - `migrate/` - PostgreSQL schema migrations
-- `kratos/` - Ory Kratos configuration
 
 ## Development Workflow
 

@@ -1,0 +1,161 @@
+# Caddy Configuration for Node Pulse Admiral
+# Handles all HTTP/HTTPS traffic and PHP-FPM proxying
+
+# Global options
+{
+    # Email for Let's Encrypt (set via environment variable)
+    email {$ACME_EMAIL}
+
+    # Use Let's Encrypt staging for testing
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+    # Production: automatic HTTPS
+    # For local development, this will be disabled
+}
+
+# ------------------------------------------------------------
+# Admin Dashboard (Flagship - Laravel)
+# ------------------------------------------------------------
+{$ADMIN_DOMAIN:admin.localhost} {
+    # Root directory for static files
+    root * /var/www/flagship/public
+
+    # Enable gzip compression
+    encode gzip
+
+    # PHP-FPM configuration
+    php_fastcgi flagship:9000 {
+        # Split path for Laravel routing
+        split .php
+
+        # Environment variables for PHP
+        env APP_ENV production
+
+        # Timeouts
+        read_timeout 60s
+        write_timeout 60s
+    }
+
+    # Serve static files directly (CSS, JS, images)
+    file_server
+
+    # Laravel: rewrite all requests to index.php
+    try_files {path} {path}/ /index.php?{query}
+
+    # Security headers
+    header {
+        # XSS Protection
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        # Remove server header
+        -Server
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/admin-access.log
+        format json
+    }
+}
+
+# ------------------------------------------------------------
+# Metrics Ingestion (Submarines Ingest)
+# ------------------------------------------------------------
+{$INGEST_DOMAIN:ingest.localhost} {
+    # Reverse proxy to Go service
+    reverse_proxy submarines-ingest:8080 {
+        # Health check
+        health_uri /health
+        health_interval 10s
+        health_timeout 3s
+
+        # Headers
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        -Server
+    }
+
+    # Rate limiting (optional, for production)
+    # rate_limit {
+    #     zone metrics {
+    #         key {remote_host}
+    #         events 1000
+    #         window 1m
+    #     }
+    # }
+
+    log {
+        output file /var/log/caddy/ingest-access.log
+        format json
+    }
+}
+
+# ------------------------------------------------------------
+# Status Pages (Submarines Status)
+# ------------------------------------------------------------
+{$STATUS_DOMAIN:status.localhost} {
+    reverse_proxy submarines-status:8082 {
+        health_uri /health
+        health_interval 10s
+        health_timeout 3s
+
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    header {
+        X-Content-Type-Options "nosniff"
+        -Server
+    }
+
+    log {
+        output file /var/log/caddy/status-access.log
+        format json
+    }
+}
+
+# ------------------------------------------------------------
+# Public App (Cruiser - Next.js)
+# ------------------------------------------------------------
+{$APP_DOMAIN:app.localhost} {
+    reverse_proxy cruiser:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        -Server
+    }
+
+    log {
+        output file /var/log/caddy/app-access.log
+        format json
+    }
+}
+
+# ------------------------------------------------------------
+# Local Development Fallback (catch-all for localhost)
+# ------------------------------------------------------------
+:80 {
+    # Redirect to admin dashboard by default
+    redir {$ADMIN_DOMAIN:admin.localhost} permanent
+}

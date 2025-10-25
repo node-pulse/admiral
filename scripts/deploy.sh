@@ -175,18 +175,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo ""
 
     # =============================================================================
-    # Ory Kratos Configuration
-    # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Ory Kratos Configuration${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-
-    prompt_config "KRATOS_LOG_LEVEL" "info" "Kratos log level (debug/info/warning/error)"
-
-    echo ""
-
-    # =============================================================================
     # Submarines Configuration (Go-Gin Backend)
     # =============================================================================
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -210,13 +198,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     CONFIG["VALKEY_PORT"]="6379"
 
     echo -e "${CYAN}Valkey connection settings auto-configured${NC}"
-    echo ""
-
-    # Kratos endpoints
-    CONFIG["KRATOS_PUBLIC_URL"]="http://kratos:4433"
-    CONFIG["KRATOS_ADMIN_URL"]="http://kratos:4434"
-
-    echo -e "${CYAN}Kratos endpoints auto-configured${NC}"
     echo ""
 
     # Server settings
@@ -479,7 +460,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     # Public URLs (accessible from browser)
     prompt_config "NEXT_PUBLIC_API_URL" "http://localhost:8080" "Public API URL (browser-accessible)"
-    prompt_config "NEXT_PUBLIC_KRATOS_URL" "http://localhost:4433" "Public Kratos URL (browser-accessible)"
 
     echo ""
 
@@ -496,14 +476,18 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo ""
 
     # =============================================================================
-    # Production Domain (Optional)
+    # Production Domain Configuration (Optional)
     # =============================================================================
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Production Domain (Optional)${NC}"
+    echo -e "${GREEN}Production Domain Configuration (Optional)${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    prompt_config "DOMAIN" "yourdomain.com" "Production domain (for Traefik/SSL)"
+    prompt_config "ADMIN_DOMAIN" "admin.localhost" "Admin dashboard domain (Flagship)"
+    prompt_config "INGEST_DOMAIN" "ingest.localhost" "Ingest API domain (Submarines)"
+    prompt_config "STATUS_DOMAIN" "status.localhost" "Status pages domain"
+    prompt_config "APP_DOMAIN" "app.localhost" "Public app domain (Cruiser)"
+    prompt_config "ACME_EMAIL" "admin@example.com" "Email for Let's Encrypt certificates"
 
     echo ""
 
@@ -559,12 +543,15 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
         echo -e "${GREEN}Cruiser (Next.js):${NC}"
         echo "  API URL:         ${CONFIG[NEXT_PUBLIC_API_URL]}"
-        echo "  Kratos URL:      ${CONFIG[NEXT_PUBLIC_KRATOS_URL]}"
         echo "  Better Auth URL: ${CONFIG[BETTER_AUTH_URL]}"
         echo ""
 
-        echo -e "${GREEN}Production:${NC}"
-        echo "  Domain: ${CONFIG[DOMAIN]}"
+        echo -e "${GREEN}Production Domains (Caddy):${NC}"
+        echo "  Admin:   ${CONFIG[ADMIN_DOMAIN]}"
+        echo "  Ingest:  ${CONFIG[INGEST_DOMAIN]}"
+        echo "  Status:  ${CONFIG[STATUS_DOMAIN]}"
+        echo "  App:     ${CONFIG[APP_DOMAIN]}"
+        echo "  ACME:    ${CONFIG[ACME_EMAIL]}"
         echo ""
 
         echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -621,11 +608,6 @@ POSTGRES_DB=${CONFIG[POSTGRES_DB]}
 VALKEY_PASSWORD=${CONFIG[VALKEY_PASSWORD]}
 
 # =============================================================================
-# Ory Kratos Configuration
-# =============================================================================
-KRATOS_LOG_LEVEL=${CONFIG[KRATOS_LOG_LEVEL]}
-
-# =============================================================================
 # Submarines Configuration (Go-Gin Backend)
 # =============================================================================
 
@@ -640,10 +622,6 @@ DB_SSLMODE=${CONFIG[DB_SSLMODE]}
 # Valkey connection
 VALKEY_HOST=${CONFIG[VALKEY_HOST]}
 VALKEY_PORT=${CONFIG[VALKEY_PORT]}
-
-# Kratos endpoints
-KRATOS_PUBLIC_URL=${CONFIG[KRATOS_PUBLIC_URL]}
-KRATOS_ADMIN_URL=${CONFIG[KRATOS_ADMIN_URL]}
 
 # Server settings
 PORT=${CONFIG[PORT]}
@@ -735,20 +713,22 @@ RECAPTCHA_V3_SCORE_THRESHOLD=${CONFIG[RECAPTCHA_V3_SCORE_THRESHOLD]}
 
 # Public URLs (accessible from browser)
 NEXT_PUBLIC_API_URL=${CONFIG[NEXT_PUBLIC_API_URL]}
-NEXT_PUBLIC_KRATOS_URL=${CONFIG[NEXT_PUBLIC_KRATOS_URL]}
 
 # Server-side URLs (internal, uses values from Submarines section)
 API_URL=${CONFIG[API_URL]}
-# KRATOS_PUBLIC_URL, KRATOS_ADMIN_URL - uses values from Submarines section above
 
 # Better Auth
 BETTER_AUTH_SECRET=${CONFIG[BETTER_AUTH_SECRET]}
 BETTER_AUTH_URL=${CONFIG[BETTER_AUTH_URL]}
 
 # =============================================================================
-# Production Configuration
+# Production Domain Configuration (Caddy)
 # =============================================================================
-DOMAIN=${CONFIG[DOMAIN]}
+ADMIN_DOMAIN=${CONFIG[ADMIN_DOMAIN]}
+INGEST_DOMAIN=${CONFIG[INGEST_DOMAIN]}
+STATUS_DOMAIN=${CONFIG[STATUS_DOMAIN]}
+APP_DOMAIN=${CONFIG[APP_DOMAIN]}
+ACME_EMAIL=${CONFIG[ACME_EMAIL]}
 
 # =============================================================================
 # Auto-Generated Values
@@ -880,12 +860,10 @@ docker compose ps
 echo ""
 
 echo -e "${GREEN}Access URLs:${NC}"
-echo "  Flagship Dashboard:  http://localhost:3000"
-echo "  Cruiser Frontend:    http://localhost:3001"
-echo "  Submarines API:      http://localhost:8080"
-echo "  Status Service:      http://localhost:8082"
-echo "  Kratos Public API:   http://localhost:4433"
-echo "  Kratos Admin API:    http://localhost:4434"
+echo "  Flagship Dashboard:  http://localhost (via Caddy)"
+echo "  Cruiser Frontend:    http://localhost:3000"
+echo "  Submarines Ingest:   http://localhost:8080"
+echo "  Submarines Status:   http://localhost:8082"
 echo ""
 
 echo -e "${GREEN}Useful Commands:${NC}"
@@ -926,9 +904,10 @@ echo ""
 
 echo -e "${YELLOW}Next Steps:${NC}"
 echo "  1. Configure your agents to send metrics to: http://<your-ip>:8080/metrics"
-echo "  2. Access the Flagship dashboard at http://localhost:3000"
-echo "  3. Set up SSL/TLS in production (configure Traefik)"
-echo "  4. Review logs for any startup issues"
+echo "  2. Access the Flagship dashboard at http://localhost"
+echo "  3. For production: Update domain DNS to point to this server"
+echo "  4. For production: Use caddy/Caddyfile.prod for automatic HTTPS"
+echo "  5. Review logs for any startup issues"
 echo ""
 
 echo -e "${GREEN}Happy Monitoring! 🚀${NC}"

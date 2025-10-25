@@ -1,81 +1,34 @@
-# Caddyfile for NodePulse Admiral
-# Three-service reverse proxy: Bridge (Rails), Workers (Go-Gin), SimpleWeb (Next.js)
+# Caddyfile for Node Pulse Admiral
+# Local Development Configuration
+# Services: Flagship (Laravel+PHP-FPM), Submarines (Go), Cruiser (Next.js)
 
 {
-    # Global options
-    admin off
-    auto_https off
+    # Global options for local development
+    admin off        # Disable admin API endpoint
+    auto_https off   # No HTTPS for local dev
 }
 
-# Main application
+# Main application on :80
 :80 {
-    # Admin Dashboard (Rails Bridge) - Port :3000
-    handle /admin/* {
-        reverse_proxy bridge:3000
+    # Flagship - Laravel Admin Dashboard (PHP-FPM)
+    # Root for static files
+    root * /var/www/flagship/public
+
+    # Enable gzip compression
+    encode gzip
+
+    # PHP-FPM configuration for Laravel
+    php_fastcgi flagship:9000 {
+        split .php
+        env APP_ENV local
+        env APP_DEBUG true
     }
 
-    handle /dashboard/* {
-        reverse_proxy bridge:3000
-    }
+    # Serve static files (CSS, JS, images)
+    file_server
 
-    handle /users/* {
-        reverse_proxy bridge:3000
-    }
-
-    handle /settings/* {
-        reverse_proxy bridge:3000
-    }
-
-    # Workers API (Go-Gin) - Port :8080
-    # Agent ingestion endpoints
-    handle /ingest/* {
-        reverse_proxy workers:8080
-    }
-
-    # Metrics endpoint (for agents to send data)
-    handle /metrics {
-        reverse_proxy workers:8080
-    }
-
-    # Backend API endpoints
-    handle /api/* {
-        reverse_proxy workers:8080
-    }
-
-    # Kratos public API
-    handle /auth/* {
-        uri strip_prefix /auth
-        reverse_proxy kratos:4433
-    }
-
-    # pgweb (database admin interface)
-    handle /pgweb/* {
-        uri strip_prefix /pgweb
-        reverse_proxy pgweb:8081
-    }
-
-    # Health check endpoints
-    handle /health {
-        respond "OK" 200
-    }
-
-    handle /health/workers {
-        reverse_proxy workers:8080
-    }
-
-    handle /health/bridge {
-        reverse_proxy bridge:3000
-    }
-
-    handle /health/simpleweb {
-        reverse_proxy simpleweb:3001
-    }
-
-    # Public Website (Next.js SimpleWeb) - Port :3001
-    # This should be last as a catch-all
-    handle /* {
-        reverse_proxy simpleweb:3001
-    }
+    # Laravel: rewrite all requests to index.php
+    try_files {path} {path}/ /index.php?{query}
 
     # Logging
     log {
@@ -90,43 +43,57 @@
     }
 }
 
-# Optional: HTTPS configuration (uncomment when you have a domain)
-# yourdomain.com {
-#     # Admin Dashboard (Rails)
-#     handle /admin/* {
-#         reverse_proxy bridge:3000
-#     }
-#
-#     handle /dashboard/* {
-#         reverse_proxy bridge:3000
-#     }
-#
-#     # Workers (Go-Gin)
-#     handle /ingest/* {
-#         reverse_proxy workers:8080
-#     }
-#
-#     handle /api/* {
-#         reverse_proxy workers:8080
-#     }
-#
-#     handle /metrics {
-#         reverse_proxy workers:8080
-#     }
-#
-#     # Kratos
-#     handle /auth/* {
-#         uri strip_prefix /auth
-#         reverse_proxy kratos:4433
-#     }
-#
-#     # SimpleWeb (Next.js) - catch-all
-#     handle /* {
-#         reverse_proxy simpleweb:3001
-#     }
-#
-#     log {
-#         output stdout
-#         format console
-#     }
-# }
+# Submarines Ingest - Agent Metrics Ingestion
+:8080 {
+    reverse_proxy submarines-ingest:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# Submarines Status - Public Status Pages
+:8082 {
+    reverse_proxy submarines-status:8082 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# Cruiser - Next.js Public App
+:3000 {
+    reverse_proxy cruiser:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# Vite Dev Server (Hot Module Replacement)
+:5173 {
+    reverse_proxy flagship:5173 {
+        header_up Host {host}
+        header_up Upgrade {http.request.header.Upgrade}
+        header_up Connection {http.request.header.Connection}
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

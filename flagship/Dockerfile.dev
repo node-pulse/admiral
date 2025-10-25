@@ -1,12 +1,10 @@
-# Development Dockerfile for Laravel
+# Development Dockerfile for Laravel with Ansible
 # Includes development tools and hot reload capabilities
+# Clean PHP-FPM only - Caddy handles HTTP in separate container
 
-# ------------------------------------------------------------
-# Stage 1: Development image
-# ------------------------------------------------------------
-FROM php:8.3-cli-alpine
+FROM php:8.3-fpm-alpine
 
-# Install system dependencies and development tools
+# Install system dependencies, PHP extensions, and development tools
 RUN apk add --no-cache \
     curl \
     git \
@@ -20,6 +18,11 @@ RUN apk add --no-cache \
     postgresql-dev \
     linux-headers \
     $PHPIZE_DEPS \
+    # Python and Ansible for deployment testing
+    python3 \
+    py3-pip \
+    ansible \
+    sshpass \
     && docker-php-ext-install -j$(nproc) \
     intl \
     mbstring \
@@ -28,76 +31,94 @@ RUN apk add --no-cache \
     pcntl \
     pdo_pgsql \
     pgsql \
+    opcache \
     && docker-php-ext-enable opcache
 
-# Install Redis extension (useful for development)
+# Install Xdebug for development (optional, comment out if not needed)
+RUN pecl install xdebug \
+    && docker-php-ext-enable xdebug
+
+# Install Redis extension
 RUN pecl install redis \
     && docker-php-ext-enable redis
 
 # Configure PHP for development
 RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 
+# Configure Xdebug (optional)
+RUN echo "xdebug.mode=debug,develop" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Create non-root user
-RUN addgroup -g 1000 -S www && \
-    adduser -u 1000 -S www -G www
+# Create non-root user matching host UID/GID
+ARG UID=1000
+ARG GID=1000
+
+RUN delgroup dialout 2>/dev/null || true \
+    && addgroup -g ${GID} -S laravel \
+    && adduser -u ${UID} -S laravel -G laravel
+
+# Configure PHP-FPM to run as laravel user
+RUN sed -i "s/user = www-data/user = laravel/g" /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i "s/group = www-data/group = laravel/g" /usr/local/etc/php-fpm.d/www.conf \
+    && echo "php_admin_flag[log_errors] = on" >> /usr/local/etc/php-fpm.d/www.conf
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Set environment
+# Set environment variables
 ENV APP_ENV=local \
     APP_DEBUG=true \
     COMPOSER_ALLOW_SUPERUSER=1 \
     NODE_ENV=development
 
-# Copy composer files first for better caching
-COPY composer.json composer.lock ./
+# Copy composer files first for better layer caching
+COPY --chown=laravel:laravel composer.json composer.lock ./
 
-# Install PHP dependencies including dev dependencies
+# Install PHP dependencies (including dev dependencies)
 RUN composer install \
     --no-scripts \
     --no-autoloader \
     --prefer-dist
 
 # Copy package files for npm
-COPY package*.json ./
+COPY --chown=laravel:laravel package*.json ./
 
 # Install Node dependencies
 RUN npm install
 
 # Copy the rest of the application
-COPY . .
+COPY --chown=laravel:laravel . .
 
-# Generate autoloader
+# Generate optimized autoloader
 RUN composer dump-autoload --optimize
 
 # Create storage directories and set permissions
-RUN mkdir -p storage/logs \
+RUN mkdir -p \
+    storage/logs \
     storage/framework/sessions \
     storage/framework/views \
     storage/framework/cache \
     storage/framework/testing \
     storage/app/public \
     bootstrap/cache \
-    && chown -R www:www storage bootstrap/cache \
+    && chown -R laravel:laravel storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Copy development entrypoint script
-COPY docker/entrypoint-dev.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Switch to non-root user
-USER www
-
-# Expose ports
-EXPOSE 8000 5173
+# Expose PHP-FPM port
+EXPOSE 9000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000 || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD php-fpm-healthcheck || kill -s TERM 1
 
-# Start development server
-CMD ["/entrypoint.sh"]
+# Switch to non-root user
+USER laravel
+
+# Run PHP-FPM
+# Note: Vite dev server is run separately via docker-compose command
+CMD ["php-fpm", "-F", "-R"]

@@ -20,10 +20,6 @@ type Config struct {
 	ValkeyPort     string
 	ValkeyPassword string
 
-	// Kratos
-	KratosPublicURL string
-	KratosAdminURL  string
-
 	// Server
 	Port    string
 	GinMode string
@@ -53,10 +49,6 @@ func Load() *Config {
 		ValkeyHost:     getEnv("VALKEY_HOST", "valkey"),
 		ValkeyPort:     getEnv("VALKEY_PORT", "6379"),
 		ValkeyPassword: getEnv("VALKEY_PASSWORD", ""),
-
-		// Kratos
-		KratosPublicURL: getEnv("KRATOS_PUBLIC_URL", "http://kratos:4433"),
-		KratosAdminURL:  getEnv("KRATOS_ADMIN_URL", "http://kratos:4434"),
 
 		// Server
 		Port:    getEnv("PORT", "8080"),

@@ -54,61 +54,6 @@ services:
       - node-pulse-admiral
     restart: "no"
 
-  # Kratos Migration - Run Kratos schema migrations (idempotent)
-  kratos-migrate:
-    image: oryd/kratos:v1.3.0@sha256:ba79570c5f7da0e73785ddba0ff5ac4f693e26ad54dd6149423598510fb80552
-    container_name: node-pulse-kratos-migrate
-    env_file:
-      - .env
-    environment:
-      # Kratos requires search_path in DSN for schema isolation
-      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
-    volumes:
-      - ./kratos:/etc/config/kratos
-    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
-    depends_on:
-      postgres:
-        condition: service_healthy
-      flagship-migrate:
-        condition: service_completed_successfully
-    networks:
-      - node-pulse-admiral
-    restart: "no"
-
-  # Ory Kratos - Identity and User Management
-  kratos:
-    image: oryd/kratos:v1.3.0@sha256:ba79570c5f7da0e73785ddba0ff5ac4f693e26ad54dd6149423598510fb80552
-    container_name: node-pulse-kratos
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      # Kratos requires search_path in DSN for schema isolation
-      DSN: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-node_pulse_admiral}?sslmode=disable&search_path=kratos
-    volumes:
-      - ./kratos:/etc/config/kratos
-    command: serve -c /etc/config/kratos/kratos.yml --watch-courier
-    ports:
-      - "4433:4433" # public API
-      - "4434:4434" # admin API
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kratos-migrate:
-        condition: service_completed_successfully
-    healthcheck:
-      test:
-        - CMD
-        - wget
-        - --spider
-        - --quiet
-        - http://localhost:4434/health/ready
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - node-pulse-admiral
-
   # Go-Gin Submarines Ingest - Agent Metrics Ingestion (HTTP -> Valkey Stream)
   submarines-ingest:
     image: ghcr.io/node-pulse/node-pulse-submarines-ingest:latest
@@ -124,8 +69,6 @@ services:
       postgres:
         condition: service_healthy
       valkey:
-        condition: service_healthy
-      kratos:
         condition: service_healthy
     volumes:
       - ./secrets:/secrets:ro
@@ -183,21 +126,15 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Laravel Flagship - Admin Dashboard
+  # Laravel Flagship - Admin Dashboard (PHP-FPM only)
   flagship:
     image: ghcr.io/node-pulse/node-pulse-flagship:latest
     container_name: node-pulse-flagship
     restart: unless-stopped
     env_file:
       - .env
-    ports:
-      - "8000:8000" # Map container port 8000 to host port 3000
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.laravel.rule=Host(`${FLAGSHIP_DOMAIN:-localhost}`)"
-      - "traefik.http.routers.laravel.entrypoints=websecure"
-      - "traefik.http.routers.laravel.tls=true"
-      - "traefik.http.services.laravel.loadbalancer.server.port=8000"
+    expose:
+      - "9000" # PHP-FPM port (not exposed to host, only to Caddy)
     depends_on:
       postgres:
         condition: service_healthy
@@ -208,10 +145,17 @@ services:
       submarines-ingest:
         condition: service_started
     volumes:
+      - ./flagship:/var/www/html # Mount entire app for Caddy to serve static files
       - ./logs/flagship:/var/www/html/storage/logs # Mount logs for persistence
       - ./secrets:/secrets:ro # Mount shared secrets directory (read-only)
+      - ./ansible:/var/www/html/ansible # Mount Ansible playbooks
     networks:
       - node-pulse-admiral
+    healthcheck:
+      test: ["CMD", "php-fpm-healthcheck"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
   # Next.js Cruiser - Public Site
   cruiser:
@@ -228,30 +172,50 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Traefik - Reverse Proxy (Production)
-  traefik:
-    image: traefik:v3.2
-    container_name: node-pulse-traefik
+  # Caddy - Reverse Proxy and Web Server
+  caddy:
+    image: caddy:2-alpine
+    container_name: node-pulse-caddy
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Domain configuration (use env vars for flexibility)
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin.localhost}
+      INGEST_DOMAIN: ${INGEST_DOMAIN:-ingest.localhost}
+      STATUS_DOMAIN: ${STATUS_DOMAIN:-status.localhost}
+      APP_DOMAIN: ${APP_DOMAIN:-app.localhost}
+      AUTH_DOMAIN: ${AUTH_DOMAIN:-auth.localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp" # HTTP/3
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./traefik/dynamic.production.yml:/etc/traefik/dynamic/dynamic.yml:ro
-      - ./traefik_data/letsencrypt:/letsencrypt
-      - ./logs/traefik:/var/log/traefik
+      # Caddyfile configuration
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+
+      # Flagship public directory (for serving static files)
+      - ./flagship/public:/var/www/flagship/public:ro
+
+      # Caddy data (certificates, etc.) - bind mount like postgres
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+
+      # Logs
+      - ./logs/caddy:/var/log/caddy
     depends_on:
-      - cruiser
       - flagship
+      - cruiser
       - submarines-ingest
       - submarines-status
-      - kratos
     networks:
       - node-pulse-admiral
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/metrics"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
 networks:
   node-pulse-admiral:

@@ -97,7 +97,7 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
-        // Connection for public schema (if needed)
+        // Connection for public schema (migrations tracking)
         'pgsql_public' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
@@ -113,8 +113,8 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
-        // Connection for kratos schema (if needed)
-        'pgsql_kratos' => [
+        // Connection for better_auth schema (Cruiser authentication)
+        'pgsql_better_auth' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
@@ -125,7 +125,7 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'kratos',
+            'search_path' => 'better_auth',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 

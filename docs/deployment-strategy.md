@@ -43,7 +43,6 @@ This document outlines the multi-environment Docker Compose deployment strategy 
 |---------|----------|------------------|---------|
 | `postgres` | Docker Hub | Git SHA (pinned) | `postgres:18-alpine@sha256:abc123...` |
 | `valkey` | Docker Hub | Git SHA (pinned) | `valkey/valkey:latest@sha256:def456...` |
-| `kratos` | Docker Hub | Git SHA (pinned) | `oryd/kratos:v1.3.0@sha256:789ghi...` |
 | `pgweb` | Docker Hub | Git SHA (pinned) | `sosedoff/pgweb:latest@sha256:012jkl...` |
 | `caddy` | Docker Hub | Git SHA (pinned) | `caddy:2-alpine@sha256:345mno...` |
 
