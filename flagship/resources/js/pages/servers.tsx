@@ -118,7 +118,7 @@ export default function Servers() {
                 params.append('search', search);
             }
 
-            const response = await fetch(`/servers/list?${params.toString()}`);
+            const response = await fetch(`/dashboard/servers/list?${params.toString()}`);
             const data: ServersResponse = await response.json();
 
             setServers(data.servers.data);
@@ -132,7 +132,7 @@ export default function Servers() {
 
     const fetchPrivateKeys = async () => {
         try {
-            const response = await fetch('/ssh-keys/list');
+            const response = await fetch('/dashboard/ssh-keys/list');
             const data = await response.json();
             setPrivateKeys(data.private_keys.data || []);
         } catch (error) {
@@ -178,7 +178,7 @@ export default function Servers() {
 
     const handleAddServer = async () => {
         try {
-            const response = await fetch('/servers', {
+            const response = await fetch('/dashboard/servers', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -234,7 +234,7 @@ export default function Servers() {
         privateKeyId: string,
     ) => {
         try {
-            const response = await fetch(`/servers/${serverId}/keys`, {
+            const response = await fetch(`/dashboard/servers/${serverId}/keys`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -269,7 +269,7 @@ export default function Servers() {
         if (!serverToManage || !selectedKeyId) return;
 
         try {
-            const response = await fetch(`/servers/${serverToManage.id}/keys`, {
+            const response = await fetch(`/dashboard/servers/${serverToManage.id}/keys`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

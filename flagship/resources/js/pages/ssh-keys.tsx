@@ -149,7 +149,7 @@ export default function PrivateKeys() {
             }
 
             const response = await fetch(
-                `/ssh-keys/list?${params.toString()}`,
+                `/dashboard/ssh-keys/list?${params.toString()}`,
                 {
                     headers: {
                         Accept: 'application/json',
@@ -170,7 +170,7 @@ export default function PrivateKeys() {
 
     const fetchServers = async () => {
         try {
-            const response = await fetch('/servers/list');
+            const response = await fetch('/dashboard/servers/list');
             const data = await response.json();
             setAvailableServers(data.servers.data || []);
         } catch (error) {
@@ -194,7 +194,7 @@ export default function PrivateKeys() {
         if (!keyToManage || !selectedServerId) return;
 
         try {
-            const response = await fetch(`/servers/${selectedServerId}/keys`, {
+            const response = await fetch(`/dashboard/servers/${selectedServerId}/keys`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -229,7 +229,7 @@ export default function PrivateKeys() {
 
     const handleGenerate = async () => {
         try {
-            const response = await fetch('/ssh-keys/generate', {
+            const response = await fetch('/dashboard/ssh-keys/generate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -269,7 +269,7 @@ export default function PrivateKeys() {
 
     const handleImport = async () => {
         try {
-            const response = await fetch('/ssh-keys/import', {
+            const response = await fetch('/dashboard/ssh-keys/import', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -311,7 +311,7 @@ export default function PrivateKeys() {
         if (!selectedKey) return;
 
         try {
-            const response = await fetch(`/ssh-keys/${selectedKey.id}`, {
+            const response = await fetch(`/dashboard/ssh-keys/${selectedKey.id}`, {
                 method: 'DELETE',
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,

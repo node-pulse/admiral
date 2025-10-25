@@ -134,7 +134,7 @@ export default function SshSessions() {
             }
 
             const response = await fetch(
-                `/ssh-sessions/list?${params.toString()}`,
+                `/dashboard/ssh-sessions/list?${params.toString()}`,
             );
             const data: SshSessionsResponse = await response.json();
 
@@ -151,7 +151,7 @@ export default function SshSessions() {
 
     const handleViewDetails = async (sessionId: string) => {
         try {
-            const response = await fetch(`/ssh-sessions/${sessionId}`);
+            const response = await fetch(`/dashboard/ssh-sessions/${sessionId}`);
             const data = await response.json();
             setSelectedSession(data.ssh_session);
             setDetailsDialogOpen(true);
@@ -166,7 +166,7 @@ export default function SshSessions() {
 
         try {
             const response = await fetch(
-                `/ssh-sessions/${sessionToTerminate.id}/terminate`,
+                `/dashboard/ssh-sessions/${sessionToTerminate.id}/terminate`,
                 {
                     method: 'POST',
                     headers: {

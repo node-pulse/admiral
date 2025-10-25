@@ -147,12 +147,12 @@ ADD COLUMN ssh_host_key_fingerprint VARCHAR(255);
 3. **Host Key Mismatch**:
    - Error message: "host key verification failed: fingerprint mismatch (possible MITM attack or server rebuild)"
    - Admin must verify server identity
-   - Use reset endpoint: `POST /servers/{id}/reset-host-key`
+   - Use reset endpoint: `POST /dashboard/servers/{id}/reset-host-key`
    - Next connection will re-establish trust (TOFU)
 
 **API Endpoints:**
 
-- `POST /servers/{id}/reset-host-key` - Reset stored host key fingerprint
+- `POST /dashboard/servers/{id}/reset-host-key` - Reset stored host key fingerprint
 
 **Security Benefits:**
 
@@ -409,11 +409,11 @@ SSH_RECORDING_RETENTION_DAYS=30
 **API Endpoints Implemented:**
 
 ```
-✅ GET  /ssh-sessions           (page route)
-✅ GET  /ssh-sessions/list      (API: list with filters)
-✅ GET  /ssh-sessions/{id}      (API: single session details)
-✅ POST /ssh-sessions/{id}/terminate (force close active session)
-⏳ GET  /ssh-sessions/{id}/recording (pending - recording disabled)
+✅ GET  /dashboard/ssh-sessions           (page route)
+✅ GET  /dashboard/ssh-sessions/list      (API: list with filters)
+✅ GET  /dashboard/ssh-sessions/{id}      (API: single session details)
+✅ POST /dashboard/ssh-sessions/{id}/terminate (force close active session)
+⏳ GET  /dashboard/ssh-sessions/{id}/recording (pending - recording disabled)
 ```
 
 **UI Features:**

@@ -187,7 +187,7 @@ This is proper **separation of concerns:**
 3. **Host Key Mismatch:**
    - Error: "host key verification failed: fingerprint mismatch"
    - Admin must verify server identity
-   - Use endpoint: `POST /servers/{id}/reset-host-key`
+   - Use endpoint: `POST /dashboard/servers/{id}/reset-host-key`
    - Next connection re-establishes trust
 
 **Files:**
@@ -607,7 +607,7 @@ ssh user@host "cat ~/.ssh/authorized_keys"
 ssh-keyscan -H server-host
 
 # If server rebuild is confirmed, reset host key via API
-curl -X POST http://dashboard/servers/{server-id}/reset-host-key \
+curl -X POST http://dashboard/dashboard/servers/{server-id}/reset-host-key \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # Or via database
