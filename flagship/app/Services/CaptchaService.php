@@ -7,13 +7,13 @@ use Illuminate\Support\Facades\Log;
 
 class CaptchaService
 {
-    protected string $provider;
+    protected ?string $provider;
     protected array $config;
 
     public function __construct()
     {
         $this->provider = config('captcha.provider', null);
-        $this->config = config("captcha.{$this->provider}", []);
+        $this->config = $this->provider ? config("captcha.{$this->provider}", []) : [];
     }
 
     /**
@@ -174,7 +174,7 @@ class CaptchaService
     /**
      * Get the current provider
      */
-    public function getProvider(): string
+    public function getProvider(): ?string
     {
         return $this->provider;
     }
