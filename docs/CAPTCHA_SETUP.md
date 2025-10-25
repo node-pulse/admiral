@@ -79,14 +79,18 @@ RECAPTCHA_V3_SCORE_THRESHOLD=0.5  # 0.0 (bot) to 1.0 (human)
 
 ### 3. Enable/Disable CAPTCHA for Specific Pages
 
-You can selectively enable CAPTCHA for different authentication features:
+You can selectively enable CAPTCHA for different authentication features using a comma-separated list:
 
 ```env
-# Enable/disable CAPTCHA for each feature
-CAPTCHA_ENABLE_LOGIN=true
-CAPTCHA_ENABLE_REGISTER=true
-CAPTCHA_ENABLE_FORGOT_PASSWORD=true
-CAPTCHA_ENABLE_RESET_PASSWORD=false
+# Comma-separated list of features to enable CAPTCHA for
+# Available: login, register, forgot_password, reset_password
+CAPTCHA_ENABLED_FEATURES=login,register,forgot_password
+```
+
+To disable CAPTCHA for all features, leave it empty or omit it:
+
+```env
+CAPTCHA_ENABLED_FEATURES=
 ```
 
 ### 4. Restart Your Application
@@ -115,10 +119,7 @@ TURNSTILE_SITE_KEY=1x00000000000000000000AA
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 
 # Enable CAPTCHA for specific pages
-CAPTCHA_ENABLE_LOGIN=true
-CAPTCHA_ENABLE_REGISTER=true
-CAPTCHA_ENABLE_FORGOT_PASSWORD=true
-CAPTCHA_ENABLE_RESET_PASSWORD=false
+CAPTCHA_ENABLED_FEATURES=login,register,forgot_password
 ```
 
 ### For Google reCAPTCHA v2
@@ -130,10 +131,7 @@ RECAPTCHA_V2_SITE_KEY=6LcXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 RECAPTCHA_V2_SECRET_KEY=6LcXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # Enable CAPTCHA for specific pages
-CAPTCHA_ENABLE_LOGIN=true
-CAPTCHA_ENABLE_REGISTER=true
-CAPTCHA_ENABLE_FORGOT_PASSWORD=true
-CAPTCHA_ENABLE_RESET_PASSWORD=false
+CAPTCHA_ENABLED_FEATURES=login,register,forgot_password
 ```
 
 ### For Google reCAPTCHA v3
@@ -146,10 +144,7 @@ RECAPTCHA_V3_SECRET_KEY=6LcXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 RECAPTCHA_V3_SCORE_THRESHOLD=0.5
 
 # Enable CAPTCHA for specific pages
-CAPTCHA_ENABLE_LOGIN=true
-CAPTCHA_ENABLE_REGISTER=true
-CAPTCHA_ENABLE_FORGOT_PASSWORD=true
-CAPTCHA_ENABLE_RESET_PASSWORD=false
+CAPTCHA_ENABLED_FEATURES=login,register,forgot_password
 ```
 
 ## Testing
@@ -228,12 +223,10 @@ You can customize validation in `config/captcha.php`:
 ```php
 return [
     'provider' => env('CAPTCHA_PROVIDER', 'turnstile'),
-    'enabled' => [
-        'login' => env('CAPTCHA_ENABLE_LOGIN', true),
-        'register' => env('CAPTCHA_ENABLE_REGISTER', true),
-        'forgot_password' => env('CAPTCHA_ENABLE_FORGOT_PASSWORD', true),
-        'reset_password' => env('CAPTCHA_ENABLE_RESET_PASSWORD', false),
-    ],
+
+    // Comma-separated list of enabled features
+    'enabled_features' => env('CAPTCHA_ENABLED_FEATURES', ''),
+
     // ... more configuration
 ];
 ```

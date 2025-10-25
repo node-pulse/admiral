@@ -159,7 +159,16 @@ class CaptchaService
             return false;
         }
 
-        return config("captcha.enabled.{$feature}", false);
+        $enabledFeatures = config('captcha.enabled_features', '');
+
+        if (empty($enabledFeatures)) {
+            return false;
+        }
+
+        // Parse comma-separated list and check for exact match
+        $feature_array = explode(',', $enabledFeatures);
+        $feature_array = array_map('trim', $feature_array);
+        return in_array($feature, $feature_array, true);
     }
 
     /**
@@ -175,6 +184,22 @@ class CaptchaService
      */
     public function getSiteKey(): ?string
     {
+        // Don't return site key if CAPTCHA is disabled for all features
+        if ($this->provider === 'none' || !$this->isEnabledForAnyFeature()) {
+            return null;
+        }
+
         return $this->config['site_key'] ?? null;
+    }
+
+    /**
+     * Check if CAPTCHA is enabled for any feature
+     */
+    protected function isEnabledForAnyFeature(): bool
+    {
+        $enabledFeatures = config('captcha.enabled_features', '');
+
+        // Simply check if the enabled_features string is not empty
+        return !empty($enabledFeatures);
     }
 }

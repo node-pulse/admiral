@@ -20,19 +20,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Enable CAPTCHA for Specific Features
+    | Enabled Features
     |--------------------------------------------------------------------------
     |
-    | You can selectively enable/disable CAPTCHA for different auth features
+    | Comma-separated list of features that should have CAPTCHA enabled.
+    | Available features: login, register, forgot_password, reset_password
+    |
+    | Example: "login,register,forgot_password"
+    | To disable all: "" (empty string) or omit the env var
     |
     */
 
-    'enabled' => [
-        'login' => env('CAPTCHA_ENABLE_LOGIN', true),
-        'register' => env('CAPTCHA_ENABLE_REGISTER', true),
-        'forgot_password' => env('CAPTCHA_ENABLE_FORGOT_PASSWORD', true),
-        'reset_password' => env('CAPTCHA_ENABLE_RESET_PASSWORD', false),
-    ],
+    'enabled_features' => env('CAPTCHA_ENABLED_FEATURES', ''),
 
     /*
     |--------------------------------------------------------------------------
