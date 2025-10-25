@@ -13,7 +13,7 @@ CREATE SCHEMA IF NOT EXISTS better_auth AUTHORIZATION admiral;
 CREATE SCHEMA IF NOT EXISTS kratos AUTHORIZATION admiral;
 
 -- Schema for Admiral (Unified schema for Submarines, Flagship, and Cruiser)
--- All application tables for Go-Gin backend, Rails dashboard, and Next.js frontend
+-- All application tables for Go-Gin backend, Laravel dashboard, and Next.js frontend
 CREATE SCHEMA IF NOT EXISTS admiral AUTHORIZATION admiral;
 
 -- ============================================================

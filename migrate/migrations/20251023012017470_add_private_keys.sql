@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS admiral.private_keys (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE, -- User-friendly name
     description TEXT, -- Optional description
-    private_key_content TEXT NOT NULL, -- Encrypted SSH private key (Rails ActiveRecord::Encryption)
+    private_key_content TEXT NOT NULL, -- Encrypted SSH private key
     public_key TEXT NOT NULL, -- SSH public key (not encrypted, safe to expose)
     fingerprint TEXT, -- SHA256 fingerprint for identification
     team_id INTEGER, -- For multi-tenancy support (future)

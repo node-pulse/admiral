@@ -6,12 +6,11 @@ A comprehensive agent fleet management dashboard for monitoring Node Pulse agent
 
 This project uses Docker Compose to orchestrate multiple services:
 
-- **Submarines (Go-Gin)**: High-performance API server producing 3 binary files (api, worker, migrator)
-- **Flagship (Rails 8)**: Event-driven message queue consumer using Karafka 2.5+
+- **Submarines (Go-Gin)**: High-performance metrics ingestion pipeline producing 2 binary files (ingest, digest)
+- **Flagship (Laravel 12)**: Web dashboard and management UI with Inertia.js + React frontend
 - **Cruiser (Next.js)**: Modern React-based dashboard UI (secondary service)
 - **PostgreSQL 18**: Main database with separate schemas for each service
-- **Apache Kafka**: Message broker for event streaming
-- **Valkey**: Redis-compatible in-memory data store for caching and sessions
+- **Valkey**: Redis-compatible in-memory data store for message streams, caching, and sessions
 - **Ory Kratos**: Modern identity and user management
 - **pgweb**: Web-based PostgreSQL database browser
 - **Caddy**: Modern reverse proxy and web server
@@ -161,31 +160,32 @@ buffer:
 cd submarines
 go mod download
 
-# Run API server
-go run cmd/api/main.go
+# Run ingest server (receives agent metrics)
+go run cmd/ingest/main.go
 
-# Run background worker
-go run cmd/worker/main.go
-
-# Run database migrator
-go run cmd/migrator/main.go
+# Run digest worker (consumes from Valkey Stream, writes to PostgreSQL)
+go run cmd/digest/main.go
 ```
 
-### Flagship (Rails/Karafka Consumer)
+### Flagship (Laravel Web Dashboard)
 
 ```bash
 cd flagship
-bundle install
+composer install
+npm install
 
-# Start Rails server (optional, for web UI)
-bundle exec rails server
+# Run development server (all services)
+composer dev
 
-# Start Karafka consumer (main process)
-bundle exec karafka server
+# Or run individually
+php artisan serve              # Laravel web server
+npm run dev                    # Vite dev server
+php artisan queue:listen       # Queue worker
+php artisan pail               # Log viewer
 
-# Karafka commands
-bundle exec karafka info       # Show configuration
-bundle exec karafka console    # Interactive console
+# Other commands
+php artisan migrate            # Run migrations
+php artisan test               # Run tests
 ```
 
 ### Cruiser (Next.js Frontend)
@@ -196,45 +196,50 @@ npm install
 npm run dev
 ```
 
-## Karafka Integration
+## Laravel + Inertia.js Stack
 
-Flagship uses **Karafka 2.5+** for consuming Kafka messages. Key features:
+Flagship uses **Laravel 12** with **Inertia.js** for a modern SPA experience:
 
-- **Multi-threaded processing**: Concurrent message handling
-- **Rails integration**: Code reload in development
-- **Dead letter queue**: Built-in error handling
-- **Instrumentation**: Logging and monitoring
+- **Backend**: Laravel for API, authentication, and business logic
+- **Frontend**: React 19 with TypeScript
+- **Routing**: Server-side routing via Inertia.js (no client-side router needed)
+- **UI Components**: Radix UI + Tailwind CSS
+- **Authentication**: Laravel Fortify with CAPTCHA support
 
-### Creating Kafka Consumers
+### Creating New Pages
 
-1. Create a consumer class in `flagship/app/consumers/`:
+1. Create a controller in `flagship/app/Http/Controllers/`:
 
-```ruby
-# app/consumers/metrics_consumer.rb
-class MetricsConsumer < ApplicationConsumer
-  def consume
-    messages.each do |message|
-      payload = JSON.parse(message.payload)
-      # Process your data
-    end
-  end
-end
+```php
+<?php
+namespace App\Http\Controllers;
+
+use Inertia\Inertia;
+
+class ExampleController extends Controller
+{
+    public function index()
+    {
+        return Inertia::render('example', [
+            'data' => [...],
+        ]);
+    }
+}
 ```
 
-2. Add route in `flagship/karafka.rb`:
+2. Create a React component in `flagship/resources/js/pages/`:
 
-```ruby
-routes.draw do
-  topic :metrics do
-    consumer MetricsConsumer
-  end
-end
+```tsx
+// resources/js/pages/example.tsx
+export default function Example({ data }) {
+  return <div>Your page content</div>;
+}
 ```
 
-3. Start the consumer:
+3. Add a route in `flagship/routes/web.php`:
 
-```bash
-bundle exec karafka server
+```php
+Route::get('/example', [ExampleController::class, 'index']);
 ```
 
 ## Accessing pgweb
@@ -302,16 +307,6 @@ docker compose logs kafka
    # Try connecting to postgres
    ```
 
-### Kafka connection issues
-
-```bash
-# Check Kafka logs
-docker compose logs kafka
-
-# Check if Kafka is accessible
-docker compose exec kafka kafka-topics --list --bootstrap-server localhost:9092
-```
-
 ### Valkey connection issues
 
 ```bash
@@ -319,17 +314,25 @@ docker compose logs valkey
 docker compose exec valkey valkey-cli ping
 ```
 
-### Flagship (Karafka) issues
+### Flagship (Laravel) issues
 
-1. Check Karafka consumer logs:
+1. Check Laravel application logs:
 
    ```bash
    docker compose logs flagship
    ```
 
-2. Verify Kafka connectivity from Flagship:
+2. Access Laravel container:
+
    ```bash
-   docker compose exec flagship bundle exec karafka info
+   docker compose exec flagship bash
+   php artisan about  # Show Laravel environment info
+   ```
+
+3. Check frontend build:
+   ```bash
+   npm run build  # Production build
+   npm run dev    # Development with hot reload
    ```
 
 ### Frontend won't load
@@ -350,17 +353,19 @@ docker compose exec valkey valkey-cli ping
 For production:
 
 1. Update all secrets in `.env`
-2. Configure Kafka bootstrap servers for production
-3. Set Karafka group_id to unique application name in `flagship/karafka.rb`
-4. Use `production` target in Dockerfiles
-5. Set `GIN_MODE=release` for Submarines
-6. Set `RAILS_ENV=production` for Flagship
+2. Use `production` target in Dockerfiles
+3. Set `GIN_MODE=release` for Submarines
+4. Set `APP_ENV=production` and `APP_DEBUG=false` for Flagship
+5. Run `php artisan optimize` for Laravel optimization
+6. Build frontend assets with `npm run build`
 7. Configure proper domain in Caddyfile
 8. Enable HTTPS in Caddy
 9. Set up proper backup strategy for PostgreSQL
 10. Configure monitoring and alerting
 11. Review and update Ory Kratos security settings
-12. Scale Kafka consumers based on topic partitions
+12. Scale digest workers based on Valkey Stream lag
+13. Configure Laravel queue workers for background jobs
+14. Set up proper session and cache drivers
 
 ## License
 

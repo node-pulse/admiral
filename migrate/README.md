@@ -260,10 +260,13 @@ COMMENT ON COLUMN admiral.metrics.disk_used_gb IS 'Disk space used in gigabytes'
 
 The project uses **multiple PostgreSQL schemas** for logical separation:
 
-- **`submarines`** - Submarines (Go) service tables (servers, metrics, alerts)
-- **`flagship`** - Flagship (Rails) service tables
+- **`admiral`** - Application data (servers, metrics, alerts, SSH keys, sessions)
+  - Written by: Submarines digest workers
+  - Read by: Flagship (Laravel) and Cruiser (Next.js)
 - **`better_auth`** - Next.js authentication (Better Auth)
+  - Used by: Cruiser (Next.js)
 - **`kratos`** - Ory Kratos identity management (auto-managed)
+  - Managed by: Ory Kratos service
 
 ## Troubleshooting
 

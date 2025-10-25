@@ -12,12 +12,13 @@
    - Handles 1000+ concurrent agent connections
    - **Completely independent from Flagship** (only shares PostgreSQL)
 
-2. **Flagship** (Ruby on Rails 8) - Web dashboard and management UI
+2. **Flagship** (Laravel 12) - Web dashboard and management UI
 
    - Located in: `flagship/`
    - CRUD operations, charts, authentication
+   - Uses Inertia.js with React for frontend
    - Reads from PostgreSQL (written by Submarines workers)
-   - No message queue - pure web application
+   - Pure web application
 
 3. **Cruiser** (Next.js) - Secondary web UI (non-core service)
    - Located in: `cruiser/`
@@ -57,10 +58,10 @@
 │  │   PostgreSQL :5432   │                     │       │
 │  │   (3 schemas)        │                     │       │
 │  └──────────┬───────────┘                     │       │
-│             │ ActiveRecord queries            │       │
+│             │ Eloquent ORM queries            │       │
 │             ▼                                  │       │
 │  ┌──────────────────────┐                     │       │
-│  │  Flagship (Rails)    │◄────┐               │       │
+│  │  Flagship (Laravel)  │◄────┐               │       │
 │  │  :3000               │     │               │       │
 │  └──────────────────────┘     │               │       │
 │                               │               │       │
@@ -171,15 +172,19 @@ A more advanced **Node Pulse Envelope Protocol (NPI)** is being designed:
 
 ### Flagship (Web Dashboard)
 
-- **Language**: Ruby 3.4
-- **Framework**: Ruby on Rails 8.0
-- **Database**: PostgreSQL 18 (flagship schema)
+- **Language**: PHP 8.2+
+- **Framework**: Laravel 12
+- **Frontend**: Inertia.js + React 19 + TypeScript
+- **UI Components**: Radix UI + Tailwind CSS
+- **Database**: PostgreSQL 18
+- **Authentication**: Laravel Fortify
 - **Features**:
   - Reads metrics data written by Submarines workers
   - CRUD operations for servers, alerts, configurations
-  - Charts and visualizations (using ActiveRecord queries)
-  - Authentication and authorization
-  - Pure web application (no message queue, no API calls to Submarines)
+  - SSH key management and session handling
+  - Charts and visualizations (using Eloquent ORM queries)
+  - CAPTCHA support (reCAPTCHA/Turnstile)
+  - Pure web application
 
 ### Cruiser (Frontend)
 
@@ -206,12 +211,14 @@ A more advanced **Node Pulse Envelope Protocol (NPI)** is being designed:
 - `submarines/internal/valkey/valkey.go` - Valkey client with Streams support
 - `submarines/internal/config/config.go` - Configuration management
 
-### Flagship (Rails)
+### Flagship (Laravel)
 
-- `flagship/app/controllers/` - Web controllers for dashboard
-- `flagship/app/models/` - ActiveRecord models
-- `flagship/config/application.rb` - Rails application configuration
-- `flagship/Gemfile` - Ruby dependencies
+- `flagship/app/Http/Controllers/` - API and web controllers
+- `flagship/app/Models/` - Eloquent models (Server, Metric, Alert, etc.)
+- `flagship/resources/js/` - React/Inertia.js frontend components
+- `flagship/routes/` - API and web routes
+- `flagship/config/` - Laravel configuration files
+- `flagship/composer.json` - PHP dependencies
 
 ### Cruiser (Frontend)
 
@@ -250,10 +257,17 @@ go run cmd/digest/main.go
 
 ```bash
 cd flagship
-bundle install
+composer install
+npm install
 
-# Start Rails server
-bundle exec rails server
+# Run development server (with Vite, Queue, and Logs)
+composer dev
+
+# Or start services individually
+php artisan serve              # Start Laravel server
+npm run dev                    # Start Vite dev server
+php artisan queue:listen       # Start queue worker
+php artisan pail               # View logs
 ```
 
 ### Local Cruiser Development
