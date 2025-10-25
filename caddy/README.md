@@ -55,6 +55,7 @@ http://localhost:5173     # Vite HMR
 Use `Caddyfile.prod` for production with automatic HTTPS:
 
 1. **Set environment variables** in `.env`:
+
    ```bash
    ADMIN_DOMAIN=admin.example.com
    INGEST_DOMAIN=ingest.example.com
@@ -65,6 +66,7 @@ Use `Caddyfile.prod` for production with automatic HTTPS:
    ```
 
 2. **Update compose.yml** to use production Caddyfile:
+
    ```yaml
    volumes:
      - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
@@ -76,6 +78,7 @@ Use `Caddyfile.prod` for production with automatic HTTPS:
    ```
 
 Caddy will automatically:
+
 - Obtain Let's Encrypt certificates
 - Redirect HTTP → HTTPS
 - Handle renewals
@@ -112,6 +115,7 @@ volumes:
 ### Automatic HTTPS
 
 In production, Caddy automatically:
+
 1. Obtains certificates from Let's Encrypt
 2. Redirects HTTP → HTTPS
 3. Enables HTTP/2 and HTTP/3
@@ -120,6 +124,7 @@ In production, Caddy automatically:
 ### Security Headers
 
 Production config includes security headers:
+
 ```caddyfile
 header {
     X-Content-Type-Options "nosniff"
@@ -136,8 +141,8 @@ Caddy data is stored using bind mounts (like postgres):
 
 ```yaml
 volumes:
-  - ./caddy_data:/data        # Certificates, etc.
-  - ./caddy_config:/config    # Config cache
+  - ./caddy_data:/data # Certificates, etc.
+  - ./caddy_config:/config # Config cache
 ```
 
 These directories will be created automatically on first run.
@@ -194,10 +199,6 @@ Verify DNS points to your server:
 ```bash
 dig admin.example.com
 ```
-
-## Migration from Traefik
-
-See `../MIGRATION_TRAEFIK_TO_CADDY.md` for detailed migration guide.
 
 ## Resources
 
