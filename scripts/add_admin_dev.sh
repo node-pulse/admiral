@@ -74,27 +74,13 @@ echo ""
 echo -e "${GREEN}Creating admin user...${NC}"
 echo ""
 
-# Create temporary .env with admin credentials
-# We'll append to the existing .env and then remove
-if [[ -f .env ]]; then
-    # Backup existing .env
-    cp .env .env.tmp.bak
-
-    # Append admin credentials
-    cat >> .env << EOF
-
-# Temporary admin credentials (will be removed)
-ADMIN_NAME=${admin_name}
-ADMIN_EMAIL=${admin_email}
-ADMIN_PASSWORD=${admin_password}
-EOF
-else
-    echo -e "${RED}❌ Error: .env file not found${NC}"
-    exit 1
-fi
-
-# Run the seeder
-if docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder; then
+# Run the seeder with environment variables passed directly
+# This avoids .env file issues and ensures values are available
+if docker compose exec -T \
+    -e ADMIN_NAME="${admin_name}" \
+    -e ADMIN_EMAIL="${admin_email}" \
+    -e ADMIN_PASSWORD="${admin_password}" \
+    flagship php artisan db:seed --class=AdminUserSeeder; then
     echo ""
     echo -e "${GREEN}✓ Admin user created successfully!${NC}"
     echo ""
@@ -109,16 +95,7 @@ else
     echo "Check the logs for details:"
     echo "  docker compose logs flagship"
     echo ""
-
-    # Restore backup
-    mv .env.tmp.bak .env
     exit 1
-fi
-
-# Clean up admin credentials from .env
-if [[ -f .env.tmp.bak ]]; then
-    mv .env.tmp.bak .env
-    echo -e "${GREEN}✓ Cleaned up temporary credentials${NC}"
 fi
 
 echo ""
