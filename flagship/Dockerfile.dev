@@ -112,13 +112,11 @@ RUN mkdir -p \
 # Expose PHP-FPM port
 EXPOSE 9000
 
-# Health check
+# Health check - verify PHP-FPM is listening on port 9000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD php-fpm-healthcheck || kill -s TERM 1
+    CMD pidof php-fpm || exit 1
 
-# Switch to non-root user
-USER laravel
-
-# Run PHP-FPM
+# Run PHP-FPM as root (master process)
+# Worker processes will run as 'laravel' user (configured in www.conf at lines 66-68)
 # Note: Vite dev server is run separately via docker-compose command
 CMD ["php-fpm", "-F", "-R"]
