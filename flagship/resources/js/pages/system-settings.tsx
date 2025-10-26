@@ -133,6 +133,8 @@ export default function SystemSettings({ settings }: Props) {
     const groups = groupSettingsByCategory();
 
     const renderSetting = (setting: Setting) => {
+        if (setting.key === 'tier') return null;
+
         const isBoolean = typeof setting.value === 'boolean';
         const isNumber = typeof setting.value === 'number' && !isBoolean;
         const isDisabled = updating === setting.key;
@@ -280,7 +282,7 @@ export default function SystemSettings({ settings }: Props) {
                 )}
 
                 {/* Pro Features */}
-                {groups.pro_features.length > 0 && (
+                {/* {groups.pro_features.length > 0 && (
                     <Card>
                         <CardHeader>
                             <CardTitle>Pro Features</CardTitle>
@@ -293,7 +295,7 @@ export default function SystemSettings({ settings }: Props) {
                             {groups.pro_features.map(renderSetting)}
                         </CardContent>
                     </Card>
-                )}
+                )} */}
 
                 {/* System Settings */}
                 {groups.system.length > 0 && (
