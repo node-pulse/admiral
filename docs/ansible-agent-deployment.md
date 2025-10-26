@@ -142,7 +142,9 @@ admiral/
 │   │   ├── update-agent.yml        # Update existing agent
 │   │   ├── remove-agent.yml        # Uninstall agent
 │   │   ├── verify-agent.yml        # Verify agent health
-│   │   └── configure-agent.yml     # Update configuration only
+│   │   ├── configure-agent.yml     # Update configuration only
+│   │   ├── rollback-agent.yml      # Rollback to previous version
+│   │   └── retry-failed.yml        # Retry deployment on failed servers
 │   │
 │   ├── roles/
 │   │   └── nodepulse-agent/
@@ -301,7 +303,38 @@ pipelining = True              # Faster execution
 control_path = /tmp/ansible-ssh-%%h-%%p-%%r
 ```
 
-### 1.3 Directory Setup
+### 1.3 Cloudflare R2 Setup for Agent Binaries
+
+**Option A: Public Bucket (Recommended for MVP)**
+
+1. Create R2 bucket: `nodepulse-releases`
+2. Enable public access in R2 settings
+3. Upload agent binaries with version structure:
+   ```
+   /latest/nodepulse-linux-amd64
+   /latest/nodepulse-linux-arm64
+   /v1.0.0/nodepulse-linux-amd64
+   /v1.0.0/nodepulse-linux-arm64
+   ```
+4. Set environment variable in `.env`:
+   ```bash
+   AGENT_DOWNLOAD_BASE_URL=https://pub-xxxxx.r2.dev
+   ```
+
+**Option B: Custom Domain (Production)**
+
+1. Add custom domain in R2 bucket settings (e.g., `releases.nodepulse.io`)
+2. Point CNAME to R2 bucket
+3. Update `.env`:
+   ```bash
+   AGENT_DOWNLOAD_BASE_URL=https://releases.nodepulse.io
+   ```
+
+**Option C: Signed URLs (Most Secure)**
+
+Use AWS S3 SDK in AnsibleService to generate time-limited signed URLs.
+
+### 1.4 Directory Setup
 
 **Artisan Command:** `php artisan ansible:init`
 
@@ -394,8 +427,10 @@ This script reads servers from PostgreSQL and outputs Ansible inventory JSON.
  */
 
 // Bootstrap Laravel to access database
-require __DIR__ . '/../../flagship/vendor/autoload.php';
-$app = require_once __DIR__ . '/../../flagship/bootstrap/app.php';
+// Detect base path dynamically for portability
+$basePath = dirname(dirname(__DIR__));
+require $basePath . '/flagship/vendor/autoload.php';
+$app = require_once $basePath . '/flagship/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use Illuminate\Support\Facades\DB;
@@ -468,11 +503,32 @@ function getSSHKey(string $serverId): ?string
     }
 }
 
+// Track temporary key files for cleanup
+$tempKeyFiles = [];
+
+/**
+ * Cleanup temporary SSH key files
+ */
+function cleanupTempKeys(): void
+{
+    global $tempKeyFiles;
+    foreach ($tempKeyFiles as $keyFile) {
+        if (file_exists($keyFile)) {
+            @unlink($keyFile);
+        }
+    }
+}
+
+// Register shutdown function to cleanup keys
+register_shutdown_function('cleanupTempKeys');
+
 /**
  * Generate Ansible inventory
  */
 function generateInventory(array $filters = []): array
 {
+    global $tempKeyFiles;
+
     $servers = getServers($filters);
 
     $inventory = [
@@ -512,11 +568,14 @@ function generateInventory(array $filters = []): array
         // Get SSH key for this server
         $sshKey = getSSHKey($server['server_id']);
         if ($sshKey) {
-            // Write key to temporary file
-            $keyPath = sys_get_temp_dir() . "/ansible_key_{$server['server_id']}";
+            // Write key to temporary file with secure path
+            $keyPath = sys_get_temp_dir() . "/ansible_key_{$server['server_id']}_" . uniqid();
             file_put_contents($keyPath, $sshKey);
             chmod($keyPath, 0600);
             $inventory['_meta']['hostvars'][$hostname]['ansible_ssh_private_key_file'] = $keyPath;
+
+            // Track for cleanup
+            $tempKeyFiles[] = $keyPath;
         }
 
         // Group by distro
@@ -685,15 +744,18 @@ php artisan ansible:inventory --status=active
   gather_facts: yes
 
   vars:
-    agent_version: "latest"
-    agent_download_url: "https://github.com/your-org/node-pulse-agent/releases/latest/download"
+    agent_version: "{{ agent_version | default('latest') }}"
+    # Cloudflare R2 base URL - pass via extra vars or environment
+    agent_download_base_url: "{{ lookup('env', 'AGENT_DOWNLOAD_BASE_URL') | default('https://pub-xxxxx.r2.dev', true) }}"
+    agent_download_url: "{{ agent_download_base_url }}/{{ agent_version }}"
     agent_install_dir: "/opt/nodepulse"
     agent_config_dir: "/etc/nodepulse"
     agent_data_dir: "/var/lib/nodepulse"
     agent_log_dir: "/var/log/nodepulse"
-    dashboard_endpoint: "{{ lookup('env', 'DASHBOARD_ENDPOINT') | default('https://dashboard.example.com/metrics', true) }}"
-    agent_interval: "5s"
-    agent_timeout: "3s"
+    # Dashboard endpoint - passed from Laravel job via extra vars
+    dashboard_endpoint: "{{ dashboard_endpoint }}"
+    agent_interval: "{{ agent_interval | default('5s') }}"
+    agent_timeout: "{{ agent_timeout | default('3s') }}"
 
   pre_tasks:
     - name: Display deployment information
@@ -1068,8 +1130,10 @@ WantedBy=multi-user.target
 # Agent version
 agent_version: "latest"
 
-# Download configuration
-agent_download_url: "https://github.com/your-org/node-pulse-agent/releases/latest/download"
+# Download configuration (Cloudflare R2)
+# Set AGENT_DOWNLOAD_BASE_URL environment variable or pass via extra vars
+agent_download_base_url: "https://pub-xxxxx.r2.dev"
+agent_download_url: "{{ agent_download_base_url }}/{{ agent_version }}"
 
 # Installation paths
 agent_install_dir: "/opt/nodepulse"
@@ -1094,6 +1158,126 @@ log_level: "info"
 log_max_size_mb: 50
 log_max_backups: 3
 log_max_age_days: 7
+```
+
+### 3.11 Rollback Playbook
+
+**File:** `ansible/playbooks/rollback-agent.yml`
+
+```yaml
+---
+- name: Rollback Node Pulse Agent to Previous Version
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    agent_install_dir: "/opt/nodepulse"
+    agent_backup_dir: "/opt/nodepulse/backups"
+    previous_version: "{{ rollback_version | default('previous') }}"
+
+  tasks:
+    - name: Check if backup exists
+      stat:
+        path: "{{ agent_backup_dir }}/nodepulse.{{ previous_version }}"
+      register: backup_file
+
+    - name: Fail if backup not found
+      fail:
+        msg: "Backup version {{ previous_version }} not found"
+      when: not backup_file.stat.exists
+
+    - name: Stop current agent
+      systemd:
+        name: nodepulse
+        state: stopped
+
+    - name: Backup current binary
+      copy:
+        src: "{{ agent_install_dir }}/nodepulse"
+        dest: "{{ agent_install_dir }}/nodepulse.failed"
+        remote_src: yes
+        owner: nodepulse
+        group: nodepulse
+        mode: "0755"
+
+    - name: Restore previous version
+      copy:
+        src: "{{ agent_backup_dir }}/nodepulse.{{ previous_version }}"
+        dest: "{{ agent_install_dir }}/nodepulse"
+        remote_src: yes
+        owner: nodepulse
+        group: nodepulse
+        mode: "0755"
+
+    - name: Start agent with previous version
+      systemd:
+        name: nodepulse
+        state: started
+
+    - name: Verify agent is running
+      command: systemctl is-active nodepulse
+      register: agent_status
+      changed_when: false
+
+    - name: Display rollback result
+      debug:
+        msg: "Successfully rolled back to version {{ previous_version }}"
+```
+
+### 3.12 Retry Failed Servers Playbook
+
+**File:** `ansible/playbooks/retry-failed.yml`
+
+```yaml
+---
+- name: Retry Deployment on Failed Servers
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    agent_version: "{{ agent_version | default('latest') }}"
+    agent_download_base_url: "{{ lookup('env', 'AGENT_DOWNLOAD_BASE_URL') }}"
+    agent_download_url: "{{ agent_download_base_url }}/{{ agent_version }}"
+    agent_install_dir: "/opt/nodepulse"
+    agent_config_dir: "/etc/nodepulse"
+    agent_data_dir: "/var/lib/nodepulse"
+    agent_log_dir: "/var/log/nodepulse"
+    dashboard_endpoint: "{{ dashboard_endpoint }}"
+    agent_interval: "{{ agent_interval | default('5s') }}"
+    agent_timeout: "{{ agent_timeout | default('3s') }}"
+    # Increase retries for failed servers
+    max_retries: 5
+    retry_delay: 10
+
+  pre_tasks:
+    - name: Display retry information
+      debug:
+        msg: |
+          Retrying deployment on {{ inventory_hostname }}
+          Attempt: {{ ansible_loop.index | default(1) }}
+          Max Retries: {{ max_retries }}
+
+  roles:
+    - nodepulse-agent
+
+  tasks:
+    - name: Verify final status
+      command: systemctl is-active nodepulse
+      register: final_status
+      changed_when: false
+      failed_when: false
+
+    - name: Mark as successful
+      debug:
+        msg: "Retry successful on {{ inventory_hostname }}"
+      when: final_status.rc == 0
+
+    - name: Mark as still failed
+      fail:
+        msg: "Retry failed on {{ inventory_hostname }}"
+      when: final_status.rc != 0
 ```
 
 ---
@@ -1176,7 +1360,55 @@ DROP TABLE IF EXISTS admiral.deployment_servers;
 DROP TABLE IF EXISTS admiral.deployments;
 ```
 
-### 4.2 Eloquent Models
+### 4.2 Queue Configuration
+
+**File:** `flagship/config/queue.php`
+
+Add a dedicated queue for deployments:
+
+```php
+'connections' => [
+    // ... existing connections ...
+
+    'database' => [
+        'driver' => 'database',
+        'connection' => env('DB_QUEUE_CONNECTION'),
+        'table' => env('DB_QUEUE_TABLE', 'jobs'),
+        'queue' => env('QUEUE_NAME', 'default'),
+        'retry_after' => 7200, // 2 hours for deployment jobs
+        'after_commit' => false,
+    ],
+],
+
+'queues' => [
+    'default' => 'default',
+    'deployments' => 'deployments', // Dedicated queue for Ansible deployments
+],
+```
+
+**Start Queue Worker:**
+
+```bash
+# In development (use Laravel's queue worker)
+php artisan queue:work --queue=deployments --tries=1 --timeout=3600
+
+# In production (use Supervisor)
+# Add to /etc/supervisor/conf.d/flagship-queue.conf
+[program:flagship-queue-deployments]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/to/flagship/artisan queue:work --queue=deployments --sleep=3 --tries=1 --max-time=3600 --timeout=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/log/flagship-queue-deployments.log
+stopwaitsecs=3600
+```
+
+### 4.4 Eloquent Models
 
 **File:** `flagship/app/Models/Deployment.php`
 
@@ -1317,7 +1549,7 @@ class DeploymentServer extends Model
 }
 ```
 
-### 4.3 Ansible Service
+### 4.5 Ansible Service
 
 **File:** `flagship/app/Services/AnsibleService.php`
 
@@ -1377,10 +1609,16 @@ class AnsibleService
             3600  // 1 hour timeout
         );
 
+        // Start the process and track PID for cancellation
+        $process->start();
+
+        // Store process ID in cache for cancellation
+        cache()->put("deployment:{$deployment->id}:process_id", $process->getPid(), 3600);
+
         $output = '';
         $errorOutput = '';
 
-        $process->run(function ($type, $buffer) use (&$output, &$errorOutput, $deployment) {
+        $process->wait(function ($type, $buffer) use (&$output, &$errorOutput, $deployment) {
             if (Process::ERR === $type) {
                 $errorOutput .= $buffer;
             } else {
@@ -1563,7 +1801,7 @@ class AnsibleService
 }
 ```
 
-### 4.4 Deploy Agent Job
+### 4.6 Deploy Agent Job
 
 **File:** `flagship/app/Jobs/DeployAgentJob.php`
 
@@ -1669,7 +1907,7 @@ class DeployAgentJob implements ShouldQueue
 }
 ```
 
-### 4.5 API Controllers
+### 4.7 API Controllers
 
 **File:** `flagship/app/Http/Controllers/DeploymentsController.php`
 
@@ -1844,8 +2082,23 @@ class DeploymentsController extends Controller
             ], 400);
         }
 
-        // TODO: Implement cancellation logic
-        // This would involve killing the Ansible process
+        // Find and kill the running Ansible process
+        $processId = cache()->get("deployment:{$deployment->id}:process_id");
+
+        if ($processId && posix_getpgid($processId)) {
+            // Send SIGTERM to gracefully stop Ansible
+            posix_kill($processId, SIGTERM);
+
+            // Wait 5 seconds for graceful shutdown
+            sleep(5);
+
+            // If still running, force kill with SIGKILL
+            if (posix_getpgid($processId)) {
+                posix_kill($processId, SIGKILL);
+            }
+
+            cache()->forget("deployment:{$deployment->id}:process_id");
+        }
 
         $deployment->update([
             'status' => 'cancelled',
@@ -1859,9 +2112,9 @@ class DeploymentsController extends Controller
 }
 ```
 
-### 4.6 Routes
+### 4.8 Routes
 
-**File:** `flagship/routes/api.php`
+**File:** `flagship/routes/api.php` (API routes)
 
 ```php
 <?php
@@ -1869,12 +2122,28 @@ class DeploymentsController extends Controller
 use App\Http\Controllers\DeploymentsController;
 use Illuminate\Support\Facades\Route;
 
-// Deployment routes
-Route::prefix('deployments')->group(function () {
+// Deployment API routes (with auth middleware)
+Route::middleware(['auth', 'verified', 'admin'])->prefix('deployments')->group(function () {
     Route::get('/', [DeploymentsController::class, 'list']);
     Route::post('/', [DeploymentsController::class, 'store']);
     Route::get('/{id}', [DeploymentsController::class, 'show']);
     Route::post('/{id}/cancel', [DeploymentsController::class, 'cancel']);
+});
+```
+
+**File:** `flagship/routes/web.php` (Inertia page routes)
+
+```php
+<?php
+
+use App\Http\Controllers\DeploymentsController;
+use Illuminate\Support\Facades\Route;
+
+// Deployment web routes (with auth middleware)
+Route::middleware(['auth', 'verified', 'admin'])->prefix('dashboard/deployments')->group(function () {
+    Route::get('/', [DeploymentsController::class, 'index'])->name('deployments.index');
+    Route::get('/create', [DeploymentsController::class, 'create'])->name('deployments.create');
+    Route::get('/{id}', [DeploymentsController::class, 'details'])->name('deployments.show');
 });
 ```
 
@@ -1887,7 +2156,7 @@ Route::prefix('deployments')->group(function () {
 **File:** `flagship/resources/js/pages/deployments/index.tsx`
 
 ```tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Head, Link } from "@inertiajs/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1934,7 +2203,7 @@ export default function DeploymentsIndex() {
     }
   };
 
-  useState(() => {
+  useEffect(() => {
     fetchDeployments();
   }, []);
 
@@ -2091,7 +2360,7 @@ export default function DeploymentsIndex() {
 **File:** `flagship/resources/js/pages/deployments/create.tsx`
 
 ```tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Head, router } from "@inertiajs/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2144,7 +2413,7 @@ export default function CreateDeployment() {
     setServers(data.servers.data);
   };
 
-  useState(() => {
+  useEffect(() => {
     fetchServers();
   }, []);
 
@@ -2515,9 +2784,98 @@ export default function CreateDeployment() {
 
 ## Phase 6: Monitoring & Logging
 
-### 6.1 Real-time Progress Updates
+### 6.1 Laravel Reverb Setup
 
-Use Laravel Echo (with Reverb or Pusher) to broadcast deployment progress:
+**Installation:**
+
+```bash
+cd flagship
+composer require laravel/reverb
+php artisan reverb:install
+```
+
+**Configuration:** `flagship/config/broadcasting.php`
+
+```php
+'connections' => [
+    'reverb' => [
+        'driver' => 'reverb',
+        'key' => env('REVERB_APP_KEY'),
+        'secret' => env('REVERB_APP_SECRET'),
+        'app_id' => env('REVERB_APP_ID'),
+        'options' => [
+            'host' => env('REVERB_HOST', '0.0.0.0'),
+            'port' => env('REVERB_PORT', 8080),
+            'scheme' => env('REVERB_SCHEME', 'http'),
+        ],
+        'client_options' => [
+            // Guzzle client options
+        ],
+    ],
+],
+```
+
+**Environment Variables:** Add to `.env`
+
+```bash
+BROADCAST_CONNECTION=reverb
+REVERB_APP_ID=flagship
+REVERB_APP_KEY=your-app-key
+REVERB_APP_SECRET=your-app-secret
+REVERB_HOST="localhost"
+REVERB_PORT=8080
+REVERB_SCHEME=http
+
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST="${REVERB_HOST}"
+VITE_REVERB_PORT="${REVERB_PORT}"
+VITE_REVERB_SCHEME="${REVERB_SCHEME}"
+```
+
+**Start Reverb Server:**
+
+```bash
+# Development
+php artisan reverb:start
+
+# Production (use Supervisor)
+[program:flagship-reverb]
+command=php /path/to/flagship/artisan reverb:start
+autostart=true
+autorestart=true
+user=www-data
+redirect_stderr=true
+stdout_logfile=/var/log/flagship-reverb.log
+```
+
+**Frontend Setup:** `flagship/resources/js/echo.ts`
+
+```typescript
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
+
+window.Pusher = Pusher;
+
+window.Echo = new Echo({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST,
+    wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
+    wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
+    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+    enabledTransports: ['ws', 'wss'],
+});
+```
+
+Import in `flagship/resources/js/app.tsx`:
+
+```typescript
+import './echo';
+```
+
+### 6.2 Real-time Progress Updates
+
+Use Laravel Echo with Reverb to broadcast deployment progress:
 
 **File:** `flagship/app/Jobs/DeployAgentJob.php` (add broadcasting)
 
@@ -2587,7 +2945,7 @@ class DeploymentProgress implements ShouldBroadcast
 }
 ```
 
-### 6.2 Logging
+### 6.3 Logging
 
 **File:** `flagship/config/logging.php` (add deployment channel)
 
@@ -2719,34 +3077,140 @@ Test end-to-end workflow:
 
 ## Next Steps
 
-1. **Initialize Ansible Structure**
+### 1. Setup Cloudflare R2
 
-   ```bash
-   php artisan ansible:init
-   ```
+```bash
+# Create R2 bucket in Cloudflare dashboard
+# Upload agent binaries with version structure:
+# /latest/nodepulse-linux-amd64
+# /latest/nodepulse-linux-arm64
 
-2. **Create Database Migrations**
+# Add to .env
+echo "AGENT_DOWNLOAD_BASE_URL=https://pub-xxxxx.r2.dev" >> flagship/.env
+```
 
-   ```bash
-   docker compose run --rm migrate
-   ```
+### 2. Run Database Migrations
 
-3. **Test Dynamic Inventory**
+```bash
+# Navigate to migrate directory
+cd migrate
 
-   ```bash
-   php artisan ansible:inventory
-   ```
+# Run the deployment migration
+docker compose run --rm migrate
 
-4. **Create First Deployment**
+# Or manually via psql
+psql -h localhost -U postgres -d admiral -f migrations/20251025_add_deployments.sql
+```
 
-   ```bash
-   php artisan ansible:deploy --servers=uuid1,uuid2,uuid3
-   ```
+### 3. Initialize Ansible Structure
 
-5. **Build Web UI**
-   - Implement React components
-   - Add real-time updates
-   - Polish UX
+```bash
+cd flagship
+php artisan ansible:init
+```
+
+### 4. Configure Queue System
+
+```bash
+# Create jobs table for queue (if not exists)
+php artisan queue:table
+php artisan migrate
+
+# Start queue worker (development)
+php artisan queue:work --queue=deployments --tries=1 --timeout=3600
+
+# Or add to Supervisor for production (see section 4.2)
+```
+
+### 5. Setup Laravel Reverb (Optional - for real-time updates)
+
+```bash
+cd flagship
+composer require laravel/reverb
+php artisan reverb:install
+
+# Update .env with Reverb settings
+# Start Reverb server
+php artisan reverb:start
+```
+
+### 6. Test Dynamic Inventory
+
+```bash
+cd flagship
+
+# List all servers
+php artisan ansible:inventory
+
+# Filter by server IDs
+php artisan ansible:inventory --server-ids=uuid1,uuid2,uuid3
+
+# Filter by tags
+php artisan ansible:inventory --tags=production,web
+```
+
+### 7. Create First Deployment
+
+**Via CLI (testing):**
+
+```bash
+cd flagship
+php artisan ansible:deploy --servers=uuid1,uuid2,uuid3
+```
+
+**Via API (production):**
+
+```bash
+curl -X POST http://localhost/api/deployments \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "name": "Production Agent Rollout",
+    "description": "Initial deployment to production servers",
+    "playbook": "deploy-agent.yml",
+    "server_ids": ["uuid1", "uuid2", "uuid3"],
+    "variables": {
+      "dashboard_endpoint": "https://dashboard.example.com/metrics",
+      "agent_interval": "5s",
+      "agent_timeout": "3s",
+      "agent_version": "latest"
+    }
+  }'
+```
+
+### 8. Build Web UI
+
+```bash
+cd flagship
+npm install
+npm run build  # Production
+# or
+npm run dev    # Development with hot reload
+```
+
+Access the deployment interface at:
+- **Deployments List**: `http://localhost/dashboard/deployments`
+- **Create Deployment**: `http://localhost/dashboard/deployments/create`
+- **View Deployment**: `http://localhost/dashboard/deployments/{id}`
+
+---
+
+## Summary of Fixes Applied
+
+✅ **Issue #1**: Dynamic inventory bootstrap now uses absolute paths
+✅ **Issue #2**: SSH key temporary files are tracked and cleaned up
+✅ **Issue #3**: Agent binary URLs updated for Cloudflare R2
+✅ **Issue #4**: Dashboard endpoint passed from Laravel via extra vars
+✅ **Issue #5**: Queue configuration added with Supervisor example
+✅ **Issue #6**: Deployment cancellation implemented with process tracking
+✅ **Issue #7**: Reverb broadcasting setup fully documented
+✅ **Issue #8**: Rollback and retry playbooks added
+✅ **Issue #9**: Agent version management supported via extra vars
+✅ **Issue #10**: React hooks corrected (useState → useEffect)
+✅ **Auth middleware**: Added to all deployment routes
+✅ **Migration instructions**: Comprehensive setup guide added
+✅ **Queue worker**: Startup instructions with Supervisor config
+✅ **Web routes**: Inertia page routes added
 
 ---
 
