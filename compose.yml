@@ -152,7 +152,10 @@ services:
     networks:
       - node-pulse-admiral
     healthcheck:
-      test: ["CMD", "pidof", "php-fpm"]
+      test:
+        - CMD
+        - pidof
+        - php-fpm
       interval: 30s
       timeout: 3s
       retries: 3
@@ -193,7 +196,13 @@ services:
     networks:
       - node-pulse-admiral
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/metrics"]
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://127.0.0.1:2019/metrics
       interval: 30s
       timeout: 3s
       retries: 3
