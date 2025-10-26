@@ -167,7 +167,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8000" # Laravel dev server
+      - "9000:9000" # Laravel dev server (external:internal)
       - "5173:5173" # Vite dev server
       - "9003:9003" # Xdebug port
     depends_on:
@@ -189,7 +189,13 @@ services:
     # Override CMD to run both Laravel dev server and Vite HMR
     command: ["/bin/bash", "/usr/local/bin/docker-entrypoint-dev.sh"]
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000"]
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://localhost:9000
       interval: 30s
       timeout: 3s
       retries: 3
@@ -204,13 +210,10 @@ services:
     env_file:
       - .env
     ports:
-      - "80:80"       # HTTP (Flagship via PHP-FPM)
+      - "8000:9000" # HTTP (Proxy to Flagship dev server)
     volumes:
       # Use development Caddyfile
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-
-      # Flagship public directory (for serving static files)
-      - ./flagship/public:/var/www/flagship/public:ro
+      - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
 
       # Logs
       - ./logs/caddy:/var/log/caddy
@@ -221,7 +224,13 @@ services:
     networks:
       - node-pulse-admiral
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://localhost:9000
       interval: 10s
       timeout: 3s
       retries: 3

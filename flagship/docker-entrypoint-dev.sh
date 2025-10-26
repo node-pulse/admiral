@@ -15,8 +15,8 @@ VITE_PID=$!
 sleep 3
 
 # Start Laravel development server
-echo "🐘 Starting Laravel dev server on port 8000..."
-php artisan serve --host=0.0.0.0 --port=8000 &
+echo "🐘 Starting Laravel dev server on port 9000..."
+php artisan serve --host=0.0.0.0 --port=9000 &
 LARAVEL_PID=$!
 
 # Function to handle shutdown

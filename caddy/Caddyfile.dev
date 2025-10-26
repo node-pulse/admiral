@@ -13,22 +13,17 @@
 # ------------------------------------------------------------
 # Admin Dashboard (Flagship - Laravel)
 # ------------------------------------------------------------
-localhost:8000 {
-    # Root directory for static files
-    root * /var/www/flagship/public
-
-    # PHP-FPM configuration
-    php_fastcgi flagship:9000 {
-        split .php
-        env APP_ENV local
-        env APP_DEBUG true
+:8000 {
+    # Proxy to Laravel's built-in development server
+    reverse_proxy flagship:9000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
     }
 
-    # Serve static files
-    file_server
-
-    # Laravel routing
-    try_files {path} {path}/ /index.php?{query}
+    # Enable gzip compression
+    encode gzip
 
     # Verbose logging for development
     log {
