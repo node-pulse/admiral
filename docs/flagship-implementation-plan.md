@@ -140,8 +140,8 @@ Route::prefix('api/ssh-sessions')->group(function () {
 ## Notes
 
 - **Read-only from backend schema** - Flagship reads metrics written by Submarines digest workers
-- **Eloquent models** - All models use Eloquent ORM with `backend` schema configuration
-- **Schema isolation** - PostgreSQL has 2 schemas: `admiral`, `better_auth`
+- **Eloquent models** - All models use Eloquent ORM with `admiral` schema configuration
+- **Schema** - PostgreSQL uses single `admiral` schema for all application data
 - **Inertia.js architecture** - Server-side routing, no client-side router needed
 - **Type safety** - TypeScript for all frontend code
 - **Component library** - Radix UI provides accessible, unstyled components

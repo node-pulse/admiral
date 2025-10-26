@@ -11,6 +11,7 @@ This document outlines the multi-environment Docker Compose deployment strategy 
 ### Two-Compose File Strategy
 
 1. **`compose.yml`** - Production (Default)
+
    - Contains `image:` references to GHCR
    - Pulls pre-built, tagged images
    - No build context (faster deployments)
@@ -29,23 +30,24 @@ This document outlines the multi-environment Docker Compose deployment strategy 
 
 ### Custom Services (Build from Source)
 
-| Service | Registry | Tagging Strategy | Example |
-|---------|----------|------------------|---------|
-| `submarines` | GHCR | Semantic (minor) | `ghcr.io/USERNAME/node-pulse-submarines:1.2` |
-| `flagship` | GHCR | Semantic (minor) | `ghcr.io/USERNAME/node-pulse-flagship:2.1` |
+| Service      | Registry | Tagging Strategy | Example                                      |
+| ------------ | -------- | ---------------- | -------------------------------------------- |
+| `submarines` | GHCR     | Semantic (minor) | `ghcr.io/USERNAME/node-pulse-submarines:1.2` |
+| `flagship`   | GHCR     | Semantic (minor) | `ghcr.io/USERNAME/node-pulse-flagship:2.1`   |
 
 **Versioning Format**: `MAJOR.MINOR` (omit patch for latest minor release)
 
 ### Third-Party Services (Docker Hub/Official)
 
-| Service | Registry | Tagging Strategy | Example |
-|---------|----------|------------------|---------|
-| `postgres` | Docker Hub | Git SHA (pinned) | `postgres:18-alpine@sha256:abc123...` |
-| `valkey` | Docker Hub | Git SHA (pinned) | `valkey/valkey:latest@sha256:def456...` |
-| `pgweb` | Docker Hub | Git SHA (pinned) | `sosedoff/pgweb:latest@sha256:012jkl...` |
-| `caddy` | Docker Hub | Git SHA (pinned) | `caddy:2-alpine@sha256:345mno...` |
+| Service    | Registry   | Tagging Strategy | Example                                  |
+| ---------- | ---------- | ---------------- | ---------------------------------------- |
+| `postgres` | Docker Hub | Git SHA (pinned) | `postgres:18-alpine@sha256:abc123...`    |
+| `valkey`   | Docker Hub | Git SHA (pinned) | `valkey/valkey:latest@sha256:def456...`  |
+| `pgweb`    | Docker Hub | Git SHA (pinned) | `sosedoff/pgweb:latest@sha256:012jkl...` |
+| `caddy`    | Docker Hub | Git SHA (pinned) | `caddy:2-alpine@sha256:345mno...`        |
 
 **Why Git SHA for third-party?**
+
 - Ensures reproducible builds
 - Prevents surprise breaking changes from upstream
 - Security: audit exact image versions
@@ -90,6 +92,7 @@ git push origin feature/new-metrics
 ```
 
 **What happens:**
+
 - `compose.development.yml` builds images from local source code
 - Fast iteration cycle
 - All services run with `build:` context
@@ -113,7 +116,7 @@ git push origin v1.3.0
 on:
   push:
     branches: [main]
-    tags: ['v*.*.*']
+    tags: ["v*.*.*"]
 
 jobs:
   build-submarines:
@@ -130,6 +133,7 @@ jobs:
 ```
 
 **Output:**
+
 - ✅ Images pushed to GHCR with semantic tags
 - ✅ `latest` tag updated
 - ✅ Minor version tag created (e.g., `1.3`)
@@ -166,9 +170,9 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy'
+        description: "Environment to deploy"
         required: true
-        default: 'production'
+        default: "production"
 
 jobs:
   deploy:
@@ -205,6 +209,7 @@ services:
 ```
 
 **Characteristics:**
+
 - Only `image:` references (no `build:`)
 - Pinned third-party images with SHA256
 - Production settings (`restart: unless-stopped`, resource limits)
@@ -228,6 +233,7 @@ services:
 ```
 
 **Characteristics:**
+
 - Has `build:` sections
 - Uses generic image tags (e.g., `postgres:18-alpine`)
 - Development-friendly settings (hot reload, verbose logging)
@@ -243,7 +249,6 @@ services:
 POSTGRES_PASSWORD=postgres
 VALKEY_PASSWORD=valkeypassword
 GIN_MODE=debug
-RAILS_ENV=development
 ```
 
 ### Production (`.env.production`)
@@ -253,7 +258,6 @@ RAILS_ENV=development
 POSTGRES_PASSWORD=<strong-password>
 VALKEY_PASSWORD=<strong-password>
 GIN_MODE=release
-RAILS_ENV=production
 
 # GHCR credentials (for private repos)
 GHCR_USERNAME=<github-username>
@@ -301,12 +305,12 @@ docker inspect postgres:18-alpine --format='{{index .RepoDigests 0}}'
 
 Configure these secrets in GitHub repo settings:
 
-| Secret Name | Description | Example |
-|-------------|-------------|---------|
-| `GHCR_TOKEN` | GitHub PAT with `write:packages` | `ghp_xxxxxxxxxxxx` |
+| Secret Name    | Description                           | Example                 |
+| -------------- | ------------------------------------- | ----------------------- |
+| `GHCR_TOKEN`   | GitHub PAT with `write:packages`      | `ghp_xxxxxxxxxxxx`      |
 | `PROD_SSH_KEY` | SSH private key for production server | `-----BEGIN OPENSSH...` |
-| `PROD_HOST` | Production server hostname | `prod.example.com` |
-| `PROD_USER` | SSH username | `deploy` |
+| `PROD_HOST`    | Production server hostname            | `prod.example.com`      |
+| `PROD_USER`    | SSH username                          | `deploy`                |
 
 ---
 
@@ -370,15 +374,18 @@ docker compose up -d
 ## Best Practices
 
 ### 1. Never Mix Build and Image in Production
+
 - Production should ONLY use `image:`, never `build:`
 - Ensures consistency and faster deployments
 
 ### 2. Always Test Images in Staging First
+
 - Pull GHCR images to staging environment
 - Run full integration tests
 - Only promote to production after validation
 
 ### 3. Semantic Versioning Discipline
+
 - `MAJOR.MINOR.PATCH` for all custom services
 - Bump `MAJOR` for breaking changes
 - Bump `MINOR` for new features
@@ -386,6 +393,7 @@ docker compose up -d
 - Use `MAJOR.MINOR` tags in production (e.g., `1.3`)
 
 ### 4. Monitor Image Sizes
+
 ```bash
 # Check image sizes
 docker images | grep node-pulse
@@ -397,6 +405,7 @@ docker images | grep node-pulse
 ```
 
 ### 5. Security Scanning
+
 ```yaml
 # Add to GitHub Actions
 - name: Scan image for vulnerabilities
@@ -414,6 +423,7 @@ docker images | grep node-pulse
 **Cause:** Authentication failure
 
 **Solution:**
+
 ```bash
 # Login to GHCR
 echo $GHCR_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
@@ -427,6 +437,7 @@ docker compose pull
 **Cause:** Tag doesn't exist or CI build failed
 
 **Solution:**
+
 ```bash
 # Check available tags on GitHub
 # Visit: https://github.com/USERNAME/REPO/pkgs/container/node-pulse-submarines
@@ -439,6 +450,7 @@ docker compose pull
 **Cause:** Configuration mismatch or missing env vars
 
 **Solution:**
+
 ```bash
 # Check logs
 docker compose logs submarines

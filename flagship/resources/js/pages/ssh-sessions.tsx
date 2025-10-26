@@ -62,7 +62,6 @@ interface SshSessionData {
     server_id: string;
     server: ServerData | null;
     user_id: number | null;
-    better_auth_id: string | null;
     started_at: string;
     ended_at: string | null;
     duration_seconds: number | null;
@@ -412,8 +411,9 @@ export default function SshSessions() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="text-sm">
-                                                        {session.better_auth_id ||
-                                                            'Anonymous'}
+                                                        {session.user_id
+                                                            ? `User #${session.user_id}`
+                                                            : 'Anonymous'}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>

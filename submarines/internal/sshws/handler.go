@@ -144,9 +144,8 @@ func (h *Handler) handleAuth(c *gin.Context, ws *websocket.Conn, sessionID, serv
 		sessionLogger.SetUserAgent(userAgent)
 	}
 
-	// TODO: Capture user_id from authentication middleware
-	// TODO: Capture better_auth_id from authentication middleware
-	// These will be set once auth middleware is implemented
+	// TODO: Capture user_id from Laravel Fortify authentication middleware
+	// This will be set once auth middleware is implemented
 
 	// Check if session recording is enabled from database settings
 	// Disabled by default for privacy (controlled via admiral.settings table)

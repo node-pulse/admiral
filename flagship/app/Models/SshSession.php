@@ -16,7 +16,6 @@ class SshSession extends Model
         'session_id',
         'server_id',
         'user_id',
-        'better_auth_id',
         'started_at',
         'ended_at',
         'duration_seconds',

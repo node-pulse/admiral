@@ -108,7 +108,7 @@ return [
     | It's separate from APP_KEY for security isolation.
     |
     | Priority:
-    | 1. Read from config/master.key file (most secure, Rails-style)
+    | 1. Read from config/master.key file (most secure)
     | 2. Fall back to MASTER_KEY environment variable
     |
     | IMPORTANT: Store this key securely! If lost, all SSH keys become unusable.

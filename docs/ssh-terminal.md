@@ -249,8 +249,7 @@ CREATE TABLE admiral.ssh_sessions (
     id UUID PRIMARY KEY,
     session_id TEXT NOT NULL UNIQUE,
     server_id UUID NOT NULL REFERENCES admiral.servers(id),
-    user_id BIGINT, -- Flagship user (pending auth middleware)
-    better_auth_id TEXT, -- Better Auth ID (pending)
+    user_id BIGINT, -- Flagship user ID (Laravel Fortify authentication)
     started_at TIMESTAMP WITH TIME ZONE NOT NULL,
     ended_at TIMESTAMP WITH TIME ZONE,
     duration_seconds INTEGER,
@@ -269,7 +268,7 @@ CREATE TABLE admiral.ssh_sessions (
 
 **Logged Information:**
 
-- ✅ Who: user_id, better_auth_id, ip_address, user_agent
+- ✅ Who: user_id, ip_address, user_agent
 - ✅ What: server_id, ssh_username, ssh_host, ssh_port
 - ✅ When: started_at, ended_at, duration_seconds
 - ✅ How: auth_method (private_key/password)

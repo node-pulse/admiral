@@ -17,7 +17,6 @@ type SessionLogger struct {
 	authMethod       string
 	hostKeyFp        string
 	userID           *int64  // Flagship/Laravel user ID
-	betterAuthID     *string // Better Auth user ID
 	ipAddress        *string // Client IP address
 	userAgent        *string // Client user agent
 	recordingEnabled bool
@@ -57,11 +56,6 @@ func (sl *SessionLogger) SetUserID(userID int64) {
 	sl.userID = &userID
 }
 
-// SetBetterAuthID sets the Better Auth user ID
-func (sl *SessionLogger) SetBetterAuthID(betterAuthID string) {
-	sl.betterAuthID = &betterAuthID
-}
-
 // SetIPAddress sets the client IP address
 func (sl *SessionLogger) SetIPAddress(ipAddress string) {
 	sl.ipAddress = &ipAddress
@@ -84,7 +78,6 @@ func (sl *SessionLogger) LogSessionStart() error {
 			session_id,
 			server_id,
 			user_id,
-			better_auth_id,
 			ip_address,
 			user_agent,
 			started_at,
@@ -101,7 +94,6 @@ func (sl *SessionLogger) LogSessionStart() error {
 		sl.sessionID,
 		sl.serverID,
 		sl.userID,
-		sl.betterAuthID,
 		sl.ipAddress,
 		sl.userAgent,
 		sl.authMethod,
@@ -151,7 +143,6 @@ func (sl *SessionLogger) LogSessionFailure(reason string) error {
 			session_id,
 			server_id,
 			user_id,
-			better_auth_id,
 			ip_address,
 			user_agent,
 			started_at,
@@ -169,7 +160,6 @@ func (sl *SessionLogger) LogSessionFailure(reason string) error {
 		sl.sessionID,
 		sl.serverID,
 		sl.userID,
-		sl.betterAuthID,
 		sl.ipAddress,
 		sl.userAgent,
 		sl.authMethod,

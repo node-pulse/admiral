@@ -309,7 +309,6 @@ See `.env.example` for complete list with descriptions.
 - `POSTGRES_DB` - Database name
 - `VALKEY_PASSWORD` - Valkey password
 - `JWT_SECRET` - JWT signing secret
-- `BETTER_AUTH_SECRET` - Better Auth secret
 
 **Optional:**
 - `RETENTION_HOURS` - Data retention period (default: 72)
