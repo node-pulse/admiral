@@ -12,6 +12,10 @@ This project uses Docker Compose to orchestrate multiple services:
 - **Valkey**: Redis-compatible in-memory data store for message streams, caching, and sessions
 - **Caddy**: Modern reverse proxy and web server with automatic HTTPS
 
+## Roadmap
+
+[Roadmap](docs/roadmap.md)
+
 ## Prerequisites
 
 - Docker and Docker Compose (Docker Desktop or standalone)
