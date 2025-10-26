@@ -3,17 +3,13 @@
 
 # Global options
 {
-    # Use Let's Encrypt staging for testing
-    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 
-    # Production: automatic HTTPS
-    # For local development, this will be disabled
 }
 
 # ------------------------------------------------------------
 # Admin Dashboard (Flagship - Laravel)
 # ------------------------------------------------------------
-{$ADMIN_DOMAIN:admin.localhost} {
+{$ADMIN_DOMAIN} {
     # Root directory for static files
     root * /var/www/flagship/public
 
@@ -63,7 +59,7 @@
 # ------------------------------------------------------------
 # Metrics Ingestion (Submarines Ingest)
 # ------------------------------------------------------------
-{$INGEST_DOMAIN:ingest.localhost} {
+{$INGEST_DOMAIN} {
     # Reverse proxy to Go service
     reverse_proxy submarines-ingest:8080 {
         # Health check
@@ -103,7 +99,7 @@
 # ------------------------------------------------------------
 # Status Pages (Submarines Status)
 # ------------------------------------------------------------
-{$STATUS_DOMAIN:status.localhost} {
+{$STATUS_DOMAIN} {
     reverse_proxy submarines-status:8082 {
         health_uri /health
         health_interval 10s
@@ -127,9 +123,9 @@
 }
 
 # ------------------------------------------------------------
-# Local Development Fallback (catch-all for localhost)
+# Catch-all for unmatched requests (IP access, unknown domains)
 # ------------------------------------------------------------
 :80 {
-    # Redirect to admin dashboard by default
-    redir {$ADMIN_DOMAIN:admin.localhost} permanent
+    # Return 404 for any unmatched requests
+    respond "404 Not Found" 404
 }
