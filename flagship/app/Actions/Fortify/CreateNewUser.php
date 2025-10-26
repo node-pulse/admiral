@@ -18,6 +18,18 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
+        // Check if registration is enabled (from database settings)
+        $registrationEnabled = \Illuminate\Support\Facades\DB::table('admiral.settings')
+            ->where('key', 'registration_enabled')
+            ->value('value');
+
+        // JSONB boolean value is stored as "true" or "false" string in PostgreSQL
+        if ($registrationEnabled !== 'true') {
+            $validator = Validator::make([], []);
+            $validator->errors()->add('email', 'Registration is currently disabled. Please contact an administrator.');
+            throw new \Illuminate\Validation\ValidationException($validator);
+        }
+
         $captchaService = app(\App\Services\CaptchaService::class);
 
         $rules = [
@@ -43,6 +55,7 @@ class CreateNewUser implements CreatesNewUsers
             'name' => $input['name'],
             'email' => $input['email'],
             'password' => $input['password'],
+            'role' => 'user', // Default role for new registrations
         ]);
     }
 }

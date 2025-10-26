@@ -12,32 +12,45 @@ import {
 } from '@/components/ui/sidebar';
 import { dashboard, sshKeys, servers, sshSessions } from '@/routes';
 import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, Key, LayoutGrid, Server, Terminal } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { BookOpen, Folder, Key, LayoutGrid, Server, Settings as SettingsIcon, Terminal } from 'lucide-react';
 import AppLogo from './app-logo';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Servers',
-        href: servers(),
-        icon: Server,
-    },
-    {
-        title: 'SSH Keys',
-        href: sshKeys(),
-        icon: Key,
-    },
-    {
-        title: 'SSH Sessions',
-        href: sshSessions(),
-        icon: Terminal,
-    },
-];
+const getMainNavItems = (isAdmin: boolean): NavItem[] => {
+    const items: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+        {
+            title: 'Servers',
+            href: servers(),
+            icon: Server,
+        },
+        {
+            title: 'SSH Keys',
+            href: sshKeys(),
+            icon: Key,
+        },
+        {
+            title: 'SSH Sessions',
+            href: sshSessions(),
+            icon: Terminal,
+        },
+    ];
+
+    // Add Settings link for admin users only
+    if (isAdmin) {
+        items.push({
+            title: 'Settings',
+            href: '/dashboard/settings',
+            icon: SettingsIcon,
+        });
+    }
+
+    return items;
+};
 
 const footerNavItems: NavItem[] = [
     {
@@ -53,6 +66,10 @@ const footerNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
+    const { auth } = usePage().props as any;
+    const isAdmin = auth?.user?.role === 'admin';
+    const mainNavItems = getMainNavItems(isAdmin);
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>

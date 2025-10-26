@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS admiral.users (
     password VARCHAR(255) NOT NULL,
     remember_token VARCHAR(100),
 
+    -- Role-based access control
+    role VARCHAR(50) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+
     -- Two-factor authentication columns
     two_factor_secret TEXT,
     two_factor_recovery_codes TEXT,
@@ -23,6 +26,9 @@ CREATE TABLE IF NOT EXISTS admiral.users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add index for role queries
+CREATE INDEX IF NOT EXISTS idx_users_role ON admiral.users(role);
 
 -- Password reset tokens table
 CREATE TABLE IF NOT EXISTS admiral.password_reset_tokens (

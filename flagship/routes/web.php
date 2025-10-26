@@ -2,14 +2,18 @@
 
 use App\Http\Controllers\PrivateKeysController;
 use App\Http\Controllers\ServersController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SshSessionsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
 Route::get('/', function () {
+    // Check registration_enabled from database settings
+    $registrationEnabled = \App\Models\Setting::isEnabled('registration_enabled', false);
+
     return Inertia::render('welcome', [
-        'canRegister' => Features::enabled(Features::registration()),
+        'canRegister' => $registrationEnabled,
     ]);
 })->name('home');
 
@@ -63,6 +67,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/{id}', [SshSessionsController::class, 'show'])->name('ssh-sessions.show');
             Route::post('/{id}/terminate', [SshSessionsController::class, 'terminate'])->name('ssh-sessions.terminate');
         });
+    });
+});
+
+// Admin-only routes
+Route::middleware(['auth', 'verified', 'admin'])->prefix('dashboard')->group(function () {
+    // Settings management (admin only)
+    Route::prefix('settings')->group(function () {
+        Route::get('/', [SettingsController::class, 'index'])->name('settings');
+        Route::put('/{key}', [SettingsController::class, 'update'])->name('settings.update');
+        Route::post('/{key}/toggle', [SettingsController::class, 'toggle'])->name('settings.toggle');
     });
 });
 

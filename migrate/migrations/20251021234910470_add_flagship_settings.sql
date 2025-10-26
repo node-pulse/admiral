@@ -53,6 +53,9 @@ INSERT INTO admiral.settings (key, value, description, tier) VALUES
     ('alerting_enabled', 'true', 'Enable alerting system', 'free'),
     ('webhook_notifications_enabled', 'false', 'Enable webhook notifications (Pro feature)', 'pro'),
 
+    -- Authentication and registration
+    ('registration_enabled', 'false', 'Allow new user registration (disabled by default for security)', 'free'),
+
     -- System metadata
     ('instance_id', 'null', 'Unique instance identifier for licensing', 'free'),
     ('admin_email', 'null', 'Admin email for notifications', 'free')

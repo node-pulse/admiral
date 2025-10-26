@@ -24,7 +24,23 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Check if any users exist (idempotent check - do this FIRST)
+        // SECURITY: Only allow in non-production environments or during initial setup
+        // Production check: If environment is production AND users exist, abort
+        if (app()->environment('production')) {
+            $userCount = User::count();
+
+            if ($userCount > 0) {
+                $this->command->error('❌ Security: Cannot run AdminUserSeeder in production when users already exist');
+                $this->command->error('💡 Use the admin panel to create additional admin users');
+                return;
+            }
+
+            // Production + no users = initial setup (allowed)
+            $this->command->warn('⚠️  Running in PRODUCTION mode for initial setup');
+            $this->command->warn('⚠️  This should only be done during first deployment');
+        }
+
+        // Check if any users exist (idempotent check)
         $existingUserCount = User::count();
         if ($existingUserCount > 0) {
             $this->command->info("ℹ️  Admin user already exists (found {$existingUserCount} user(s) in database)");
@@ -54,6 +70,7 @@ class AdminUserSeeder extends Seeder
                 'name' => $name,
                 'email' => $email,
                 'password' => Hash::make($password),
+                'role' => 'admin', // Set as admin user
                 'email_verified_at' => now(), // Auto-verify admin email
             ]);
 
