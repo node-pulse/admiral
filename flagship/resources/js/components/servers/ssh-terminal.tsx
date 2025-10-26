@@ -410,9 +410,9 @@ export function SSHTerminal({
     };
 
     return (
-        <div className="flex flex-col gap-2">
+        <div className="flex h-full flex-col gap-2">
             {/* Connection Status Indicator */}
-            <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
+            <div className="ConnectionStatusIndicator flex shrink-0 items-center justify-between rounded-lg border bg-muted/30 p-3">
                 <div className="flex items-center gap-3">
                     {getStatusBadge()}
                     {server && (
@@ -435,22 +435,24 @@ export function SSHTerminal({
 
             {showPasswordPrompt && (
                 <div className="space-y-4 rounded-lg border bg-muted/50 p-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="password">
-                            SSH Password (optional)
-                        </Label>
-                        <Input
-                            id="password"
-                            type="password"
-                            placeholder="Leave empty to use SSH key"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    connect();
-                                }
-                            }}
-                        />
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                            <Label htmlFor="password">
+                                SSH Password (optional)
+                            </Label>
+                            <Input
+                                id="password"
+                                type="password"
+                                placeholder="Leave empty to use SSH key"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        connect();
+                                    }
+                                }}
+                            />
+                        </div>
                         <p className="text-sm text-muted-foreground">
                             If the server has an SSH key configured, leave this
                             empty. Otherwise, enter the password for SSH
@@ -470,8 +472,8 @@ export function SSHTerminal({
             )}
 
             <div
-                className="rounded-lg border border-gray-700 bg-[#1e1e1e]"
-                style={{ height: '600px', padding: '8px 8px 16px 8px' }}
+                className="flex-1 overflow-hidden rounded-lg border border-gray-700 bg-[#1e1e1e]"
+                style={{ minHeight: '400px', padding: '8px 8px 16px 8px' }}
             >
                 <style>
                     {`
