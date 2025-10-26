@@ -228,8 +228,8 @@ submarines-ingest  (HTTP → Valkey Stream)
 submarines-digest  (Valkey Stream → PostgreSQL)
 submarines-cleaner (Cleanup old metrics)
 submarines-status  (Public status pages)
+submarines-sshws   (SSH WebSocket terminal)
 flagship           (Admin dashboard)
-cruiser            (Public site)
 ```
 
 #### Pro Tier Additional

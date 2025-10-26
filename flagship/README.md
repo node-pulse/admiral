@@ -79,10 +79,9 @@ Uses PostgreSQL schema: **`admiral`**
 
 Flagship reads metrics data written by Submarines from the shared `admiral` schema.
 
-The database has multiple schemas:
+The database uses a single main schema:
 
-- `admiral` - Shared: Submarines writes metrics, Flagship reads
-- `better_auth` - Next.js (Cruiser) auth data
+- `admiral` - All application data: Submarines writes metrics, Flagship reads and manages (servers, metrics, alerts, users, SSH sessions, etc.)
 
 ## Architecture
 

@@ -1,6 +1,6 @@
 # Caddyfile for Node Pulse Admiral
 # Local Development Configuration
-# Services: Flagship (Laravel+PHP-FPM), Submarines (Go), Cruiser (Next.js)
+# Services: Flagship (Laravel+PHP-FPM), Submarines (Go)
 
 {
     # Global options for local development
@@ -61,19 +61,6 @@
 # Submarines Status - Public Status Pages
 :8082 {
     reverse_proxy submarines-status:8082 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-    }
-
-    log {
-        output stdout
-        format console
-    }
-}
-
-# Cruiser - Next.js Public App
-:3000 {
-    reverse_proxy cruiser:3000 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
     }

@@ -451,31 +451,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo ""
 
     # =============================================================================
-    # Cruiser Configuration (Next.js Frontend)
-    # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Cruiser Configuration (Next.js Frontend)${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-
-    # Public URLs (accessible from browser)
-    prompt_config "NEXT_PUBLIC_API_URL" "http://localhost:8080" "Public API URL (browser-accessible)"
-
-    echo ""
-
-    # Server-side URLs (internal)
-    CONFIG["API_URL"]="http://submarines-ingest:8080"
-
-    echo -e "${CYAN}Internal API URL auto-configured${NC}"
-    echo ""
-
-    # Better Auth
-    prompt_config "BETTER_AUTH_SECRET" "$(generate_secret)" "Better Auth secret (auto-generated)" "true"
-    prompt_config "BETTER_AUTH_URL" "http://localhost:3000" "Better Auth URL"
-
-    echo ""
-
-    # =============================================================================
     # Production Domain Configuration (Optional)
     # =============================================================================
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -486,7 +461,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     prompt_config "ADMIN_DOMAIN" "admin.localhost" "Admin dashboard domain (Flagship)"
     prompt_config "INGEST_DOMAIN" "ingest.localhost" "Ingest API domain (Submarines)"
     prompt_config "STATUS_DOMAIN" "status.localhost" "Status pages domain"
-    prompt_config "APP_DOMAIN" "app.localhost" "Public app domain (Cruiser)"
     prompt_config "ACME_EMAIL" "admin@example.com" "Email for Let's Encrypt certificates"
 
     echo ""
@@ -541,16 +515,10 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         fi
         echo ""
 
-        echo -e "${GREEN}Cruiser (Next.js):${NC}"
-        echo "  API URL:         ${CONFIG[NEXT_PUBLIC_API_URL]}"
-        echo "  Better Auth URL: ${CONFIG[BETTER_AUTH_URL]}"
-        echo ""
-
         echo -e "${GREEN}Production Domains (Caddy):${NC}"
         echo "  Admin:   ${CONFIG[ADMIN_DOMAIN]}"
         echo "  Ingest:  ${CONFIG[INGEST_DOMAIN]}"
         echo "  Status:  ${CONFIG[STATUS_DOMAIN]}"
-        echo "  App:     ${CONFIG[APP_DOMAIN]}"
         echo "  ACME:    ${CONFIG[ACME_EMAIL]}"
         echo ""
 
@@ -708,26 +676,11 @@ RECAPTCHA_V3_SECRET_KEY=${CONFIG[RECAPTCHA_V3_SECRET_KEY]}
 RECAPTCHA_V3_SCORE_THRESHOLD=${CONFIG[RECAPTCHA_V3_SCORE_THRESHOLD]}
 
 # =============================================================================
-# Cruiser Configuration (Next.js Frontend)
-# =============================================================================
-
-# Public URLs (accessible from browser)
-NEXT_PUBLIC_API_URL=${CONFIG[NEXT_PUBLIC_API_URL]}
-
-# Server-side URLs (internal, uses values from Submarines section)
-API_URL=${CONFIG[API_URL]}
-
-# Better Auth
-BETTER_AUTH_SECRET=${CONFIG[BETTER_AUTH_SECRET]}
-BETTER_AUTH_URL=${CONFIG[BETTER_AUTH_URL]}
-
-# =============================================================================
 # Production Domain Configuration (Caddy)
 # =============================================================================
 ADMIN_DOMAIN=${CONFIG[ADMIN_DOMAIN]}
 INGEST_DOMAIN=${CONFIG[INGEST_DOMAIN]}
 STATUS_DOMAIN=${CONFIG[STATUS_DOMAIN]}
-APP_DOMAIN=${CONFIG[APP_DOMAIN]}
 ACME_EMAIL=${CONFIG[ACME_EMAIL]}
 
 # =============================================================================
@@ -861,9 +814,9 @@ echo ""
 
 echo -e "${GREEN}Access URLs:${NC}"
 echo "  Flagship Dashboard:  http://localhost (via Caddy)"
-echo "  Cruiser Frontend:    http://localhost:3000"
 echo "  Submarines Ingest:   http://localhost:8080"
 echo "  Submarines Status:   http://localhost:8082"
+echo "  Vite Dev Server:     http://localhost:5173 (development)"
 echo ""
 
 echo -e "${GREEN}Useful Commands:${NC}"

@@ -258,13 +258,11 @@ COMMENT ON COLUMN admiral.metrics.disk_used_gb IS 'Disk space used in gigabytes'
 
 ## Database Schemas
 
-The project uses **multiple PostgreSQL schemas** for logical separation:
+The project uses a single **PostgreSQL schema**:
 
-- **`admiral`** - Application data (servers, metrics, alerts, SSH keys, sessions)
+- **`admiral`** - All application data (servers, metrics, alerts, users, SSH keys, sessions)
   - Written by: Submarines digest workers
-  - Read by: Flagship (Laravel) and Cruiser (Next.js)
-- **`better_auth`** - Next.js authentication (Better Auth)
-  - Used by: Cruiser (Next.js)
+  - Read/managed by: Flagship (Laravel)
 
 ## Troubleshooting
 

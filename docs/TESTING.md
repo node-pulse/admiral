@@ -385,11 +385,7 @@ ingress:
 
   # Flagship dashboard
   - hostname: dashboard.nodepulse-dev.yourdomain.com
-    service: http://localhost:3000
-
-  # Cruiser frontend
-  - hostname: app.nodepulse-dev.yourdomain.com
-    service: http://localhost:3001
+    service: http://localhost:80
 
   # Main domain (via Caddy)
   - hostname: nodepulse-dev.yourdomain.com

@@ -55,7 +55,7 @@ Creates a deployment package containing only necessary files (no source code).
 - `DEPLOY.md` - Deployment guide
 
 **What it excludes:**
-- Source code (`submarines/`, `flagship/`, `cruiser/`)
+- Source code (`submarines/`, `flagship/`)
 - Development files (`.git/`, `node_modules/`, etc.)
 
 ### `deploy.sh` - Interactive Deployment

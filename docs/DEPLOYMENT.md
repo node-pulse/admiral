@@ -82,7 +82,6 @@ docker compose down
 | 80   | Flagship (Laravel)  | http://localhost      |
 | 8080 | Submarines Ingest   | http://localhost:8080 |
 | 8082 | Submarines Status   | http://localhost:8082 |
-| 3000 | Cruiser (Next.js)   | http://localhost:3000 |
 | 5173 | Vite HMR (dev only) | http://localhost:5173 |
 | 5432 | PostgreSQL          | localhost:5432        |
 | 6379 | Valkey (Redis)      | localhost:6379        |
@@ -92,8 +91,7 @@ docker compose down
 ```bash
 curl http://localhost:8080/health       # Submarines Ingest
 curl http://localhost:8082/health       # Submarines Status
-curl http://localhost/health            # Flagship (via Caddy)
-curl http://localhost:3000/api/health   # Cruiser
+curl http://localhost/                  # Flagship (via Caddy)
 ```
 
 ### Cloudflare Tunnel (Optional)
@@ -200,7 +198,6 @@ docker compose ps
 | admin.yourdomain.com  | Flagship          | Admin dashboard (PHP-FPM) |
 | ingest.yourdomain.com | Submarines Ingest | Agent API (port 8080)     |
 | status.yourdomain.com | Submarines Status | Public status (port 8082) |
-| app.yourdomain.com    | Cruiser           | Public site (port 3000)   |
 
 ---
 
@@ -212,10 +209,11 @@ docker compose ps
 
 - **submarines-ingest** - Metrics ingestion API `:8080`
 - **submarines-digest** - Background worker (Valkey → PostgreSQL + Cleanup)
+- **submarines-status** - Public status pages `:8082`
+- **submarines-sshws** - SSH WebSocket terminal `:6001`
 - **postgres** - PostgreSQL 18 database `:5432`
 - **valkey** - Message buffer `:6379`
 - **flagship** - Laravel dashboard with PHP-FPM `:9000`
-- **cruiser** - Next.js frontend with Better Auth `:3000`
 - **caddy** - Reverse proxy with automatic HTTPS `:80/:443`
 
 **Background Workers:**

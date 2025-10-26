@@ -130,29 +130,6 @@
 }
 
 # ------------------------------------------------------------
-# Public App (Cruiser - Next.js)
-# ------------------------------------------------------------
-{$APP_DOMAIN:app.localhost} {
-    reverse_proxy cruiser:3000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-    }
-
-    header {
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "SAMEORIGIN"
-        -Server
-    }
-
-    log {
-        output file /var/log/caddy/app-access.log
-        format json
-    }
-}
-
-# ------------------------------------------------------------
 # Local Development Fallback (catch-all for localhost)
 # ------------------------------------------------------------
 :80 {

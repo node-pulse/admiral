@@ -131,10 +131,9 @@ Same as Method 1:
 
 ## Database Schema Overview
 
-Your database has 2 schemas:
+Your database has 1 main schema:
 
-1. **`admiral`** - Application data (servers, metrics, alerts, SSH sessions)
-2. **`better_auth`** - Better Auth authentication (Cruiser)
+1. **`admiral`** - All application data (servers, metrics, alerts, users, SSH sessions)
 
 ### Viewing All Schemas
 
@@ -184,7 +183,7 @@ SELECT
   schema_name,
   pg_size_pretty(SUM(pg_total_relation_size(quote_ident(schema_name) || '.' || quote_ident(table_name)))::bigint) AS size
 FROM information_schema.tables
-WHERE table_schema IN ('admiral', 'better_auth')
+WHERE table_schema = 'admiral'
 GROUP BY schema_name;
 ```
 

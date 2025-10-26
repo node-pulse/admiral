@@ -6,10 +6,9 @@ A comprehensive agent fleet management dashboard for monitoring Node Pulse agent
 
 This project uses Docker Compose to orchestrate multiple services:
 
-- **Submarines (Go-Gin)**: High-performance metrics ingestion pipeline producing 2 binary files (ingest, digest)
+- **Submarines (Go-Gin)**: High-performance metrics ingestion pipeline (ingest, digest, status, sshws services)
 - **Flagship (Laravel 12)**: Web dashboard and management UI with Inertia.js + React frontend
-- **Cruiser (Next.js)**: Modern React-based dashboard UI (secondary service)
-- **PostgreSQL 18**: Main database with separate schemas for each service
+- **PostgreSQL 18**: Main database with admiral schema
 - **Valkey**: Redis-compatible in-memory data store for message streams, caching, and sessions
 - **Caddy**: Modern reverse proxy and web server with automatic HTTPS
 
@@ -37,7 +36,7 @@ This project uses Docker Compose to orchestrate multiple services:
 
    - Change `POSTGRES_PASSWORD` to a secure password
    - Change `VALKEY_PASSWORD` to a secure password
-   - Update `JWT_SECRET` and `BETTER_AUTH_SECRET` with strong random values
+   - Update `JWT_SECRET` with a strong random value
 
 4. **Start all services**:
 
@@ -61,23 +60,25 @@ This project uses Docker Compose to orchestrate multiple services:
 Once all services are running:
 
 - **Flagship (Admin Dashboard)**: http://localhost (via Caddy)
-- **Cruiser (Frontend)**: http://localhost:3000
 - **Submarines Ingest**: http://localhost:8080
 - **Submarines Status**: http://localhost:8082
 - **PostgreSQL**: localhost:5432
 - **Valkey**: localhost:6379
+- **Vite Dev Server** (development): http://localhost:5173
 
-## Database Schemas
+## Database Schema
 
-The PostgreSQL database is organized into two schemas:
+The PostgreSQL database uses a single **admiral** schema for all application data (shared by Submarines and Flagship):
 
-1. **better_auth**: Authentication tables for Cruiser (Next.js using better-auth)
-2. **admiral**: Application tables for agent fleet management (shared by Submarines and Flagship)
-   - `servers`: Server/agent registry
-   - `metrics`: Time-series metrics data
-   - `alerts`: Alert records
-   - `alert_rules`: Alert rule configurations
-   - `ssh_sessions`: SSH session audit logs
+- `servers`: Server/agent registry
+- `metrics`: Time-series metrics data
+- `alerts`: Alert records
+- `alert_rules`: Alert rule configurations
+- `users`: User accounts (Laravel Fortify authentication)
+- `sessions`: User sessions
+- `ssh_sessions`: SSH session audit logs
+- `private_keys`: SSH private keys for server access
+- `settings`: Application settings
 
 ## API Endpoints
 
@@ -183,14 +184,6 @@ php artisan migrate            # Run migrations
 php artisan test               # Run tests
 ```
 
-### Cruiser (Next.js Frontend)
-
-```bash
-cd cruiser
-npm install
-npm run dev
-```
-
 ## Laravel + Inertia.js Stack
 
 Flagship uses **Laravel 12** with **Inertia.js** for a modern SPA experience:
@@ -259,9 +252,9 @@ docker compose down -v
 
 ```bash
 # Rebuild and restart a specific service
-docker compose up -d --build submarines
+docker compose up -d --build submarines-ingest
+docker compose up -d --build submarines-digest
 docker compose up -d --build flagship
-docker compose up -d --build cruiser
 
 # Rebuild all services
 docker compose up -d --build
@@ -274,11 +267,11 @@ docker compose up -d --build
 Check logs for specific services:
 
 ```bash
-docker compose logs submarines
+docker compose logs submarines-ingest
+docker compose logs submarines-digest
 docker compose logs flagship
-docker compose logs cruiser
 docker compose logs postgres
-docker compose logs kafka
+docker compose logs valkey
 ```
 
 ### Database connection issues
@@ -332,10 +325,9 @@ docker compose exec valkey valkey-cli ping
 
 ### Frontend won't load
 
-1. Check if Next.js is building correctly:
-
+1. Check if Vite dev server is running:
    ```bash
-   docker compose logs cruiser
+   docker compose logs flagship | grep vite
    ```
 
 2. Ensure Submarines API is accessible:

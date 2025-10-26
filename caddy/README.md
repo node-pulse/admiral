@@ -27,8 +27,6 @@ Caddy :80 (dev) / :443 (prod)
    │
    ├──→ submarines-status:8082 ──→ Status Pages
    │
-   ├──→ cruiser:3000 ──→ Next.js Public App
-   │
    └──→ flagship:5173 ──→ Vite HMR (dev only)
 ```
 
@@ -46,7 +44,6 @@ docker compose up -d
 http://localhost          # Flagship (Laravel)
 http://localhost:8080     # Submarines Ingest
 http://localhost:8082     # Submarines Status
-http://localhost:3000     # Cruiser (Next.js)
 http://localhost:5173     # Vite HMR
 ```
 
@@ -154,7 +151,6 @@ Logs are written to `./logs/caddy/`:
 - `admin-access.log` - Flagship access logs
 - `ingest-access.log` - Ingest API access logs
 - `status-access.log` - Status pages access logs
-- `app-access.log` - Cruiser access logs
 
 All logs use JSON format for easy parsing.
 

@@ -5,9 +5,8 @@ This Laravel application uses **centralized database migrations** managed by `no
 ## Why?
 
 NodePulse Admiral is a multi-service stack with:
-- **Submarines** (Go-Gin) - Metrics ingestion
-- **Flagship** (Laravel) - Dashboard UI
-- **Cruiser** (Next.js) - Secondary UI
+- **Submarines** (Go-Gin) - Metrics ingestion (ingest, digest, status, sshws)
+- **Flagship** (Laravel) - Dashboard UI with Inertia.js + React
 
 All services share the **same PostgreSQL database** with the `admiral` schema. Managing migrations in one central location prevents conflicts and ensures consistency.
 

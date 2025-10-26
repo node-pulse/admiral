@@ -69,21 +69,6 @@ localhost:8082, status.localhost {
 }
 
 # ------------------------------------------------------------
-# Public App (Cruiser - Next.js)
-# ------------------------------------------------------------
-localhost:3000, app.localhost {
-    reverse_proxy cruiser:3000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-    }
-
-    log {
-        output stdout
-        format console
-    }
-}
-
-# ------------------------------------------------------------
 # Vite Dev Server (Hot Module Replacement)
 # ------------------------------------------------------------
 localhost:5173 {

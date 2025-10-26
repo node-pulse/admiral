@@ -6,9 +6,6 @@
 -- SECTION 1: Create Schemas
 -- ============================================================
 
--- Schema for Better Auth (Next.js Cruiser authentication)
-CREATE SCHEMA IF NOT EXISTS better_auth AUTHORIZATION admiral;
-
 -- Schema for Admiral (Unified schema for Submarines and Flagship)
 -- All application tables for Go-Gin backend and Laravel dashboard
 CREATE SCHEMA IF NOT EXISTS admiral AUTHORIZATION admiral;
@@ -209,4 +206,3 @@ ON CONFLICT (name) DO NOTHING;
 
 -- Drop schemas with CASCADE (automatically drops all objects within)
 DROP SCHEMA IF EXISTS admiral CASCADE;
-DROP SCHEMA IF EXISTS better_auth CASCADE;

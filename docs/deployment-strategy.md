@@ -33,7 +33,6 @@ This document outlines the multi-environment Docker Compose deployment strategy 
 |---------|----------|------------------|---------|
 | `submarines` | GHCR | Semantic (minor) | `ghcr.io/USERNAME/node-pulse-submarines:1.2` |
 | `flagship` | GHCR | Semantic (minor) | `ghcr.io/USERNAME/node-pulse-flagship:2.1` |
-| `cruiser` | GHCR | Semantic (minor) | `ghcr.io/USERNAME/node-pulse-cruiser:0.3` |
 
 **Versioning Format**: `MAJOR.MINOR` (omit patch for latest minor release)
 

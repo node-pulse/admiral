@@ -1,4 +1,4 @@
-.PHONY: help push dev-up dev-down dev-logs dev-restart dev-rebuild dev-clean prod-up prod-down prod-logs prod-restart prod-rebuild prod-clean db-backup subs-logs subs-restart ingest-logs digest-logs status-logs flagship-logs cruiser-logs caddy-logs valkey-cli
+.PHONY: help push dev-up dev-down dev-logs dev-restart dev-rebuild dev-clean prod-up prod-down prod-logs prod-restart prod-rebuild prod-clean db-backup subs-logs subs-restart ingest-logs digest-logs status-logs flagship-logs caddy-logs valkey-cli
 
 # Default target - show help
 help:
@@ -35,7 +35,6 @@ help:
 	@echo "  make digest-logs   - Follow submarines-digest logs"
 	@echo "  make status-logs   - Follow submarines-status logs"
 	@echo "  make flagship-logs - Follow flagship logs"
-	@echo "  make cruiser-logs  - Follow cruiser logs"
 	@echo "  make caddy-logs    - Follow caddy logs"
 	@echo ""
 	@echo "Utilities:"
@@ -107,9 +106,6 @@ status-logs:
 
 flagship-logs:
 	docker compose logs -f flagship
-
-cruiser-logs:
-	docker compose logs -f cruiser
 
 caddy-logs:
 	docker compose logs -f caddy
