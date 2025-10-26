@@ -465,6 +465,29 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo ""
 
     # =============================================================================
+    # Admin User Registration
+    # =============================================================================
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}Admin User Registration${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo "Create the initial admin user for the dashboard."
+    echo "You will use these credentials to log in after deployment."
+    echo ""
+
+    prompt_config "ADMIN_NAME" "Administrator" "Admin user full name"
+    prompt_config "ADMIN_EMAIL" "admin@example.com" "Admin user email (used for login)"
+    prompt_secure "ADMIN_PASSWORD" "Admin user password (min 8 characters)"
+
+    # Validate password length
+    while [[ ${#CONFIG["ADMIN_PASSWORD"]} -lt 8 ]]; do
+        echo -e "${RED}Password must be at least 8 characters${NC}"
+        prompt_secure "ADMIN_PASSWORD" "Admin user password (min 8 characters)"
+    done
+
+    echo ""
+
+    # =============================================================================
     # Construct DATABASE_URL
     # =============================================================================
     DATABASE_URL="postgres://${CONFIG[POSTGRES_USER]}:${CONFIG[POSTGRES_PASSWORD]}@postgres:5432/${CONFIG[POSTGRES_DB]}?sslmode=disable"
@@ -518,6 +541,12 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         echo "  Admin:   ${CONFIG[ADMIN_DOMAIN]}"
         echo "  Ingest:  ${CONFIG[INGEST_DOMAIN]}"
         echo "  Status:  ${CONFIG[STATUS_DOMAIN]}"
+        echo ""
+
+        echo -e "${GREEN}Admin User:${NC}"
+        echo "  Name:    ${CONFIG[ADMIN_NAME]}"
+        echo "  Email:   ${CONFIG[ADMIN_EMAIL]}"
+        echo "  Password: ********** (hidden)"
         echo ""
 
         echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -681,6 +710,15 @@ INGEST_DOMAIN=${CONFIG[INGEST_DOMAIN]}
 STATUS_DOMAIN=${CONFIG[STATUS_DOMAIN]}
 
 # =============================================================================
+# Admin User Registration (Temporary - removed after seeding)
+# =============================================================================
+# These credentials are used only once during initial deployment
+# They will be removed from .env after the admin user is created
+ADMIN_NAME=${CONFIG[ADMIN_NAME]}
+ADMIN_EMAIL=${CONFIG[ADMIN_EMAIL]}
+ADMIN_PASSWORD=${CONFIG[ADMIN_PASSWORD]}
+
+# =============================================================================
 # Auto-Generated Values
 # =============================================================================
 # DATABASE_URL is used by some services (e.g., Better Auth)
@@ -791,6 +829,37 @@ echo "Waiting for services to be ready..."
 sleep 5
 
 # =============================================================================
+# Create initial admin user
+# =============================================================================
+echo ""
+echo -e "${BLUE}================================================${NC}"
+echo -e "${BLUE}Creating Admin User${NC}"
+echo -e "${BLUE}================================================${NC}"
+echo ""
+
+# Run the seeder (idempotent - safe to run multiple times)
+if docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder; then
+    echo ""
+    echo -e "${GREEN}✓ Admin user created successfully${NC}"
+    echo ""
+
+    # Clean up admin credentials from .env (security best practice)
+    echo "Removing admin credentials from .env file..."
+    sed -i.bak '/^ADMIN_NAME=/d; /^ADMIN_EMAIL=/d; /^ADMIN_PASSWORD=/d' .env
+    rm -f .env.bak  # Remove backup file created by sed
+    echo -e "${GREEN}✓ Credentials removed from .env (now stored securely in database)${NC}"
+else
+    echo ""
+    echo -e "${YELLOW}⚠️  Warning: Admin user creation failed or was skipped${NC}"
+    echo -e "${YELLOW}⚠️  You may need to create an admin user manually${NC}"
+    echo ""
+    echo "To create admin user manually, run:"
+    echo "  docker compose exec flagship php artisan db:seed --class=AdminUserSeeder"
+fi
+
+echo ""
+
+# =============================================================================
 # Show service status
 # =============================================================================
 echo ""
@@ -814,6 +883,13 @@ echo "  Flagship Dashboard:  http://localhost (via Caddy)"
 echo "  Submarines Ingest:   http://localhost:8080"
 echo "  Submarines Status:   http://localhost:8082"
 echo "  Vite Dev Server:     http://localhost:5173 (development)"
+echo ""
+
+echo -e "${GREEN}Admin Login Credentials:${NC}"
+echo "  Email:    ${CONFIG[ADMIN_EMAIL]}"
+echo "  Password: (the password you entered during setup)"
+echo ""
+echo -e "${YELLOW}⚠️  Important: Please change your password after first login!${NC}"
 echo ""
 
 echo -e "${GREEN}Useful Commands:${NC}"
