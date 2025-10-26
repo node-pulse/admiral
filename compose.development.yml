@@ -210,7 +210,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:9000" # HTTP (Proxy to Flagship dev server)
+      - "8000:8000" # HTTP (Proxy to Flagship dev server)
     volumes:
       # Use development Caddyfile
       - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
