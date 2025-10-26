@@ -49,18 +49,16 @@ admin_name=${admin_name:-Administrator}
 read -p "Email [admin@localhost]: " admin_email
 admin_email=${admin_email:-admin@localhost}
 
-# Prompt for password (hidden input)
+# Prompt for password (visible input for dev convenience)
 while true; do
-    read -sp "Password (min 8 characters): " admin_password
-    echo ""
+    read -p "Password (min 8 characters): " admin_password
 
     if [[ ${#admin_password} -lt 8 ]]; then
         echo -e "${RED}Password must be at least 8 characters${NC}"
         continue
     fi
 
-    read -sp "Confirm password: " admin_password_confirm
-    echo ""
+    read -p "Confirm password: " admin_password_confirm
 
     if [[ "$admin_password" != "$admin_password_confirm" ]]; then
         echo -e "${RED}Passwords do not match. Please try again.${NC}"
