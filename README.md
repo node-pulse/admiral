@@ -326,6 +326,7 @@ docker compose exec valkey valkey-cli ping
 ### Frontend won't load
 
 1. Check if Vite dev server is running:
+
    ```bash
    docker compose logs flagship | grep vite
    ```
@@ -355,7 +356,7 @@ For production:
 
 ## License
 
-MIT
+[Apache 2.0](LICENSE)
 
 ## Support
 
