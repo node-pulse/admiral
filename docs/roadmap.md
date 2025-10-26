@@ -2,7 +2,7 @@
 
 ## Vision
 
-Node Pulse Admiral is the VPS fleet manager for everyone managing **5-500 heterogeneous Linux servers**. We're the tool for hobbyists who've "collected" too many VPS boxes, freelancers managing client sites, and small teams running their infrastructure on bare metal or VPS providers instead of cloud-native platforms.
+Node Pulse Admiral is the VPS fleet manager for everyone managing **5-1000 heterogeneous Linux servers**. We're the tool for hobbyists who've "collected" too many VPS boxes, freelancers managing client sites, and small teams running their infrastructure on bare metal or VPS providers instead of cloud-native platforms.
 
 Our goal is to make advanced automation, security hardening, and monitoring accessible to the 99% of infrastructure operators who don't need (or can't afford) enterprise complexity.
 
