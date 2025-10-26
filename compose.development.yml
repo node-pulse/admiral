@@ -183,13 +183,49 @@ services:
       - ./flagship:/var/www/html # Mount entire app for hot reload
       - ./logs/flagship:/var/www/html/storage/logs
       - ./secrets:/secrets:ro
+      - ./flagship/docker-entrypoint-dev.sh:/usr/local/bin/docker-entrypoint-dev.sh:ro
     networks:
       - node-pulse-admiral
+    # Override CMD to run both Laravel dev server and Vite HMR
+    command: ["/bin/bash", "/usr/local/bin/docker-entrypoint-dev.sh"]
     healthcheck:
-      test: ["CMD", "pidof", "php-fpm"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000"]
       interval: 30s
       timeout: 3s
       retries: 3
+      start_period: 10s
+
+  # =============================================================================
+  # Caddy - Reverse Proxy (Development)
+  # =============================================================================
+  caddy:
+    image: caddy:2-alpine
+    container_name: node-pulse-caddy
+    env_file:
+      - .env
+    ports:
+      - "80:80"       # HTTP (Flagship via PHP-FPM)
+    volumes:
+      # Use development Caddyfile
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+
+      # Flagship public directory (for serving static files)
+      - ./flagship/public:/var/www/flagship/public:ro
+
+      # Logs
+      - ./logs/caddy:/var/log/caddy
+    depends_on:
+      - flagship
+      - submarines-ingest
+      - submarines-status
+    networks:
+      - node-pulse-admiral
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
 networks:
   node-pulse-admiral:

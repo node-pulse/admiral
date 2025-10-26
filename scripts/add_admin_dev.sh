@@ -30,7 +30,7 @@ echo -e "${BLUE}================================================${NC}"
 echo ""
 
 # Check if Docker Compose is running
-if ! docker compose ps | grep -q "flagship.*running"; then
+if ! docker compose ps flagship 2>/dev/null | grep -q "Up"; then
     echo -e "${RED}❌ Error: Flagship container is not running${NC}"
     echo ""
     echo "Please start the stack first:"

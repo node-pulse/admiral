@@ -13,7 +13,7 @@
 # ------------------------------------------------------------
 # Admin Dashboard (Flagship - Laravel)
 # ------------------------------------------------------------
-localhost:8000, admin.localhost {
+localhost:8000 {
     # Root directory for static files
     root * /var/www/flagship/public
 
@@ -41,7 +41,7 @@ localhost:8000, admin.localhost {
 # ------------------------------------------------------------
 # Metrics Ingestion (Submarines Ingest)
 # ------------------------------------------------------------
-localhost:8080, ingest.localhost {
+localhost:8080 {
     reverse_proxy submarines-ingest:8080 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
@@ -56,7 +56,7 @@ localhost:8080, ingest.localhost {
 # ------------------------------------------------------------
 # Status Pages (Submarines Status)
 # ------------------------------------------------------------
-localhost:8082, status.localhost {
+localhost:8082 {
     reverse_proxy submarines-status:8082 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
