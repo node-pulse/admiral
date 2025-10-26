@@ -1,0 +1,29 @@
+---
+- name: Check if agent is running
+  command: systemctl is-active nodepulse
+  register: agent_active
+  changed_when: false
+  failed_when: false
+
+- name: Verify agent process
+  command: pgrep -f nodepulse
+  register: agent_process
+  changed_when: false
+  failed_when: false
+
+- name: Check agent logs for errors
+  shell: journalctl -u nodepulse --since "1 minute ago" --no-pager | grep -i error || true
+  register: agent_errors
+  changed_when: false
+
+- name: Display verification results
+  debug:
+    msg: |
+      Agent Active: {{ agent_active.stdout }}
+      Process ID: {{ agent_process.stdout | default('Not Running') }}
+      Recent Errors: {{ agent_errors.stdout_lines | length }} errors found
+
+- name: Fail if agent is not running
+  fail:
+    msg: "Agent is not running on {{ inventory_hostname }}"
+  when: agent_active.rc != 0

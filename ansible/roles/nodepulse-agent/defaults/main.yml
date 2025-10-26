@@ -1,0 +1,34 @@
+---
+# Node Pulse Agent Role Defaults
+
+# Agent version
+agent_version: "latest"
+
+# Download configuration (Cloudflare R2)
+# Set AGENT_DOWNLOAD_BASE_URL environment variable or pass via extra vars
+agent_download_base_url: "https://pub-xxxxx.r2.dev"
+agent_download_url: "{{ agent_download_base_url }}/{{ agent_version }}"
+
+# Installation paths
+agent_install_dir: "/opt/nodepulse"
+agent_config_dir: "/etc/nodepulse"
+agent_data_dir: "/var/lib/nodepulse"
+agent_log_dir: "/var/log/nodepulse"
+
+# Dashboard configuration
+dashboard_endpoint: "https://dashboard.example.com/metrics"
+
+# Agent behavior
+agent_interval: "5s"
+agent_timeout: "3s"
+
+# Buffer configuration
+buffer_enabled: true
+buffer_retention_hours: 48
+buffer_max_size_mb: 100
+
+# Logging
+log_level: "info"
+log_max_size_mb: 50
+log_max_backups: 3
+log_max_age_days: 7

@@ -1,0 +1,65 @@
+---
+- name: Deploy Node Pulse Agent
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    agent_version: "{{ agent_version | default('latest') }}"
+    # Cloudflare R2 base URL - pass via extra vars or environment
+    agent_download_base_url: "{{ lookup('env', 'AGENT_DOWNLOAD_BASE_URL') | default('https://pub-xxxxx.r2.dev', true) }}"
+    agent_download_url: "{{ agent_download_base_url }}/{{ agent_version }}"
+    agent_install_dir: "/opt/nodepulse"
+    agent_config_dir: "/etc/nodepulse"
+    agent_data_dir: "/var/lib/nodepulse"
+    agent_log_dir: "/var/log/nodepulse"
+    # Dashboard endpoint - passed from Laravel job via extra vars
+    dashboard_endpoint: "{{ dashboard_endpoint }}"
+    agent_interval: "{{ agent_interval | default('5s') }}"
+    agent_timeout: "{{ agent_timeout | default('3s') }}"
+
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg: |
+          Deploying Node Pulse Agent to {{ inventory_hostname }}
+          Server ID: {{ server_uuid }}
+          Architecture: {{ architecture }}
+          Dashboard: {{ dashboard_endpoint }}
+
+    - name: Ensure server is reachable
+      wait_for_connection:
+        timeout: 30
+      register: connection_test
+      ignore_errors: yes
+
+    - name: Fail if server is unreachable
+      fail:
+        msg: "Server {{ inventory_hostname }} is unreachable"
+      when: connection_test is failed
+
+  roles:
+    - nodepulse-agent
+
+  post_tasks:
+    - name: Verify agent is running
+      systemd:
+        name: nodepulse
+        state: started
+        enabled: yes
+      check_mode: yes
+      register: agent_status
+
+    - name: Wait for agent to report metrics
+      wait_for:
+        timeout: 30
+      delegate_to: localhost
+      when: agent_status.changed
+
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ✓ Agent deployed successfully to {{ inventory_hostname }}
+          ✓ Service: {{ agent_status.name }}
+          ✓ Status: {{ agent_status.status }}
+          ✓ Server ID: {{ server_uuid }}

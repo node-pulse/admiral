@@ -1,0 +1,45 @@
+---
+- name: Generate server UUID if not exists
+  set_fact:
+    generated_uuid: "{{ server_uuid | default(99999999 | random | to_uuid) }}"
+
+- name: Deploy agent configuration
+  template:
+    src: nodepulse.yml.j2
+    dest: "{{ agent_config_dir }}/nodepulse.yml"
+    owner: nodepulse
+    group: nodepulse
+    mode: "0640"
+  notify: restart nodepulse
+
+- name: Deploy systemd service file
+  template:
+    src: nodepulse.service.j2
+    dest: /etc/systemd/system/nodepulse.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart nodepulse
+
+- name: Create log rotation configuration
+  copy:
+    dest: /etc/logrotate.d/nodepulse
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {{ agent_log_dir }}/*.log {
+          daily
+          rotate 7
+          compress
+          delaycompress
+          missingok
+          notifempty
+          create 0640 nodepulse nodepulse
+          sharedscripts
+          postrotate
+              systemctl reload nodepulse > /dev/null 2>&1 || true
+          endscript
+      }

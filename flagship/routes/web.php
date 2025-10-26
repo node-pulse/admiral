@@ -77,6 +77,13 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('dashboard')->group(fun
         Route::put('/{key}', [SystemSettingsController::class, 'update'])->name('system-settings.update');
         Route::post('/{key}/toggle', [SystemSettingsController::class, 'toggle'])->name('system-settings.toggle');
     });
+
+    // Deployments management (admin only)
+    Route::prefix('deployments')->group(function () {
+        Route::get('/', [\App\Http\Controllers\DeploymentsController::class, 'index'])->name('deployments.index');
+        Route::get('/create', [\App\Http\Controllers\DeploymentsController::class, 'create'])->name('deployments.create');
+        Route::get('/{id}', [\App\Http\Controllers\DeploymentsController::class, 'details'])->name('deployments.show');
+    });
 });
 
 require __DIR__.'/settings.php';

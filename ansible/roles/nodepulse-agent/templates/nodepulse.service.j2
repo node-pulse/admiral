@@ -1,0 +1,30 @@
+[Unit]
+Description=Node Pulse Monitoring Agent
+Documentation=https://github.com/your-org/node-pulse-agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nodepulse
+Group=nodepulse
+ExecStart={{ agent_install_dir }}/nodepulse --config {{ agent_config_dir }}/nodepulse.yml
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nodepulse
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ agent_data_dir }} {{ agent_log_dir }}
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

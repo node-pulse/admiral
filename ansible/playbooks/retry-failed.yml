@@ -1,0 +1,48 @@
+---
+- name: Retry Deployment on Failed Servers
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    agent_version: "{{ agent_version | default('latest') }}"
+    agent_download_base_url: "{{ lookup('env', 'AGENT_DOWNLOAD_BASE_URL') }}"
+    agent_download_url: "{{ agent_download_base_url }}/{{ agent_version }}"
+    agent_install_dir: "/opt/nodepulse"
+    agent_config_dir: "/etc/nodepulse"
+    agent_data_dir: "/var/lib/nodepulse"
+    agent_log_dir: "/var/log/nodepulse"
+    dashboard_endpoint: "{{ dashboard_endpoint }}"
+    agent_interval: "{{ agent_interval | default('5s') }}"
+    agent_timeout: "{{ agent_timeout | default('3s') }}"
+    # Increase retries for failed servers
+    max_retries: 5
+    retry_delay: 10
+
+  pre_tasks:
+    - name: Display retry information
+      debug:
+        msg: |
+          Retrying deployment on {{ inventory_hostname }}
+          Attempt: {{ ansible_loop.index | default(1) }}
+          Max Retries: {{ max_retries }}
+
+  roles:
+    - nodepulse-agent
+
+  tasks:
+    - name: Verify final status
+      command: systemctl is-active nodepulse
+      register: final_status
+      changed_when: false
+      failed_when: false
+
+    - name: Mark as successful
+      debug:
+        msg: "Retry successful on {{ inventory_hostname }}"
+      when: final_status.rc == 0
+
+    - name: Mark as still failed
+      fail:
+        msg: "Retry failed on {{ inventory_hostname }}"
+      when: final_status.rc != 0

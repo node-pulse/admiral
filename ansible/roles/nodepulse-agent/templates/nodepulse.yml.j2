@@ -1,0 +1,42 @@
+# Node Pulse Agent Configuration
+# Deployed by Ansible on {{ ansible_date_time.iso8601 }}
+
+server:
+  endpoint: "{{ dashboard_endpoint }}"
+  timeout: {{ agent_timeout }}
+  # Use custom CA cert if needed
+  # ca_cert: "/etc/ssl/certs/ca-certificates.crt"
+
+agent:
+  server_id: "{{ generated_uuid }}"
+  interval: {{ agent_interval }}
+  hostname: "{{ inventory_hostname }}"
+
+  # Tags for server categorization
+  tags:
+{% for tag in tags | default([]) %}
+    - "{{ tag }}"
+{% endfor %}
+
+# Metrics to collect
+metrics:
+  cpu: true
+  memory: true
+  disk: true
+  network: true
+  processes: true
+
+# Buffer configuration (for offline resilience)
+buffer:
+  enabled: true
+  path: "{{ agent_data_dir }}/buffer"
+  retention_hours: 48
+  max_size_mb: 100
+
+# Logging configuration
+logging:
+  level: info  # debug, info, warn, error
+  file: "{{ agent_log_dir }}/nodepulse.log"
+  max_size_mb: 50
+  max_backups: 3
+  max_age_days: 7
