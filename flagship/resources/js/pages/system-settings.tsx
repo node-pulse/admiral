@@ -9,7 +9,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import AuthenticatedLayout from '@/layouts/authenticated-layout';
+import AppLayout from '@/layouts/app-layout';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -25,7 +25,7 @@ interface Props {
     settings: Setting[];
 }
 
-export default function Settings({ settings }: Props) {
+export default function SystemSettings({ settings }: Props) {
     const [updating, setUpdating] = useState<string | null>(null);
     const [editingValues, setEditingValues] = useState<Record<string, any>>({});
 
@@ -33,7 +33,7 @@ export default function Settings({ settings }: Props) {
         setUpdating(key);
 
         router.post(
-            `/dashboard/settings/${key}/toggle`,
+            `/dashboard/system-settings/${key}/toggle`,
             {},
             {
                 preserveScroll: true,
@@ -54,7 +54,7 @@ export default function Settings({ settings }: Props) {
         setUpdating(key);
 
         router.put(
-            `/dashboard/settings/${key}`,
+            `/dashboard/system-settings/${key}`,
             { value },
             {
                 preserveScroll: true,
@@ -178,8 +178,15 @@ export default function Settings({ settings }: Props) {
                         value={currentValue ?? ''}
                         disabled={isDisabled}
                         className="w-32"
-                        onChange={(e) => handleInputChange(setting.key, Number(e.target.value))}
-                        onBlur={() => handleInputBlur(setting.key, setting.value)}
+                        onChange={(e) =>
+                            handleInputChange(
+                                setting.key,
+                                Number(e.target.value),
+                            )
+                        }
+                        onBlur={() =>
+                            handleInputBlur(setting.key, setting.value)
+                        }
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                                 e.currentTarget.blur();
@@ -192,8 +199,12 @@ export default function Settings({ settings }: Props) {
                         value={currentValue ?? ''}
                         disabled={isDisabled}
                         className="w-64"
-                        onChange={(e) => handleInputChange(setting.key, e.target.value)}
-                        onBlur={() => handleInputBlur(setting.key, setting.value)}
+                        onChange={(e) =>
+                            handleInputChange(setting.key, e.target.value)
+                        }
+                        onBlur={() =>
+                            handleInputBlur(setting.key, setting.value)
+                        }
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                                 e.currentTarget.blur();
@@ -206,16 +217,17 @@ export default function Settings({ settings }: Props) {
     };
 
     return (
-        <AuthenticatedLayout>
-            <Head title="Settings" />
+        <AppLayout>
+            <Head title="System Settings" />
 
             <div className="space-y-6">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">
-                        Settings
+                        System Settings
                     </h2>
                     <p className="text-muted-foreground">
-                        Manage system-wide configuration and preferences.
+                        Manage system-wide configuration and preferences. (Admin
+                        only)
                     </p>
                 </div>
 
@@ -296,6 +308,6 @@ export default function Settings({ settings }: Props) {
                     </Card>
                 )}
             </div>
-        </AuthenticatedLayout>
+        </AppLayout>
     );
 }

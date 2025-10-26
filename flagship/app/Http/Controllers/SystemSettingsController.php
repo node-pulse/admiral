@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class SettingsController extends Controller
+class SystemSettingsController extends Controller
 {
     /**
      * Display the settings page.
@@ -39,7 +39,7 @@ class SettingsController extends Controller
             ];
         });
 
-        return Inertia::render('Settings', [
+        return Inertia::render('system-settings', [
             'settings' => $settings,
         ]);
     }

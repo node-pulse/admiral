@@ -2,11 +2,10 @@
 
 use App\Http\Controllers\PrivateKeysController;
 use App\Http\Controllers\ServersController;
-use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\SshSessionsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Laravel\Fortify\Features;
 
 Route::get('/', function () {
     // Check registration_enabled from database settings
@@ -72,11 +71,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Admin-only routes
 Route::middleware(['auth', 'verified', 'admin'])->prefix('dashboard')->group(function () {
-    // Settings management (admin only)
-    Route::prefix('settings')->group(function () {
-        Route::get('/', [SettingsController::class, 'index'])->name('settings');
-        Route::put('/{key}', [SettingsController::class, 'update'])->name('settings.update');
-        Route::post('/{key}/toggle', [SettingsController::class, 'toggle'])->name('settings.toggle');
+    // System settings management (admin only)
+    Route::prefix('system-settings')->group(function () {
+        Route::get('/', [SystemSettingsController::class, 'index'])->name('system-settings');
+        Route::put('/{key}', [SystemSettingsController::class, 'update'])->name('system-settings.update');
+        Route::post('/{key}/toggle', [SystemSettingsController::class, 'toggle'])->name('system-settings.toggle');
     });
 });
 
