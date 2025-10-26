@@ -185,6 +185,11 @@ services:
       - ./secrets:/secrets:ro
     networks:
       - node-pulse-admiral
+    healthcheck:
+      test: ["CMD", "pidof", "php-fpm"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
 networks:
   node-pulse-admiral:
