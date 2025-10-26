@@ -12,7 +12,7 @@ class AnsibleInitCommand extends Command
 
     public function handle()
     {
-        $basePath = base_path('../ansible');
+        $basePath = base_path('ansible');
 
         $directories = [
             'inventory',

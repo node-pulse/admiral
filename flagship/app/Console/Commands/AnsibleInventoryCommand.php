@@ -16,7 +16,7 @@ class AnsibleInventoryCommand extends Command
 
     public function handle()
     {
-        $inventoryScript = base_path('../ansible/inventory/dynamic.php');
+        $inventoryScript = base_path('ansible/inventory/dynamic.php');
 
         if (!file_exists($inventoryScript)) {
             $this->error('Inventory script not found. Run: php artisan ansible:init');

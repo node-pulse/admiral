@@ -13,10 +13,10 @@
  */
 
 // Bootstrap Laravel to access database
-// Detect base path dynamically for portability
-$basePath = dirname(dirname(__DIR__));
-require $basePath . '/flagship/vendor/autoload.php';
-$app = require_once $basePath . '/flagship/bootstrap/app.php';
+// Detect base path dynamically for portability (flagship root)
+$basePath = dirname(dirname(dirname(__DIR__)));
+require $basePath . '/vendor/autoload.php';
+$app = require_once $basePath . '/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use Illuminate\Support\Facades\DB;

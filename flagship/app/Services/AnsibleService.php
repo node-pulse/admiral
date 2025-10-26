@@ -15,9 +15,9 @@ class AnsibleService
 
     public function __construct()
     {
-        $this->ansiblePath = base_path('../ansible');
-        $this->playbookPath = base_path('../ansible/playbooks');
-        $this->inventoryPath = base_path('../ansible/inventory/dynamic.php');
+        $this->ansiblePath = base_path('ansible');
+        $this->playbookPath = base_path('ansible/playbooks');
+        $this->inventoryPath = base_path('ansible/inventory/dynamic.php');
     }
 
     /**
@@ -114,7 +114,7 @@ class AnsibleService
     private function buildEnvironment(array $serverIds = []): array
     {
         $env = array_merge($_ENV, [
-            'ANSIBLE_CONFIG' => base_path('../ansible/ansible.cfg'),
+            'ANSIBLE_CONFIG' => base_path('ansible/ansible.cfg'),
             'ANSIBLE_FORCE_COLOR' => 'true',
             'ANSIBLE_HOST_KEY_CHECKING' => 'False',
         ]);
