@@ -10,10 +10,18 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard, sshKeys, servers, sshSessions } from '@/routes';
+import { dashboard, servers, sshKeys, sshSessions } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, Key, LayoutGrid, Server, Settings as SettingsIcon, Terminal } from 'lucide-react';
+import {
+    BookOpen,
+    Folder,
+    Key,
+    LayoutGrid,
+    Server,
+    Settings as SettingsIcon,
+    Terminal,
+} from 'lucide-react';
 import AppLogo from './app-logo';
 
 const getMainNavItems = (isAdmin: boolean): NavItem[] => {
@@ -43,8 +51,8 @@ const getMainNavItems = (isAdmin: boolean): NavItem[] => {
     // Add Settings link for admin users only
     if (isAdmin) {
         items.push({
-            title: 'Settings',
-            href: '/dashboard/settings',
+            title: 'System Settings',
+            href: '/dashboard/system-settings',
             icon: SettingsIcon,
         });
     }

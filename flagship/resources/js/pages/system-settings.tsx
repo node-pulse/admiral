@@ -153,9 +153,11 @@ export default function SystemSettings({ settings }: Props) {
                                 .replace(/_/g, ' ')
                                 .replace(/\b\w/g, (l) => l.toUpperCase())}
                         </Label>
-                        <Badge variant={getTierBadgeVariant(setting.tier)}>
-                            {setting.tier}
-                        </Badge>
+                        {setting.tier !== 'free' && (
+                            <Badge variant={getTierBadgeVariant(setting.tier)}>
+                                {setting.tier}
+                            </Badge>
+                        )}
                     </div>
                     {setting.description && (
                         <p className="text-sm text-muted-foreground">
@@ -220,7 +222,7 @@ export default function SystemSettings({ settings }: Props) {
         <AppLayout>
             <Head title="System Settings" />
 
-            <div className="space-y-6">
+            <div className="AdmiralDashboard flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">
                         System Settings
