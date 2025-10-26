@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import {
     Card,
     CardContent,
@@ -7,8 +6,16 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
@@ -18,7 +25,7 @@ interface Setting {
     key: string;
     value: any;
     description: string | null;
-    tier: 'free' | 'pro' | 'enterprise';
+    tier: 'free' | 'pro' | 'growth';
 }
 
 interface Props {
@@ -87,17 +94,6 @@ export default function SystemSettings({ settings }: Props) {
         }
     };
 
-    const getTierBadgeVariant = (tier: string) => {
-        switch (tier) {
-            case 'pro':
-                return 'default';
-            case 'enterprise':
-                return 'secondary';
-            default:
-                return 'outline';
-        }
-    };
-
     const groupSettingsByCategory = () => {
         const groups: Record<string, Setting[]> = {
             authentication: [],
@@ -119,7 +115,7 @@ export default function SystemSettings({ settings }: Props) {
                 groups.alerting.push(setting);
             } else if (
                 setting.tier === 'pro' ||
-                setting.tier === 'enterprise'
+                setting.tier === 'growth'
             ) {
                 groups.pro_features.push(setting);
             } else {
@@ -134,6 +130,7 @@ export default function SystemSettings({ settings }: Props) {
 
     const renderSetting = (setting: Setting) => {
         if (setting.key === 'tier') return null;
+        if (setting.tier === 'pro' || setting.tier === 'growth') return null;
 
         const isBoolean = typeof setting.value === 'boolean';
         const isNumber = typeof setting.value === 'number' && !isBoolean;
@@ -144,79 +141,101 @@ export default function SystemSettings({ settings }: Props) {
                 : setting.value;
 
         return (
-            <div
-                key={setting.key}
-                className="flex items-center justify-between space-x-4 py-4"
-            >
-                <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                        <Label htmlFor={setting.key} className="font-medium">
-                            {setting.key
-                                .replace(/_/g, ' ')
-                                .replace(/\b\w/g, (l) => l.toUpperCase())}
-                        </Label>
-                        {setting.tier !== 'free' && (
-                            <Badge variant={getTierBadgeVariant(setting.tier)}>
-                                {setting.tier}
-                            </Badge>
-                        )}
-                    </div>
+            <TableRow key={setting.key}>
+                <TableCell className="font-medium">
+                    {setting.key
+                        .replace(/_/g, ' ')
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
+                </TableCell>
+                <TableCell className="max-w-md">
                     {setting.description && (
-                        <p className="text-sm text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                             {setting.description}
-                        </p>
+                        </span>
                     )}
-                </div>
-
-                {isBoolean ? (
-                    <Switch
-                        id={setting.key}
-                        checked={setting.value}
-                        onCheckedChange={() => handleToggle(setting.key)}
-                        disabled={isDisabled}
-                    />
-                ) : isNumber ? (
-                    <Input
-                        id={setting.key}
-                        type="number"
-                        value={currentValue ?? ''}
-                        disabled={isDisabled}
-                        className="w-32"
-                        onChange={(e) =>
-                            handleInputChange(
-                                setting.key,
-                                Number(e.target.value),
-                            )
-                        }
-                        onBlur={() =>
-                            handleInputBlur(setting.key, setting.value)
-                        }
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.currentTarget.blur();
-                            }
-                        }}
-                    />
-                ) : (
-                    <Input
-                        id={setting.key}
-                        value={currentValue ?? ''}
-                        disabled={isDisabled}
-                        className="w-64"
-                        onChange={(e) =>
-                            handleInputChange(setting.key, e.target.value)
-                        }
-                        onBlur={() =>
-                            handleInputBlur(setting.key, setting.value)
-                        }
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.currentTarget.blur();
-                            }
-                        }}
-                    />
-                )}
-            </div>
+                </TableCell>
+                <TableCell>
+                    {isBoolean ? (
+                        <span className="text-sm">
+                            {setting.value ? 'Enabled' : 'Disabled'}
+                        </span>
+                    ) : (
+                        <span className="text-sm font-mono">
+                            {String(setting.value)}
+                        </span>
+                    )}
+                </TableCell>
+                <TableCell className="text-right">
+                    {isBoolean ? (
+                        <Switch
+                            id={setting.key}
+                            checked={setting.value}
+                            onCheckedChange={() => handleToggle(setting.key)}
+                            disabled={isDisabled}
+                        />
+                    ) : (
+                        <div className="flex items-center justify-end gap-2">
+                            {isNumber ? (
+                                <Input
+                                    id={setting.key}
+                                    type="number"
+                                    value={currentValue ?? ''}
+                                    disabled={isDisabled}
+                                    className="w-32"
+                                    onChange={(e) =>
+                                        handleInputChange(
+                                            setting.key,
+                                            Number(e.target.value),
+                                        )
+                                    }
+                                    onBlur={() =>
+                                        handleInputBlur(setting.key, setting.value)
+                                    }
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.currentTarget.blur();
+                                        }
+                                    }}
+                                />
+                            ) : (
+                                <Input
+                                    id={setting.key}
+                                    value={currentValue ?? ''}
+                                    disabled={isDisabled}
+                                    className="w-48"
+                                    onChange={(e) =>
+                                        handleInputChange(setting.key, e.target.value)
+                                    }
+                                    onBlur={() =>
+                                        handleInputBlur(setting.key, setting.value)
+                                    }
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.currentTarget.blur();
+                                        }
+                                    }}
+                                />
+                            )}
+                            <Button
+                                size="sm"
+                                disabled={
+                                    isDisabled ||
+                                    editingValues[setting.key] === undefined ||
+                                    editingValues[setting.key] === setting.value
+                                }
+                                onClick={() =>
+                                    handleUpdate(
+                                        setting.key,
+                                        editingValues[setting.key],
+                                    )
+                                }
+                            >
+                                Update
+                            </Button>
+                        </div>
+                    )}
+                </TableCell>
+            </TableRow>
         );
     };
 
@@ -245,8 +264,22 @@ export default function SystemSettings({ settings }: Props) {
                                 settings
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="divide-y">
-                            {groups.authentication.map(renderSetting)}
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Setting</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead>Current Value</TableHead>
+                                        <TableHead className="text-right">
+                                            Actions
+                                        </TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {groups.authentication.map(renderSetting)}
+                                </TableBody>
+                            </Table>
                         </CardContent>
                     </Card>
                 )}
@@ -260,8 +293,22 @@ export default function SystemSettings({ settings }: Props) {
                                 Configure how long metrics data is stored
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="divide-y">
-                            {groups.data_retention.map(renderSetting)}
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Setting</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead>Current Value</TableHead>
+                                        <TableHead className="text-right">
+                                            Actions
+                                        </TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {groups.data_retention.map(renderSetting)}
+                                </TableBody>
+                            </Table>
                         </CardContent>
                     </Card>
                 )}
@@ -275,8 +322,22 @@ export default function SystemSettings({ settings }: Props) {
                                 Configure alerting and notification settings
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="divide-y">
-                            {groups.alerting.map(renderSetting)}
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Setting</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead>Current Value</TableHead>
+                                        <TableHead className="text-right">
+                                            Actions
+                                        </TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {groups.alerting.map(renderSetting)}
+                                </TableBody>
+                            </Table>
                         </CardContent>
                     </Card>
                 )}
@@ -288,7 +349,7 @@ export default function SystemSettings({ settings }: Props) {
                             <CardTitle>Pro Features</CardTitle>
                             <CardDescription>
                                 Advanced features available in Pro and
-                                Enterprise tiers
+                                Growth tiers
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="divide-y">
@@ -306,8 +367,22 @@ export default function SystemSettings({ settings }: Props) {
                                 System-level configuration
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="divide-y">
-                            {groups.system.map(renderSetting)}
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Setting</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead>Current Value</TableHead>
+                                        <TableHead className="text-right">
+                                            Actions
+                                        </TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {groups.system.map(renderSetting)}
+                                </TableBody>
+                            </Table>
                         </CardContent>
                     </Card>
                 )}

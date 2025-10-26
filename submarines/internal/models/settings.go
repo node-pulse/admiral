@@ -11,7 +11,7 @@ type Setting struct {
 	Key         string    `json:"key"`
 	Value       JSONValue `json:"value"`
 	Description *string   `json:"description,omitempty"`
-	Tier        string    `json:"tier"` // free, pro, enterprise
+	Tier        string    `json:"tier"` // free, pro, growth
 	UpdatedAt   time.Time `json:"updated_at"`
 	CreatedAt   time.Time `json:"created_at"`
 }

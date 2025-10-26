@@ -30,7 +30,7 @@ COMMENT ON COLUMN admiral.ssh_session_recordings.data_size IS 'Original data siz
 -- ============================================================
 
 INSERT INTO admiral.settings (key, value, description, tier) VALUES
-    ('ssh_session_recording_enabled', 'false', 'Enable full SSH session recording (keystrokes and output) - Privacy risk!', 'enterprise')
+    ('ssh_session_recording_enabled', 'false', 'Enable full SSH session recording (keystrokes and output) - Privacy risk!', 'growth')
 ON CONFLICT (key) DO NOTHING;
 
 -- Down Migration

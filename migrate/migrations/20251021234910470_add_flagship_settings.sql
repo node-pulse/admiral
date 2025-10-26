@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS admiral.settings (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
     description TEXT,
-    tier TEXT DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'enterprise')),
+    tier TEXT DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'growth')),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS admiral.settings (
 COMMENT ON TABLE admiral.settings IS 'System-wide configuration settings managed by Flagship admin';
 COMMENT ON COLUMN admiral.settings.key IS 'Unique setting identifier (e.g., retention_hours, tier, license_key)';
 COMMENT ON COLUMN admiral.settings.value IS 'Setting value stored as JSONB for flexibility (strings, numbers, arrays, objects)';
-COMMENT ON COLUMN admiral.settings.tier IS 'Which tier can modify this setting (free, pro, enterprise)';
+COMMENT ON COLUMN admiral.settings.tier IS 'Which tier can modify this setting (free, pro, growth)';
 
 -- ============================================================
 -- Add Trigger for updated_at
@@ -34,8 +34,8 @@ CREATE TRIGGER update_admiral_settings_updated_at
 
 INSERT INTO admiral.settings (key, value, description, tier) VALUES
     -- Tier and licensing
-    ('tier', '"free"', 'Current subscription tier (free, pro, enterprise)', 'free'),
-    ('license_key', 'null', 'Pro/Enterprise license key for validation', 'pro'),
+    ('tier', '"free"', 'Current subscription tier (free, pro, growth)', 'free'),
+    ('license_key', 'null', 'Pro/Growth license key for validation', 'pro'),
     ('license_expires_at', 'null', 'License expiration timestamp', 'pro'),
 
     -- Data retention (Free tier)

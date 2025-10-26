@@ -71,7 +71,7 @@ Node Pulse uses a **tiered feature model** to provide value at different price p
 
 - Production environments
 - Teams with compliance requirements (SOC2, ISO27001, HIPAA)
-- Enterprises managing 50+ servers
+- Small teams and agencies managing 50+ servers
 - Organizations needing long-term trend analysis
 
 ### Premium Features
@@ -201,7 +201,7 @@ Node Pulse uses a **tiered feature model** to provide value at different price p
 - **Free**: $0 (up to 5 servers, 24h retention)
 - **Pro**: $10/server/month (billed annually)
 
-### Enterprise
+### Growth
 
 - Custom pricing
 - Dedicated support
@@ -338,7 +338,7 @@ LOG_LEVEL=info
 - 📱 Mobile app (iOS/Android)
 - 🔗 Bi-directional agent control (remote commands)
 
-### Enterprise Tier (v3.0)
+### Growth Tier (v3.0)
 
 - 🏢 Multi-tenancy (organizations, teams)
 - 🔑 SSO/SAML authentication

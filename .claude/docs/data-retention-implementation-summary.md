@@ -20,7 +20,7 @@ Created `admiral.settings` table to store system configuration:
 
 - `retention_hours`: How long to keep metrics (24/48/72)
 - `retention_enabled`: Enable/disable automatic cleanup
-- `tier`: Current subscription tier (free/pro/enterprise)
+- `tier`: Current subscription tier (free/pro/growth)
 - Pro feature flags (timescaledb, s3, etc.)
 
 ### 3. **Submarines Cleaner** (New Go Binary)

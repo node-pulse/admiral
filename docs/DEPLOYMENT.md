@@ -605,8 +605,6 @@ For production HA setup:
 3. **Valkey Cluster**: Use Valkey in cluster mode
 4. **Load Balancer**: Front ingest with nginx/haproxy
 
-See enterprise deployment docs for details.
-
 ---
 
 ## Files and Locations

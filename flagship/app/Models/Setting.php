@@ -144,7 +144,7 @@ class Setting extends Model
                 $grouped['data_retention'][] = $setting;
             } elseif (str_contains($key, 'alert')) {
                 $grouped['alerting'][] = $setting;
-            } elseif ($setting->tier === 'pro' || $setting->tier === 'enterprise') {
+            } elseif ($setting->tier === 'pro' || $setting->tier === 'growth') {
                 $grouped['pro_features'][] = $setting;
             } else {
                 $grouped['system'][] = $setting;
