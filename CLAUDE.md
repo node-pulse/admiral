@@ -20,11 +20,6 @@
    - Reads from PostgreSQL (written by Submarines workers)
    - Pure web application
 
-3. **Cruiser** (Next.js) - Secondary web UI (non-core service)
-   - Located in: `cruiser/`
-   - Additional dashboard features
-   - Uses Better Auth for authentication
-
 ## Architecture
 
 ```
@@ -56,21 +51,17 @@
 │               ▼                                │       │
 │  ┌──────────────────────┐                     │       │
 │  │   PostgreSQL :5432   │                     │       │
-│  │   (3 schemas)        │                     │       │
+│  │   (admiral schema)   │                     │       │
 │  └──────────┬───────────┘                     │       │
 │             │ Eloquent ORM queries            │       │
 │             ▼                                  │       │
 │  ┌──────────────────────┐                     │       │
-│  │  Flagship (Laravel)  │◄────┐               │       │
-│  │  :3000               │     │               │       │
-│  └──────────────────────┘     │               │       │
-│                               │               │       │
-│  ┌──────────────────────┐     │               │       │
-│  │  Cruiser (Next.js)   │     │               │       │
-│  │  :3001               │     │               │       │
-│  └──────────┬───────────┘     │               │       │
-│             │                 │               │       │
-│             ▼                 ▼               ▼       │
+│  │  Flagship (Laravel)  │                     │       │
+│  │  :8000 (dev)         │                     │       │
+│  │  :9000 (php-fpm)     │                     │       │
+│  └──────────┬───────────┘                     │       │
+│             │                                  │       │
+│             ▼                                  ▼       │
 │  ┌────────────────────────────────────────────────┐   │
 │  │  Caddy Reverse Proxy :80/:443                  │   │
 │  └────────────────────────────────────────────────┘   │
@@ -82,16 +73,15 @@
 
 ## Database Schemas
 
-PostgreSQL has 2 separate schemas:
+PostgreSQL has 1 main schema:
 
-1. **`better_auth`** - Next.js Cruiser authentication (Better Auth)
-   - `users`, `accounts`, `sessions`, `verification_tokens`
-
-2. **`admiral`** - Application data (shared by Submarines and Flagship)
+1. **`admiral`** - Application data (shared by Submarines and Flagship)
    - `servers` - Agent/server registry
    - `metrics` - Time-series metrics data
    - `alerts` - Alert records
    - `alert_rules` - Alert configurations
+   - `users` - User accounts (Laravel Fortify authentication)
+   - `sessions` - User sessions
 
 ## Current Protocol
 
@@ -178,13 +168,6 @@ A more advanced **Node Pulse Envelope Protocol (NPI)** is being designed:
   - CAPTCHA support (reCAPTCHA/Turnstile)
   - Pure web application
 
-### Cruiser (Frontend)
-
-- **Framework**: Next.js 15 (App Router)
-- **UI**: Tailwind CSS + shadcn/ui components
-- **Auth**: Better Auth
-- **Language**: TypeScript
-
 ### Infrastructure
 
 - **Container**: Docker Compose
@@ -211,12 +194,6 @@ A more advanced **Node Pulse Envelope Protocol (NPI)** is being designed:
 - `flagship/routes/` - API and web routes
 - `flagship/config/` - Laravel configuration files
 - `flagship/composer.json` - PHP dependencies
-
-### Cruiser (Frontend)
-
-- `cruiser/src/app/page.tsx` - Dashboard home page
-- `cruiser/src/lib/auth.ts` - Better Auth configuration
-- `cruiser/src/app/api/auth/[...all]/route.ts` - Auth API handler
 
 ### Infrastructure
 
@@ -259,14 +236,6 @@ php artisan serve              # Start Laravel server
 npm run dev                    # Start Vite dev server
 php artisan queue:listen       # Start queue worker
 php artisan pail               # View logs
-```
-
-### Local Cruiser Development
-
-```bash
-cd cruiser
-npm install
-npm run dev
 ```
 
 ## Agent Integration

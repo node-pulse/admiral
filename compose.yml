@@ -152,25 +152,10 @@ services:
     networks:
       - node-pulse-admiral
     healthcheck:
-      test: ["CMD", "php-fpm-healthcheck"]
+      test: ["CMD", "pidof", "php-fpm"]
       interval: 30s
       timeout: 3s
       retries: 3
-
-  # Next.js Cruiser - Public Site
-  cruiser:
-    image: ghcr.io/node-pulse/node-pulse-cruiser:latest
-    container_name: node-pulse-cruiser
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "3000:3000"
-    depends_on:
-      - submarines-ingest
-      - postgres
-    networks:
-      - node-pulse-admiral
 
   # Caddy - Reverse Proxy and Web Server
   caddy:
@@ -206,7 +191,6 @@ services:
       - ./logs/caddy:/var/log/caddy
     depends_on:
       - flagship
-      - cruiser
       - submarines-ingest
       - submarines-status
     networks:

@@ -186,29 +186,6 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Next.js Cruiser - Public Site
-  cruiser:
-    build:
-      context: ./cruiser
-      dockerfile: Dockerfile
-      target: development
-    container_name: node-pulse-cruiser
-    env_file:
-      - .env
-    environment:
-      <<: *common-variables
-    ports:
-      - "3000:3000"
-    depends_on:
-      - submarines-ingest
-      - postgres
-    volumes:
-      - ./cruiser:/app
-      - /app/node_modules
-      - /app/.next
-    networks:
-      - node-pulse-admiral
-
 networks:
   node-pulse-admiral:
     driver: bridge
