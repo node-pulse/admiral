@@ -160,8 +160,6 @@ Production uses Caddy reverse proxy with automatic SSL/TLS via Let's Encrypt.
 ADMIN_DOMAIN=admin.yourdomain.com
 INGEST_DOMAIN=ingest.yourdomain.com
 STATUS_DOMAIN=status.yourdomain.com
-APP_DOMAIN=app.yourdomain.com
-ACME_EMAIL=admin@yourdomain.com
 ```
 
 2. **Update compose.yml to use production Caddyfile**:

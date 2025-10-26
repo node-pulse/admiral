@@ -57,9 +57,6 @@ Use `Caddyfile.prod` for production with automatic HTTPS:
    ADMIN_DOMAIN=admin.example.com
    INGEST_DOMAIN=ingest.example.com
    STATUS_DOMAIN=status.example.com
-   APP_DOMAIN=app.example.com
-   AUTH_DOMAIN=auth.example.com
-   ACME_EMAIL=admin@example.com
    ```
 
 2. **Update compose.yml** to use production Caddyfile:

@@ -169,9 +169,6 @@ services:
       ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin.localhost}
       INGEST_DOMAIN: ${INGEST_DOMAIN:-ingest.localhost}
       STATUS_DOMAIN: ${STATUS_DOMAIN:-status.localhost}
-      APP_DOMAIN: ${APP_DOMAIN:-app.localhost}
-      AUTH_DOMAIN: ${AUTH_DOMAIN:-auth.localhost}
-      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
     ports:
       - "80:80"
       - "443:443"

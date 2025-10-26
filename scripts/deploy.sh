@@ -461,7 +461,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     prompt_config "ADMIN_DOMAIN" "admin.localhost" "Admin dashboard domain (Flagship)"
     prompt_config "INGEST_DOMAIN" "ingest.localhost" "Ingest API domain (Submarines)"
     prompt_config "STATUS_DOMAIN" "status.localhost" "Status pages domain"
-    prompt_config "ACME_EMAIL" "admin@example.com" "Email for Let's Encrypt certificates"
 
     echo ""
 
@@ -519,7 +518,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         echo "  Admin:   ${CONFIG[ADMIN_DOMAIN]}"
         echo "  Ingest:  ${CONFIG[INGEST_DOMAIN]}"
         echo "  Status:  ${CONFIG[STATUS_DOMAIN]}"
-        echo "  ACME:    ${CONFIG[ACME_EMAIL]}"
         echo ""
 
         echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -681,7 +679,6 @@ RECAPTCHA_V3_SCORE_THRESHOLD=${CONFIG[RECAPTCHA_V3_SCORE_THRESHOLD]}
 ADMIN_DOMAIN=${CONFIG[ADMIN_DOMAIN]}
 INGEST_DOMAIN=${CONFIG[INGEST_DOMAIN]}
 STATUS_DOMAIN=${CONFIG[STATUS_DOMAIN]}
-ACME_EMAIL=${CONFIG[ACME_EMAIL]}
 
 # =============================================================================
 # Auto-Generated Values

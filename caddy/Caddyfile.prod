@@ -3,9 +3,6 @@
 
 # Global options
 {
-    # Email for Let's Encrypt (set via environment variable)
-    email {$ACME_EMAIL}
-
     # Use Let's Encrypt staging for testing
     # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 
