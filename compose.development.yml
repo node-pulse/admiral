@@ -111,6 +111,7 @@ services:
         condition: service_healthy
     volumes:
       - ./submarines:/app
+      - ./secrets:/secrets:ro
     networks:
       - node-pulse-admiral
 
