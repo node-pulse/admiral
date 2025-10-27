@@ -141,7 +141,7 @@ class DeploymentsController extends Controller
             'description' => 'nullable|string',
             'playbook' => 'required|string|in:deploy-agent.yml,update-agent.yml,uninstall-agent.yml,rollback-agent.yml',
             'server_ids' => 'required|array|min:1',
-            'server_ids.*' => 'required|uuid|exists:admiral.servers,id',
+            'server_ids.*' => 'required|uuid|exists:servers,id',
             'variables' => 'nullable|array',
         ]);
 
