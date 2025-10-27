@@ -175,9 +175,15 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 	logger.Printf("[DEPLOYMENT] Processing: %s (%s)", deploymentID, playbook)
 	logger.Printf("[DEPLOYMENT] Target servers: %v", serverIDs)
 
-	// Update deployment status to 'running'
-	if err := updateDeploymentStatus(deploymentID, "running", nil, nil); err != nil {
+	// Update deployment status to 'running' and set total_servers count
+	if err := updateDeploymentStatus(deploymentID, "running", nil, nil, len(serverIDs)); err != nil {
 		return fmt.Errorf("failed to update status to running: %w", err)
+	}
+
+	// Create deployment_servers records
+	if err := createDeploymentServers(deploymentID, serverIDs); err != nil {
+		logger.Printf("[WARNING] Failed to create deployment_servers records: %v", err)
+		// Continue anyway - this is not fatal
 	}
 
 	// Run Ansible playbook
@@ -186,7 +192,7 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 	if err != nil {
 		// Deployment failed
 		logger.Printf("[ERROR] Deployment %s failed: %v", deploymentID, err)
-		if updateErr := updateDeploymentStatus(deploymentID, "failed", &output, &errorOutput); updateErr != nil {
+		if updateErr := updateDeploymentStatus(deploymentID, "failed", &output, &errorOutput, 0); updateErr != nil {
 			logger.Printf("[ERROR] Failed to update status to failed: %v", updateErr)
 		}
 		return fmt.Errorf("ansible playbook failed: %w", err)
@@ -194,7 +200,7 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 
 	// Deployment succeeded
 	logger.Printf("[SUCCESS] Deployment %s completed successfully", deploymentID)
-	if err := updateDeploymentStatus(deploymentID, "completed", &output, nil); err != nil {
+	if err := updateDeploymentStatus(deploymentID, "completed", &output, nil, 0); err != nil {
 		return fmt.Errorf("failed to update status to completed: %w", err)
 	}
 
@@ -389,7 +395,7 @@ func fetchServers(serverIDs []string) ([]ServerInfo, error) {
 	return servers, nil
 }
 
-func updateDeploymentStatus(deploymentID, status string, output, errorOutput *string) error {
+func updateDeploymentStatus(deploymentID, status string, output, errorOutput *string, totalServers int) error {
 	now := time.Now()
 
 	var query string
@@ -399,10 +405,10 @@ func updateDeploymentStatus(deploymentID, status string, output, errorOutput *st
 	case "running":
 		query = `
 			UPDATE admiral.deployments
-			SET status = $1, started_at = $2, updated_at = $2
-			WHERE id = $3
+			SET status = $1, started_at = $2, total_servers = $3, updated_at = $2
+			WHERE id = $4
 		`
-		args = []any{status, now, deploymentID}
+		args = []any{status, now, totalServers, deploymentID}
 	case "completed", "failed":
 		query = `
 			UPDATE admiral.deployments
@@ -429,5 +435,38 @@ func updateDeploymentStatus(deploymentID, status string, output, errorOutput *st
 	}
 
 	logger.Printf("[DB] Updated deployment %s to status: %s", deploymentID, status)
+	return nil
+}
+
+func createDeploymentServers(deploymentID string, serverIDs []string) error {
+	if len(serverIDs) == 0 {
+		return nil
+	}
+
+	// Build bulk insert query
+	query := `
+		INSERT INTO admiral.deployment_servers (deployment_id, server_id, status, created_at, updated_at)
+		VALUES
+	`
+
+	now := time.Now()
+	values := []string{}
+	args := []any{}
+	argIndex := 1
+
+	for _, serverID := range serverIDs {
+		values = append(values, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", argIndex, argIndex+1, argIndex+2, argIndex+3, argIndex+4))
+		args = append(args, deploymentID, serverID, "pending", now, now)
+		argIndex += 5
+	}
+
+	query += strings.Join(values, ", ")
+
+	_, err := db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to insert deployment_servers: %w", err)
+	}
+
+	logger.Printf("[DB] Created %d deployment_servers records for deployment %s", len(serverIDs), deploymentID)
 	return nil
 }

@@ -1,5 +1,13 @@
 # Node Pulse Dashboard - Claude Context
 
+## ⚠️ CRITICAL RULES
+
+**DATABASE ACCESS: READ ONLY**
+- You have READ ONLY permission to the database
+- NEVER run UPDATE, DELETE, INSERT, DROP, ALTER, TRUNCATE, or any other modification commands
+- ALWAYS ask the user for explicit permission before suggesting database modifications
+- Only SELECT queries are allowed without permission
+
 ## Project Overview
 
 **Node Pulse Dashboard** is an agent fleet management system for monitoring Linux servers. It consists of:
