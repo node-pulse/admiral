@@ -80,7 +80,7 @@ export default function CreateDeployment() {
     // Form state
     const [deploymentName, setDeploymentName] = useState('');
     const [deploymentDescription, setDeploymentDescription] = useState('');
-    const [playbook, setPlaybook] = useState<string>('deploy-agent.yml');
+    const [playbook, setPlaybook] = useState<string>('nodepulse/deploy-agent.yml');
     const [agentVersion, setAgentVersion] = useState('latest');
 
     useEffect(() => {
@@ -250,17 +250,17 @@ export default function CreateDeployment() {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="deploy-agent.yml">
+                                            <SelectItem value="nodepulse/deploy-agent.yml">
                                                 Deploy Agent (New Installation)
                                             </SelectItem>
-                                            <SelectItem value="update-agent.yml">
-                                                Update Agent
+                                            <SelectItem value="nodepulse/rollback-agent.yml">
+                                                Rollback Agent
                                             </SelectItem>
-                                            <SelectItem value="uninstall-agent.yml">
+                                            <SelectItem value="nodepulse/uninstall-agent.yml">
                                                 Uninstall Agent
                                             </SelectItem>
-                                            <SelectItem value="rollback-agent.yml">
-                                                Rollback Agent
+                                            <SelectItem value="nodepulse/retry-failed.yml">
+                                                Retry Failed Servers
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>

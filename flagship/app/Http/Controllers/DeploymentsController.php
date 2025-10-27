@@ -139,7 +139,19 @@ class DeploymentsController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'playbook' => 'required|string|in:deploy-agent.yml,update-agent.yml,uninstall-agent.yml,rollback-agent.yml',
+            'playbook' => [
+                'required',
+                'string',
+                'max:255',
+                // Prevent path traversal attacks
+                'regex:/^[a-zA-Z0-9_\-\/]+\.yml$/',
+                function ($attribute, $value, $fail) {
+                    // Ensure playbook doesn't try to escape the playbooks directory
+                    if (str_contains($value, '..')) {
+                        $fail('Invalid playbook path.');
+                    }
+                },
+            ],
             'server_ids' => 'required|array|min:1',
             'server_ids.*' => 'required|uuid|exists:servers,id',
             'variables' => 'nullable|array',

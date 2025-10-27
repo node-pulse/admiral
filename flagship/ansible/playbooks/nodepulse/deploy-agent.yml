@@ -6,8 +6,8 @@
 
   vars:
     agent_version: "{{ agent_version | default('latest') }}"
-    # Cloudflare R2 base URL - pass via extra vars or environment
-    agent_download_base_url: "{{ lookup('env', 'AGENT_DOWNLOAD_BASE_URL') | default('https://pub-xxxxx.r2.dev', true) }}"
+    # Agent download URL (Cloudflare R2 via custom domain)
+    agent_download_base_url: "https://agent.nodepulse.sh"
     agent_download_url: "{{ agent_download_base_url }}/{{ agent_version }}"
     agent_install_dir: "/opt/nodepulse"
     agent_config_dir: "/etc/nodepulse"
@@ -47,19 +47,11 @@
         name: nodepulse
         state: started
         enabled: yes
-      check_mode: yes
       register: agent_status
-
-    - name: Wait for agent to report metrics
-      wait_for:
-        timeout: 30
-      delegate_to: localhost
-      when: agent_status.changed
 
     - name: Display deployment summary
       debug:
         msg: |
           ✓ Agent deployed successfully to {{ inventory_hostname }}
-          ✓ Service: {{ agent_status.name }}
-          ✓ Status: {{ agent_status.status }}
-          ✓ Server ID: {{ server_uuid }}
+          ✓ Service is {{ agent_status.status.ActiveState }}
+          ✓ Enabled at boot: {{ agent_status.status.UnitFileState }}

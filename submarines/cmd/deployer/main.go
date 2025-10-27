@@ -237,7 +237,8 @@ func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string
 	}
 	inventoryFile.Close()
 
-	// Playbook path
+	// Playbook path - support both flat and subdirectory structure
+	// Playbook format: "nodepulse/deploy-agent.yml" or "custom/my-playbook.yml"
 	playbookPath := filepath.Join("/app/flagship/ansible/playbooks", playbook)
 
 	// Parse variables

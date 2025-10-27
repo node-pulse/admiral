@@ -16,6 +16,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Trust proxies - safe for both dev and production when using Docker
+        // Trusts private IP ranges (Docker networks use 172.16.0.0/12)
+        $middleware->trustProxies(
+            at: env('APP_ENV') === 'local'
+                ? '*'  // Dev: trust all (you're behind localhost anyway)
+                : ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']  // Prod: trust private IPs only
+        );
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
