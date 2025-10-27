@@ -112,10 +112,6 @@ export default function SshSessions() {
     const [sessionToTerminate, setSessionToTerminate] =
         useState<SshSessionData | null>(null);
 
-    useEffect(() => {
-        fetchSessions();
-    }, [page, search, statusFilter]);
-
     const fetchSessions = async () => {
         try {
             setLoading(true);
@@ -148,9 +144,19 @@ export default function SshSessions() {
         }
     };
 
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            fetchSessions();
+        }, 300); // 300ms debounce for search
+
+        return () => clearTimeout(timeoutId);
+    }, [page, search, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleViewDetails = async (sessionId: string) => {
         try {
-            const response = await fetch(`/dashboard/ssh-sessions/${sessionId}`);
+            const response = await fetch(
+                `/dashboard/ssh-sessions/${sessionId}`,
+            );
             const data = await response.json();
             setSelectedSession(data.ssh_session);
             setDetailsDialogOpen(true);
@@ -304,7 +310,7 @@ export default function SshSessions() {
                                 <div className="relative">
                                     <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Search by session ID, username, or IP..."
+                                        placeholder="Search by session ID, username, IP, or SSH host..."
                                         value={search}
                                         onChange={(e) => {
                                             setSearch(e.target.value);

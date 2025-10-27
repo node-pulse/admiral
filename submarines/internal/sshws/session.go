@@ -87,7 +87,7 @@ func (sl *SessionLogger) LogSessionStart() error {
 			ssh_host,
 			ssh_port,
 			host_key_fingerprint
-		) VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'active', $7, $8, $9, $10, $11)
+		) VALUES ($1, $2, $3, $4, $5, NOW(), 'active', $6, $7, $8, $9, $10)
 	`
 
 	_, err := sl.db.Exec(query,
@@ -152,7 +152,7 @@ func (sl *SessionLogger) LogSessionFailure(reason string) error {
 			ssh_host,
 			ssh_port,
 			host_key_fingerprint
-		) VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'active', $7, $8, $9, $10, $11)
+		) VALUES ($1, $2, $3, $4, $5, NOW(), 'active', $6, $7, $8, $9, $10)
 		ON CONFLICT (session_id) DO NOTHING
 	`
 

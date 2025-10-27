@@ -45,13 +45,14 @@ class SshSessionsController extends Controller
             $query->where('started_at', '<=', $request->input('end_date'));
         }
 
-        // Search filter (username, IP, session ID)
+        // Search filter (username, IP, session ID, SSH host)
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('session_id', 'ilike', "%{$search}%")
                     ->orWhere('ssh_username', 'ilike', "%{$search}%")
-                    ->orWhere('ip_address', 'ilike', "%{$search}%");
+                    ->orWhere('ip_address', 'ilike', "%{$search}%")
+                    ->orWhere('ssh_host', 'ilike', "%{$search}%");
             });
         }
 
