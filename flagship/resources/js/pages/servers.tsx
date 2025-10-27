@@ -1,4 +1,14 @@
+import { AddServerDialog } from '@/components/servers/add-server-dialog';
+import { EditServerDialog } from '@/components/servers/edit-server-dialog';
+import {
+    ServerProvider,
+    useServerContext,
+} from '@/components/servers/server-context';
 import { TerminalWorkspace } from '@/components/servers/terminal-workspace';
+import {
+    TerminalWorkspaceProvider,
+    useTerminalWorkspace,
+} from '@/components/servers/terminal-workspace-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,14 +45,10 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import {
-    TerminalWorkspaceProvider,
-    useTerminalWorkspace,
-} from '@/contexts/terminal-workspace-context';
 import AppLayout from '@/layouts/app-layout';
 import { servers as serversRoute, sshKeys as sshKeysRoute } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import {
     Activity,
     Edit,
@@ -55,9 +61,9 @@ import {
     Terminal,
     Trash2,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { PrivateKeyData, ServerData, ServersResponse } from '../types/servers';
+import { ServerData } from '../types/servers';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -67,83 +73,44 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 function ServersContent() {
-    const { props } = usePage();
-    const csrfToken =
-        (props as any).csrf_token ||
-        document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute('content') ||
-        '';
-
-    const [servers, setServers] = useState<ServerData[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [page, setPage] = useState(1);
-    const [totalServers, setTotalServers] = useState(0);
-    const [workspaceOpen, setWorkspaceOpen] = useState(false);
-    const [workspaceVisible, setWorkspaceVisible] = useState(false);
-    const [addServerOpen, setAddServerOpen] = useState(false);
-    const [addServerForm, setAddServerForm] = useState({
-        name: '',
-        hostname: '',
-        description: '',
-        ssh_host: '',
-        ssh_port: '22',
-        ssh_username: 'root',
-        private_key_id: '',
-    });
+    // Use server context
+    const {
+        servers,
+        totalServers,
+        loading,
+        privateKeys,
+        page,
+        setPage,
+        search,
+        setSearch,
+        fetchServers,
+        deleteServer: contextDeleteServer,
+        csrfToken,
+    } = useServerContext();
 
     // Terminal workspace context
     const { openSession, sessions } = useTerminalWorkspace();
 
+    // Local UI states
+    const [workspaceOpen, setWorkspaceOpen] = useState(false);
+    const [workspaceVisible, setWorkspaceVisible] = useState(false);
+    const [addServerOpen, setAddServerOpen] = useState(false);
+
     // SSH Key Management
-    const [privateKeys, setPrivateKeys] = useState<PrivateKeyData[]>([]);
     const [manageKeysOpen, setManageKeysOpen] = useState(false);
     const [serverToManage, setServerToManage] = useState<ServerData | null>(
         null,
     );
     const [selectedKeyId, setSelectedKeyId] = useState<string>('');
 
-    useEffect(() => {
-        fetchServers();
-        fetchPrivateKeys();
-    }, [page, search]);
-
-    const fetchServers = async () => {
-        setLoading(true);
-        try {
-            const params = new URLSearchParams({
-                page: page.toString(),
-                per_page: '20',
-            });
-
-            if (search) {
-                params.append('search', search);
-            }
-
-            const response = await fetch(
-                `/dashboard/servers/list?${params.toString()}`,
-            );
-            const data: ServersResponse = await response.json();
-
-            setServers(data.servers.data);
-            setTotalServers(data.meta.total);
-        } catch (error) {
-            console.error('Failed to fetch servers:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchPrivateKeys = async () => {
-        try {
-            const response = await fetch('/dashboard/ssh-keys/list');
-            const data = await response.json();
-            setPrivateKeys(data.private_keys.data || []);
-        } catch (error) {
-            console.error('Failed to fetch private keys:', error);
-        }
-    };
+    // Edit and Delete server states
+    const [editServerOpen, setEditServerOpen] = useState(false);
+    const [serverToEdit, setServerToEdit] = useState<ServerData | null>(null);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [serverToDelete, setServerToDelete] = useState<ServerData | null>(
+        null,
+    );
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
     const formatDate = (dateString: string | null) => {
         if (!dateString) return 'Never';
@@ -178,96 +145,37 @@ function ServersContent() {
         setWorkspaceVisible(true);
     };
 
-    const handleAddServer = async () => {
-        try {
-            const response = await fetch('/dashboard/servers', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                },
-                body: JSON.stringify(addServerForm),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const serverId = data.server?.id;
-
-                // If a private key was selected, attach it to the server
-                if (addServerForm.private_key_id && serverId) {
-                    await attachKeyToServer(
-                        serverId,
-                        addServerForm.private_key_id,
-                    );
-                }
-
-                setAddServerOpen(false);
-                setAddServerForm({
-                    name: '',
-                    hostname: '',
-                    description: '',
-                    ssh_host: '',
-                    ssh_port: '22',
-                    ssh_username: 'root',
-                    private_key_id: '',
-                });
-                fetchServers();
-                toast.success('Server added successfully', {
-                    description: `Server "${data.server?.name || data.server?.hostname}" has been added`,
-                });
-            } else {
-                const error = await response.json();
-                toast.error('Failed to add server', {
-                    description:
-                        error.message ||
-                        'An error occurred while adding the server',
-                });
-            }
-        } catch (error) {
-            console.error('Failed to add server:', error);
-            toast.error('Failed to add server', {
-                description: 'An unexpected error occurred',
-            });
-        }
-    };
-
-    const attachKeyToServer = async (
-        serverId: string,
-        privateKeyId: string,
-    ) => {
-        try {
-            const response = await fetch(
-                `/dashboard/servers/${serverId}/keys`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                    },
-                    body: JSON.stringify({
-                        private_key_id: privateKeyId,
-                        is_primary: true,
-                        purpose: 'default',
-                    }),
-                },
-            );
-
-            if (!response.ok) {
-                throw new Error('Failed to attach key');
-            }
-        } catch (error) {
-            console.error('Failed to attach key:', error);
-            toast.error('Failed to attach SSH key', {
-                description:
-                    'The server was created but the SSH key was not attached',
-            });
-        }
-    };
-
     const openManageKeys = (server: ServerData) => {
         setServerToManage(server);
         setSelectedKeyId('');
         setManageKeysOpen(true);
+    };
+
+    const handleEditServer = (server: ServerData) => {
+        setServerToEdit(server);
+        setEditServerOpen(true);
+    };
+
+    const handleDeleteServer = (server: ServerData) => {
+        setServerToDelete(server);
+        setDeleteConfirmOpen(true);
+    };
+
+    const confirmDeleteServer = async () => {
+        if (!serverToDelete) return;
+
+        setDeleteLoading(true);
+        const success = await contextDeleteServer(serverToDelete.id);
+
+        if (success) {
+            toast.success('Server deleted successfully', {
+                description: `Server "${serverToDelete.display_name}" has been deleted`,
+            });
+            setDeleteConfirmOpen(false);
+            setServerToDelete(null);
+        }
+
+        setDeleteLoading(false);
     };
 
     const handleAttachKey = async () => {
@@ -601,11 +509,24 @@ function ServersContent() {
                                                                 <DropdownMenuSeparator />
                                                             </>
                                                         )}
-                                                        <DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                handleEditServer(
+                                                                    server,
+                                                                )
+                                                            }
+                                                        >
                                                             <Edit className="mr-2 h-4 w-4" />
                                                             Edit Server
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-destructive">
+                                                        <DropdownMenuItem
+                                                            className="text-destructive"
+                                                            onClick={() =>
+                                                                handleDeleteServer(
+                                                                    server,
+                                                                )
+                                                            }
+                                                        >
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             Delete Server
                                                         </DropdownMenuItem>
@@ -719,45 +640,56 @@ function ServersContent() {
                 </DialogContent>
             </Dialog>
 
-            {/* Add Server Dialog - same as before */}
-            <Dialog open={addServerOpen} onOpenChange={setAddServerOpen}>
-                <DialogContent className="max-w-2xl">
+            {/* Add Server Dialog */}
+            <AddServerDialog
+                open={addServerOpen}
+                onOpenChange={setAddServerOpen}
+                onServerAdded={fetchServers}
+            />
+
+            {/* Edit Server Dialog */}
+            <EditServerDialog
+                server={serverToEdit}
+                open={editServerOpen}
+                onOpenChange={setEditServerOpen}
+                onServerUpdated={() => {
+                    fetchServers();
+                    setServerToEdit(null);
+                }}
+            />
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={deleteConfirmOpen}
+                onOpenChange={setDeleteConfirmOpen}
+            >
+                <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add Server</DialogTitle>
+                        <DialogTitle>Delete Server</DialogTitle>
                         <DialogDescription>
-                            Add a new server to your fleet. The server will be
-                            automatically discovered when the agent starts
-                            reporting metrics.
+                            Are you sure you want to delete "
+                            {serverToDelete?.display_name}"? This action cannot
+                            be undone.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        {/* Add server form fields - same as before */}
-                        <div className="grid gap-2">
-                            <Label htmlFor="server-name">
-                                Server Name (Optional)
-                            </Label>
-                            <Input
-                                id="server-name"
-                                placeholder="Production Web Server 1"
-                                value={addServerForm.name}
-                                onChange={(e) =>
-                                    setAddServerForm({
-                                        ...addServerForm,
-                                        name: e.target.value,
-                                    })
-                                }
-                            />
-                        </div>
-                        {/* ... rest of the form fields ... */}
-                    </div>
                     <DialogFooter>
                         <Button
                             variant="outline"
-                            onClick={() => setAddServerOpen(false)}
+                            onClick={() => {
+                                setDeleteConfirmOpen(false);
+                                setServerToDelete(null);
+                            }}
+                            disabled={deleteLoading}
                         >
                             Cancel
                         </Button>
-                        <Button onClick={handleAddServer}>Add Server</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmDeleteServer}
+                            disabled={deleteLoading}
+                        >
+                            {deleteLoading ? 'Deleting...' : 'Delete Server'}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -767,8 +699,10 @@ function ServersContent() {
 
 export default function Servers() {
     return (
-        <TerminalWorkspaceProvider>
-            <ServersContent />
-        </TerminalWorkspaceProvider>
+        <ServerProvider>
+            <TerminalWorkspaceProvider>
+                <ServersContent />
+            </TerminalWorkspaceProvider>
+        </ServerProvider>
     );
 }

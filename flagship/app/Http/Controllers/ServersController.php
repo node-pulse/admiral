@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PrivateKey;
 use App\Models\Server;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -183,40 +182,65 @@ class ServersController extends Controller
      */
     public function store(Request $request)
     {
+        // Simple validation - just check required fields
+        $messages = [
+            'name.required' => 'Server name is required',
+            'ssh_host.required' => 'SSH host/IP address is required',
+            'ssh_port.required' => 'SSH port is required',
+            'ssh_username.required' => 'SSH username is required',
+        ];
+
         $validated = $request->validate([
+            'name' => 'required|string|max:255',
             'hostname' => 'nullable|string|max:255',
-            'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'ssh_host' => 'nullable|string|max:255',
-            'ssh_port' => 'nullable|integer|min:1|max:65535',
-            'ssh_username' => 'nullable|string|max:255',
+            'ssh_host' => 'required|string|max:255',
+            'ssh_port' => 'required|integer|min:1|max:65535',
+            'ssh_username' => 'required|string|max:255',
             'tags' => 'nullable|array',
             'metadata' => 'nullable|array',
-        ]);
+        ], $messages);
 
-        // Generate a temporary server_id if not provided by agent
-        if (!isset($validated['server_id'])) {
-            $validated['server_id'] = \Illuminate\Support\Str::uuid()->toString();
-        }
+        // Check for duplicate server (same ssh_host and ssh_port)
+        $existingServer = Server::where('ssh_host', $validated['ssh_host'])
+            ->where('ssh_port', $validated['ssh_port'])
+            ->first();
 
-        // Use hostname as fallback if name not provided
-        if (!isset($validated['hostname']) && !isset($validated['name'])) {
+        if ($existingServer) {
             return response()->json([
-                'message' => 'Either hostname or name must be provided',
+                'message' => 'Validation failed',
+                'errors' => [
+                    'ssh_host' => ['A server with this SSH host and port already exists'],
+                ],
             ], 422);
         }
 
-        // Default hostname to name if not provided
-        if (!isset($validated['hostname'])) {
-            $validated['hostname'] = $validated['name'];
+        // Generate a unique server_id
+        $validated['server_id'] = \Illuminate\Support\Str::uuid()->toString();
+
+        // Set default SSH port if not provided
+        if (!isset($validated['ssh_port'])) {
+            $validated['ssh_port'] = 22;
         }
 
-        $server = Server::create($validated);
+        // Set default status
+        $validated['status'] = 'active';
 
-        return response()->json([
-            'message' => 'Server created successfully',
-            'server' => $server,
-        ], 201);
+        try {
+            $server = Server::create($validated);
+
+            return response()->json([
+                'message' => 'Server created successfully',
+                'server' => $server,
+            ], 201);
+        } catch (\Exception $e) {
+            \Log::error('Failed to create server: ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Failed to create server',
+                'error' => 'An unexpected error occurred while creating the server',
+            ], 500);
+        }
     }
 
     /**

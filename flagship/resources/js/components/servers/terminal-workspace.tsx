@@ -12,8 +12,9 @@ import {
     XCircle,
 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { useTerminalWorkspace } from '../../contexts/terminal-workspace-context';
+import { QuickConnectBar } from './quick-connect-bar';
 import { SSHTerminal } from './ssh-terminal';
+import { useTerminalWorkspace } from './terminal-workspace-context';
 
 interface TerminalWorkspaceProps {
     isOpen: boolean;
@@ -95,6 +96,12 @@ export function TerminalWorkspace({
             );
             if (!shouldClose) return;
         }
+
+        // Close all sessions
+        sessions.forEach((session) => {
+            closeSession(session.id);
+        });
+
         onClose();
     };
 
@@ -115,38 +122,8 @@ export function TerminalWorkspace({
             >
                 {/* Top Bar */}
                 <div className="flex items-center justify-between border-b bg-muted/50 px-2 py-1">
-                    {/* Terminal Tabs */}
-                    <div className="flex flex-1 items-center gap-1 overflow-x-auto">
-                        {sessions.map((session, index) => (
-                            <button
-                                key={session.id}
-                                onClick={() => setActiveSession(session.id)}
-                                className={cn(
-                                    'group flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-accent',
-                                    activeSessionId === session.id &&
-                                        'bg-accent',
-                                )}
-                                title={`${session.title} (${index + 1 <= 9 ? `⌘${index + 1}` : ''})`}
-                            >
-                                <Terminal className="h-3 w-3" />
-                                <span className="max-w-[150px] truncate">
-                                    {session.title}
-                                </span>
-                                {session.isConnected && (
-                                    <Activity className="h-3 w-3 text-green-500" />
-                                )}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        closeSession(session.id);
-                                    }}
-                                    className="opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </button>
-                        ))}
-                    </div>
+                    {/* Quick Connect Bar - Replaces redundant session tabs */}
+                    <QuickConnectBar className="flex-1" />
 
                     {/* Workspace Controls */}
                     <div className="flex items-center gap-2">
