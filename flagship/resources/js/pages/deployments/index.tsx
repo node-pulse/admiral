@@ -18,6 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import {
@@ -128,19 +129,21 @@ export default function DeploymentsIndex() {
 
     useEffect(() => {
         fetchDeployments();
-    }, [currentPage, searchTerm, statusFilter]);
+    }, [currentPage, searchTerm, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const getStatusBadge = (status: DeploymentData['status']) => {
         const variants: Record<
             DeploymentData['status'],
-            { variant: any; icon: any; label: string }
+            { variant: any; icon: any; label: string; className?: string }
         > = {
             pending: { variant: 'secondary', icon: Clock, label: 'Pending' },
             running: { variant: 'default', icon: Loader2, label: 'Running' },
             completed: {
-                variant: 'default',
+                variant: 'outline',
                 icon: CheckCircle2,
                 label: 'Completed',
+                className:
+                    'border-green-600 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
             },
             failed: { variant: 'destructive', icon: XCircle, label: 'Failed' },
             cancelled: {
@@ -150,10 +153,13 @@ export default function DeploymentsIndex() {
             },
         };
 
-        const { variant, icon: Icon, label } = variants[status];
+        const { variant, icon: Icon, label, className } = variants[status];
 
         return (
-            <Badge variant={variant} className="flex w-fit items-center gap-1">
+            <Badge
+                variant={variant}
+                className={cn('flex w-fit items-center gap-1', className)}
+            >
                 <Icon
                     className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`}
                 />
