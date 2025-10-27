@@ -115,19 +115,16 @@ func processDeployments(ctx context.Context) error {
 	var allMessages []valkey.StreamMessage
 
 	// Phase 1: Check for pending messages using "0"
-	logger.Printf("[POLL] Checking for pending messages...")
 	pendingMessages, err := vk.XReadGroup(ctx, ConsumerGroup, ConsumerName, StreamKey, "0", BatchSize)
 	if err != nil {
 		return fmt.Errorf("failed to read pending messages: %w", err)
 	}
 	if len(pendingMessages) > 0 {
-		logger.Printf("[DEBUG] Found %d pending message(s) for this consumer", len(pendingMessages))
 		allMessages = append(allMessages, pendingMessages...)
 	}
 
 	// Phase 2: Read new messages using ">"
 	// Only read new messages if we haven't hit the batch limit with pending messages
-	logger.Printf("[POLL] Checking for new messages...")
 	if len(allMessages) < int(BatchSize) {
 		remainingCapacity := BatchSize - int64(len(allMessages))
 		newMessages, err := vk.XReadGroup(ctx, ConsumerGroup, ConsumerName, StreamKey, ">", remainingCapacity)
@@ -135,7 +132,6 @@ func processDeployments(ctx context.Context) error {
 			return fmt.Errorf("failed to read new messages: %w", err)
 		}
 		if len(newMessages) > 0 {
-			logger.Printf("[DEBUG] Found %d new message(s) in stream", len(newMessages))
 			allMessages = append(allMessages, newMessages...)
 		}
 	}
@@ -145,8 +141,6 @@ func processDeployments(ctx context.Context) error {
 		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
-
-	logger.Printf("[DEBUG] Processing %d total message(s)", len(allMessages))
 
 	// Process all messages (pending + new)
 	for _, msg := range allMessages {
@@ -187,7 +181,7 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 	}
 
 	// Run Ansible playbook
-	output, errorOutput, err := runAnsiblePlaybook(deploymentID, playbook, serverIDs, variablesJSON)
+	output, errorOutput, err := runAnsiblePlaybook(ctx, playbook, serverIDs, variablesJSON)
 
 	if err != nil {
 		// Deployment failed
@@ -207,7 +201,7 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 	return nil
 }
 
-func runAnsiblePlaybook(deploymentID, playbook string, serverIDs []string, variablesJSON string) (string, string, error) {
+func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string, variablesJSON string) (string, string, error) {
 	// Build inventory from server IDs (also creates temp SSH key files)
 	inventory, tempKeyFiles, err := buildInventory(serverIDs)
 	if err != nil {
@@ -241,7 +235,7 @@ func runAnsiblePlaybook(deploymentID, playbook string, serverIDs []string, varia
 	playbookPath := filepath.Join("/app/flagship/ansible/playbooks", playbook)
 
 	// Parse variables
-	var variables map[string]interface{}
+	var variables map[string]any
 	if variablesJSON != "" {
 		if err := json.Unmarshal([]byte(variablesJSON), &variables); err != nil {
 			return "", "", fmt.Errorf("failed to parse variables: %w", err)
@@ -263,8 +257,8 @@ func runAnsiblePlaybook(deploymentID, playbook string, serverIDs []string, varia
 
 	logger.Printf("[ANSIBLE] Running: ansible-playbook %s", strings.Join(args, " "))
 
-	// Execute ansible-playbook
-	cmd := exec.Command("ansible-playbook", args...)
+	// Execute ansible-playbook with context for cancellation support
+	cmd := exec.CommandContext(ctx, "ansible-playbook", args...)
 	cmd.Env = os.Environ()
 
 	var stdoutBuf, stderrBuf strings.Builder
@@ -346,7 +340,6 @@ func buildInventory(serverIDs []string) (string, []string, error) {
 	}
 
 	inventory := sb.String()
-	logger.Printf("[INVENTORY] Generated inventory:\n%s", inventory)
 	return inventory, tempKeyFiles, nil
 }
 
@@ -400,16 +393,17 @@ func updateDeploymentStatus(deploymentID, status string, output, errorOutput *st
 	now := time.Now()
 
 	var query string
-	var args []interface{}
+	var args []any
 
-	if status == "running" {
+	switch status {
+	case "running":
 		query = `
 			UPDATE admiral.deployments
 			SET status = $1, started_at = $2, updated_at = $2
 			WHERE id = $3
 		`
-		args = []interface{}{status, now, deploymentID}
-	} else if status == "completed" || status == "failed" {
+		args = []any{status, now, deploymentID}
+	case "completed", "failed":
 		query = `
 			UPDATE admiral.deployments
 			SET status = $1, completed_at = $2, output = $3, error_output = $4, updated_at = $2
@@ -426,7 +420,7 @@ func updateDeploymentStatus(deploymentID, status string, output, errorOutput *st
 			errorOutputStr = *errorOutput
 		}
 
-		args = []interface{}{status, now, outputStr, errorOutputStr, deploymentID}
+		args = []any{status, now, outputStr, errorOutputStr, deploymentID}
 	}
 
 	_, err := db.Exec(query, args...)
