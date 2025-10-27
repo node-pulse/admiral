@@ -12,7 +12,9 @@ import (
 
 func main() {
 	// Load configuration
-	cfg := config.Load()
+	cfg := config.Load(config.LoadOptions{
+		RequireMasterKey: true,
+	})
 
 	// Set Gin mode
 	gin.SetMode(cfg.GinMode)

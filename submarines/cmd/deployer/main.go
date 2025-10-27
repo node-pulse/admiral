@@ -44,8 +44,10 @@ func main() {
 	logger = log.New(os.Stdout, "[DEPLOYER] ", log.LstdFlags)
 	logger.Println("Starting NodePulse Deployment Worker...")
 
-	// Load configuration
-	cfg = config.Load()
+	// Load configuration (master key not required for deployer - SSH keys mounted directly)
+	cfg = config.Load(config.LoadOptions{
+		RequireMasterKey: false,
+	})
 
 	// Connect to PostgreSQL
 	var err error
@@ -96,8 +98,9 @@ func main() {
 }
 
 func processDeployments(ctx context.Context) error {
-	// Read from stream
-	messages, err := vk.XReadGroup(ctx, ConsumerGroup, ConsumerName, StreamKey, ">", BatchSize)
+	// Read from stream - use "0" to process ALL pending/undelivered messages
+	// This ensures we process messages that were added before the consumer started
+	messages, err := vk.XReadGroup(ctx, ConsumerGroup, ConsumerName, StreamKey, "0", BatchSize)
 	if err != nil {
 		return fmt.Errorf("failed to read from stream: %w", err)
 	}

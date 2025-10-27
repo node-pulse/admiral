@@ -31,7 +31,9 @@ func main() {
 	log.Println("Starting digest worker...")
 
 	// Load configuration
-	cfg := config.Load()
+	cfg := config.Load(config.LoadOptions{
+		RequireMasterKey: true,
+	})
 
 	// Initialize database
 	db, err := database.New(cfg)
