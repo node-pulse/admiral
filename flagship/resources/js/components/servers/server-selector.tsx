@@ -53,7 +53,7 @@ export function ServerSelector({
     onSelectionChange,
     multiSelect = false,
     placeholder = 'Select server...',
-    endpoint = '/api/dashboard/servers-with-metrics',
+    endpoint = '/api/dashboard/servers',
 }: ServerSelectorProps) {
     const [open, setOpen] = useState(false);
     const [servers, setServers] = useState<Server[]>([]);
@@ -72,7 +72,7 @@ export function ServerSelector({
 
                 const response = await fetch(`${endpoint}?${params}`);
                 const data = await response.json();
-                setServers(data.servers);
+                setServers(data.data || []);
             } catch (error) {
                 console.error('Failed to fetch servers:', error);
             } finally {

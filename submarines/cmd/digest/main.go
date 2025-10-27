@@ -153,53 +153,13 @@ func processMessage(db *database.DB, msg valkey.StreamMessage) error {
 	}
 	defer tx.Rollback()
 
-	// Upsert server
-	if err := upsertServer(tx, serverID, &report); err != nil {
-		return err
-	}
-
-	// Insert metrics
+	// Insert metrics only
 	if err := insertMetrics(tx, serverID, &report); err != nil {
 		return err
 	}
 
 	// Commit transaction
 	return tx.Commit()
-}
-
-func upsertServer(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {
-	serverIDText := serverID.String()
-
-	query := `
-		INSERT INTO admiral.servers (id, server_id, hostname, kernel, kernel_version, distro, distro_version, architecture, cpu_cores, last_seen_at, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		ON CONFLICT (id) DO UPDATE SET
-			hostname = EXCLUDED.hostname,
-			kernel = COALESCE(EXCLUDED.kernel, admiral.servers.kernel),
-			kernel_version = COALESCE(EXCLUDED.kernel_version, admiral.servers.kernel_version),
-			distro = COALESCE(EXCLUDED.distro, admiral.servers.distro),
-			distro_version = COALESCE(EXCLUDED.distro_version, admiral.servers.distro_version),
-			architecture = COALESCE(EXCLUDED.architecture, admiral.servers.architecture),
-			cpu_cores = COALESCE(EXCLUDED.cpu_cores, admiral.servers.cpu_cores),
-			last_seen_at = EXCLUDED.last_seen_at,
-			status = EXCLUDED.status,
-			updated_at = CURRENT_TIMESTAMP
-	`
-
-	var kernel, kernelVersion, distro, distroVersion, architecture *string
-	var cpuCores *int
-
-	if report.SystemInfo != nil {
-		kernel = &report.SystemInfo.Kernel
-		kernelVersion = &report.SystemInfo.KernelVersion
-		distro = &report.SystemInfo.Distro
-		distroVersion = &report.SystemInfo.DistroVersion
-		architecture = &report.SystemInfo.Architecture
-		cpuCores = &report.SystemInfo.CPUCores
-	}
-
-	_, err := tx.Exec(query, serverID, serverIDText, report.Hostname, kernel, kernelVersion, distro, distroVersion, architecture, cpuCores, time.Now(), "active")
-	return err
 }
 
 func insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {

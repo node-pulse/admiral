@@ -55,7 +55,6 @@ Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 Route::prefix('api/dashboard')->group(function () {
     Route::get('/stats', [DashboardController::class, 'stats']);
     Route::get('/servers', [DashboardController::class, 'servers']);
-    Route::get('/servers-with-metrics', [DashboardController::class, 'serversWithMetrics']);
     Route::get('/metrics', [DashboardController::class, 'metrics']);
 });
 
