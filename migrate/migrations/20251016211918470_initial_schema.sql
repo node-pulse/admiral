@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS admiral.servers (
 -- Metrics table (time-series data)
 CREATE TABLE IF NOT EXISTS admiral.metrics (
     id BIGSERIAL PRIMARY KEY,
-    server_id UUID NOT NULL REFERENCES admiral.servers(id) ON DELETE CASCADE,
+    server_id UUID NOT NULL,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 
     -- CPU metrics
