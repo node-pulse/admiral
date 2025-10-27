@@ -38,6 +38,10 @@ CREATE TABLE IF NOT EXISTS admiral.servers (
     is_reachable BOOLEAN DEFAULT FALSE, -- SSH connection status
     last_validated_at TIMESTAMP WITH TIME ZONE, -- Last SSH connection test
 
+    -- Network Information (auto-populated from agent metrics)
+    ipv4 TEXT, -- IPv4 address reported by agent
+    ipv6 TEXT, -- IPv6 address reported by agent
+
     -- Metadata
     tags JSONB DEFAULT '[]'::jsonb,
     metadata JSONB DEFAULT '{}'::jsonb,
