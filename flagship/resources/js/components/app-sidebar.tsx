@@ -10,7 +10,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard, servers, sshKeys, sshSessions } from '@/routes';
+import { dashboard, deployments, servers, sshKeys, sshSessions } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
@@ -18,6 +18,7 @@ import {
     Folder,
     Key,
     LayoutGrid,
+    Rocket,
     Server,
     Settings as SettingsIcon,
     Terminal,
@@ -48,8 +49,13 @@ const getMainNavItems = (isAdmin: boolean): NavItem[] => {
         },
     ];
 
-    // Add Settings link for admin users only
+    // Add admin-only links
     if (isAdmin) {
+        items.push({
+            title: 'Deployments',
+            href: deployments(),
+            icon: Rocket,
+        });
         items.push({
             title: 'System Settings',
             href: '/dashboard/system-settings',

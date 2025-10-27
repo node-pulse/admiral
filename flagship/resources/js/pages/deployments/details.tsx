@@ -81,7 +81,7 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
         },
         {
             title: deployment?.name || 'Loading...',
-            href: `/dashboard/deployments/${deploymentId}`,
+            href: `/dashboard/deployments/${deploymentId}/details`,
         },
     ];
 
@@ -90,7 +90,7 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
             const response = await fetch(`/api/deployments/${deploymentId}`, {
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                 },
             });
 
@@ -128,13 +128,16 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
 
         setCancelling(true);
         try {
-            const response = await fetch(`/api/deployments/${deploymentId}/cancel`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
+            const response = await fetch(
+                `/api/deployments/${deploymentId}/cancel`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        Accept: 'application/json',
+                    },
                 },
-            });
+            );
 
             if (!response.ok) {
                 throw new Error('Failed to cancel deployment');
@@ -161,16 +164,26 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
         > = {
             pending: { variant: 'secondary', icon: Clock, label: 'Pending' },
             running: { variant: 'default', icon: Loader2, label: 'Running' },
-            completed: { variant: 'default', icon: CheckCircle2, label: 'Completed' },
+            completed: {
+                variant: 'default',
+                icon: CheckCircle2,
+                label: 'Completed',
+            },
             failed: { variant: 'destructive', icon: XCircle, label: 'Failed' },
-            cancelled: { variant: 'secondary', icon: XCircle, label: 'Cancelled' },
+            cancelled: {
+                variant: 'secondary',
+                icon: XCircle,
+                label: 'Cancelled',
+            },
         };
 
         const { variant, icon: Icon, label } = variants[status];
 
         return (
-            <Badge variant={variant} className="flex items-center gap-1 w-fit">
-                <Icon className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`} />
+            <Badge variant={variant} className="flex w-fit items-center gap-1">
+                <Icon
+                    className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`}
+                />
                 {label}
             </Badge>
         );
@@ -183,7 +196,11 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
         > = {
             pending: { variant: 'secondary', icon: Clock, label: 'Pending' },
             running: { variant: 'default', icon: Loader2, label: 'Running' },
-            success: { variant: 'default', icon: CheckCircle2, label: 'Success' },
+            success: {
+                variant: 'default',
+                icon: CheckCircle2,
+                label: 'Success',
+            },
             failed: { variant: 'destructive', icon: XCircle, label: 'Failed' },
             skipped: { variant: 'secondary', icon: XCircle, label: 'Skipped' },
         };
@@ -191,8 +208,10 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
         const { variant, icon: Icon, label } = variants[status];
 
         return (
-            <Badge variant={variant} className="flex items-center gap-1 w-fit">
-                <Icon className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`} />
+            <Badge variant={variant} className="flex w-fit items-center gap-1">
+                <Icon
+                    className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`}
+                />
                 {label}
             </Badge>
         );
@@ -234,8 +253,10 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
         return (
             <AppLayout breadcrumbs={breadcrumbs}>
                 <Head title="Deployment Not Found" />
-                <div className="text-center py-12">
-                    <h3 className="text-lg font-semibold">Deployment not found</h3>
+                <div className="py-12 text-center">
+                    <h3 className="text-lg font-semibold">
+                        Deployment not found
+                    </h3>
                     <Button onClick={handleBack} className="mt-4">
                         Back to Deployments
                     </Button>
@@ -248,7 +269,7 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={deployment.name} />
 
-            <div className="space-y-6">
+            <div className="AdmiralDeploymentsShow flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
@@ -259,7 +280,9 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                             {getStatusBadge(deployment.status)}
                         </div>
                         {deployment.description && (
-                            <p className="text-muted-foreground mt-1">{deployment.description}</p>
+                            <p className="mt-1 text-muted-foreground">
+                                {deployment.description}
+                            </p>
                         )}
                     </div>
                     <div className="flex gap-2">
@@ -271,7 +294,7 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                             >
                                 {cancelling ? (
                                     <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                         Cancelling...
                                     </>
                                 ) : (
@@ -279,12 +302,15 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                                 )}
                             </Button>
                         )}
-                        <Button variant="outline" onClick={() => fetchDeployment()}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
+                        <Button
+                            variant="outline"
+                            onClick={() => fetchDeployment()}
+                        >
+                            <RefreshCw className="mr-2 h-4 w-4" />
                             Refresh
                         </Button>
                         <Button variant="outline" onClick={handleBack}>
-                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            <ArrowLeft className="mr-2 h-4 w-4" />
                             Back
                         </Button>
                     </div>
@@ -294,16 +320,22 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                 <div className="grid gap-4 md:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Servers</CardTitle>
+                            <CardTitle className="text-sm font-medium">
+                                Total Servers
+                            </CardTitle>
                             <Server className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{deployment.total_servers}</div>
+                            <div className="text-2xl font-bold">
+                                {deployment.total_servers}
+                            </div>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Successful</CardTitle>
+                            <CardTitle className="text-sm font-medium">
+                                Successful
+                            </CardTitle>
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
                         </CardHeader>
                         <CardContent>
@@ -314,7 +346,9 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                     </Card>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Failed</CardTitle>
+                            <CardTitle className="text-sm font-medium">
+                                Failed
+                            </CardTitle>
                             <XCircle className="h-4 w-4 text-red-600" />
                         </CardHeader>
                         <CardContent>
@@ -325,7 +359,9 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                     </Card>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                            <CardTitle className="text-sm font-medium">
+                                Success Rate
+                            </CardTitle>
                             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
@@ -334,8 +370,8 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                                     deployment.success_rate === 100
                                         ? 'text-green-600'
                                         : deployment.success_rate > 50
-                                        ? 'text-yellow-600'
-                                        : 'text-red-600'
+                                          ? 'text-yellow-600'
+                                          : 'text-red-600'
                                 }`}
                             >
                                 {deployment.success_rate.toFixed(1)}%
@@ -356,26 +392,34 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                                     Playbook
                                 </div>
                                 <div className="mt-1">
-                                    <Badge variant="outline">{deployment.playbook}</Badge>
+                                    <Badge variant="outline">
+                                        {deployment.playbook}
+                                    </Badge>
                                 </div>
                             </div>
                             <div>
                                 <div className="text-sm font-medium text-muted-foreground">
                                     Duration
                                 </div>
-                                <div className="mt-1">{formatDuration(deployment.duration)}</div>
+                                <div className="mt-1">
+                                    {formatDuration(deployment.duration)}
+                                </div>
                             </div>
                             <div>
                                 <div className="text-sm font-medium text-muted-foreground">
                                     Started At
                                 </div>
-                                <div className="mt-1">{formatDate(deployment.started_at)}</div>
+                                <div className="mt-1">
+                                    {formatDate(deployment.started_at)}
+                                </div>
                             </div>
                             <div>
                                 <div className="text-sm font-medium text-muted-foreground">
                                     Completed At
                                 </div>
-                                <div className="mt-1">{formatDate(deployment.completed_at)}</div>
+                                <div className="mt-1">
+                                    {formatDate(deployment.completed_at)}
+                                </div>
                             </div>
                         </div>
                     </CardContent>
@@ -411,12 +455,20 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                                                 </div>
                                             )}
                                         </TableCell>
-                                        <TableCell>{getServerStatusBadge(server.status)}</TableCell>
+                                        <TableCell>
+                                            {getServerStatusBadge(
+                                                server.status,
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             {server.changed ? (
-                                                <Badge variant="default">Yes</Badge>
+                                                <Badge variant="default">
+                                                    Yes
+                                                </Badge>
                                             ) : (
-                                                <Badge variant="secondary">No</Badge>
+                                                <Badge variant="secondary">
+                                                    No
+                                                </Badge>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-sm text-muted-foreground">
@@ -449,7 +501,7 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                             <Textarea
                                 value={deployment.output}
                                 readOnly
-                                className="font-mono text-sm h-64"
+                                className="h-64 font-mono text-sm"
                             />
                         </CardContent>
                     </Card>
@@ -465,7 +517,7 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                             <Textarea
                                 value={deployment.error_output}
                                 readOnly
-                                className="font-mono text-sm h-64 text-red-600"
+                                className="h-64 font-mono text-sm text-red-600"
                             />
                         </CardContent>
                     </Card>

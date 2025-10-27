@@ -107,7 +107,6 @@ class DashboardController extends Controller
     public function servers(Request $request)
     {
         $query = Server::query()
-            ->select('id', 'server_id', 'hostname', 'name', 'status', 'last_seen_at')
             ->orderBy('hostname');
 
         // Search filter
@@ -134,13 +133,18 @@ class DashboardController extends Controller
         $servers = $query->limit($limit)->get();
 
         return response()->json([
-            'servers' => $servers->map(function ($server) {
+            'data' => $servers->map(function ($server) {
                 return [
                     'id' => $server->id,
                     'server_id' => $server->server_id,
                     'hostname' => $server->hostname,
                     'name' => $server->name,
                     'display_name' => $server->name ?: $server->hostname,
+                    'ssh_host' => $server->ssh_host,
+                    'ssh_username' => $server->ssh_username,
+                    'distro' => $server->distro,
+                    'architecture' => $server->architecture,
+                    'agent_installed' => !is_null($server->last_seen_at),
                     'status' => $server->status,
                     'is_online' => $server->isOnline(),
                     'last_seen_at' => $server->last_seen_at?->toIso8601String(),

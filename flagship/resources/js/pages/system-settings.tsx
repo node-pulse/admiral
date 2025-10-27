@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -15,7 +16,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
@@ -113,10 +113,7 @@ export default function SystemSettings({ settings }: Props) {
                 groups.data_retention.push(setting);
             } else if (setting.key.includes('alert')) {
                 groups.alerting.push(setting);
-            } else if (
-                setting.tier === 'pro' ||
-                setting.tier === 'growth'
-            ) {
+            } else if (setting.tier === 'pro' || setting.tier === 'growth') {
                 groups.pro_features.push(setting);
             } else {
                 groups.system.push(setting);
@@ -160,7 +157,7 @@ export default function SystemSettings({ settings }: Props) {
                             {setting.value ? 'Enabled' : 'Disabled'}
                         </span>
                     ) : (
-                        <span className="text-sm font-mono">
+                        <span className="font-mono text-sm">
                             {String(setting.value)}
                         </span>
                     )}
@@ -189,7 +186,10 @@ export default function SystemSettings({ settings }: Props) {
                                         )
                                     }
                                     onBlur={() =>
-                                        handleInputBlur(setting.key, setting.value)
+                                        handleInputBlur(
+                                            setting.key,
+                                            setting.value,
+                                        )
                                     }
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
@@ -204,10 +204,16 @@ export default function SystemSettings({ settings }: Props) {
                                     disabled={isDisabled}
                                     className="w-48"
                                     onChange={(e) =>
-                                        handleInputChange(setting.key, e.target.value)
+                                        handleInputChange(
+                                            setting.key,
+                                            e.target.value,
+                                        )
                                     }
                                     onBlur={() =>
-                                        handleInputBlur(setting.key, setting.value)
+                                        handleInputBlur(
+                                            setting.key,
+                                            setting.value,
+                                        )
                                     }
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
@@ -243,7 +249,7 @@ export default function SystemSettings({ settings }: Props) {
         <AppLayout>
             <Head title="System Settings" />
 
-            <div className="AdmiralDashboard flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+            <div className="AdmiralSystemSettings flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">
                         System Settings

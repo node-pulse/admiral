@@ -80,9 +80,9 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('dashboard')->group(fun
 
     // Deployments management (admin only)
     Route::prefix('deployments')->group(function () {
-        Route::get('/', [\App\Http\Controllers\DeploymentsController::class, 'index'])->name('deployments.index');
+        Route::get('/', [\App\Http\Controllers\DeploymentsController::class, 'index'])->name('deployments');
         Route::get('/create', [\App\Http\Controllers\DeploymentsController::class, 'create'])->name('deployments.create');
-        Route::get('/{id}', [\App\Http\Controllers\DeploymentsController::class, 'details'])->name('deployments.show');
+        Route::get('/{id}/details', [\App\Http\Controllers\DeploymentsController::class, 'details'])->name('deployments.details');
     });
 });
 

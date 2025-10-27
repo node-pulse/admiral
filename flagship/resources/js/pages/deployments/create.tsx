@@ -1,6 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +17,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Table,
     TableBody,
@@ -20,6 +25,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -66,7 +72,9 @@ export default function CreateDeployment() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [servers, setServers] = useState<ServerData[]>([]);
-    const [selectedServers, setSelectedServers] = useState<Set<string>>(new Set());
+    const [selectedServers, setSelectedServers] = useState<Set<string>>(
+        new Set(),
+    );
     const [searchTerm, setSearchTerm] = useState('');
 
     // Form state
@@ -85,7 +93,7 @@ export default function CreateDeployment() {
             const response = await fetch('/api/dashboard/servers', {
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                 },
             });
 
@@ -103,7 +111,7 @@ export default function CreateDeployment() {
         }
     };
 
-    const filteredServers = servers.filter((server) => {
+    const filteredServers = (servers || []).filter((server) => {
         const searchLower = searchTerm.toLowerCase();
         return (
             server.hostname.toLowerCase().includes(searchLower) ||
@@ -126,7 +134,7 @@ export default function CreateDeployment() {
         if (selectedServers.size === filteredServers.length) {
             setSelectedServers(new Set());
         } else {
-            setSelectedServers(new Set(filteredServers.map(s => s.id)));
+            setSelectedServers(new Set(filteredServers.map((s) => s.id)));
         }
     };
 
@@ -151,7 +159,7 @@ export default function CreateDeployment() {
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                 },
                 body: JSON.stringify({
                     name: deploymentName,
@@ -166,12 +174,14 @@ export default function CreateDeployment() {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to create deployment');
+                throw new Error(
+                    errorData.message || 'Failed to create deployment',
+                );
             }
 
             const data = await response.json();
             toast.success('Deployment queued successfully');
-            router.visit(`/dashboard/deployments/${data.deployment.id}`);
+            router.visit(`/dashboard/deployments/${data.deployment.id}/details`);
         } catch (error: any) {
             console.error('Error creating deployment:', error);
             toast.error(error.message || 'Failed to create deployment');
@@ -188,17 +198,19 @@ export default function CreateDeployment() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create Deployment" />
 
-            <div className="space-y-6">
+            <div className="AdmiralDeploymentsCreate flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Create Deployment</h1>
-                        <p className="text-muted-foreground mt-1">
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Create Deployment
+                        </h1>
+                        <p className="mt-1 text-muted-foreground">
                             Deploy Node Pulse agent to selected servers
                         </p>
                     </div>
                     <Button variant="outline" onClick={handleCancel}>
-                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        <ArrowLeft className="mr-2 h-4 w-4" />
                         Back
                     </Button>
                 </div>
@@ -215,18 +227,25 @@ export default function CreateDeployment() {
                         <CardContent className="space-y-4">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="name">Deployment Name *</Label>
+                                    <Label htmlFor="name">
+                                        Deployment Name *
+                                    </Label>
                                     <Input
                                         id="name"
                                         placeholder="e.g., Production Agent Deployment"
                                         value={deploymentName}
-                                        onChange={(e) => setDeploymentName(e.target.value)}
+                                        onChange={(e) =>
+                                            setDeploymentName(e.target.value)
+                                        }
                                         required
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="playbook">Playbook *</Label>
-                                    <Select value={playbook} onValueChange={setPlaybook}>
+                                    <Select
+                                        value={playbook}
+                                        onValueChange={setPlaybook}
+                                    >
                                         <SelectTrigger id="playbook">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -254,21 +273,28 @@ export default function CreateDeployment() {
                                     id="description"
                                     placeholder="Optional description of this deployment"
                                     value={deploymentDescription}
-                                    onChange={(e) => setDeploymentDescription(e.target.value)}
+                                    onChange={(e) =>
+                                        setDeploymentDescription(e.target.value)
+                                    }
                                     rows={3}
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="agent_version">Agent Version</Label>
+                                <Label htmlFor="agent_version">
+                                    Agent Version
+                                </Label>
                                 <Input
                                     id="agent_version"
                                     placeholder="latest"
                                     value={agentVersion}
-                                    onChange={(e) => setAgentVersion(e.target.value)}
+                                    onChange={(e) =>
+                                        setAgentVersion(e.target.value)
+                                    }
                                 />
                                 <p className="text-sm text-muted-foreground">
-                                    Enter a specific version (e.g., v1.2.3) or "latest"
+                                    Enter a specific version (e.g., v1.2.3) or
+                                    "latest"
                                 </p>
                             </div>
                         </CardContent>
@@ -279,19 +305,22 @@ export default function CreateDeployment() {
                         <CardHeader>
                             <CardTitle>Select Servers</CardTitle>
                             <CardDescription>
-                                Choose which servers to deploy to ({selectedServers.size} selected)
+                                Choose which servers to deploy to (
+                                {selectedServers.size} selected)
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
                                 {/* Search */}
                                 <div className="relative">
-                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
                                         placeholder="Search servers..."
                                         className="pl-8"
                                         value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        onChange={(e) =>
+                                            setSearchTerm(e.target.value)
+                                        }
                                     />
                                 </div>
 
@@ -300,10 +329,12 @@ export default function CreateDeployment() {
                                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                                     </div>
                                 ) : filteredServers.length === 0 ? (
-                                    <div className="text-center py-12">
+                                    <div className="py-12 text-center">
                                         <Server className="mx-auto h-12 w-12 text-muted-foreground" />
-                                        <h3 className="mt-4 text-lg font-semibold">No servers found</h3>
-                                        <p className="text-muted-foreground mt-1">
+                                        <h3 className="mt-4 text-lg font-semibold">
+                                            No servers found
+                                        </h3>
+                                        <p className="mt-1 text-muted-foreground">
                                             {searchTerm
                                                 ? 'No servers match your search criteria.'
                                                 : 'Add servers before creating a deployment.'}
@@ -319,13 +350,17 @@ export default function CreateDeployment() {
                                                             selectedServers.size ===
                                                             filteredServers.length
                                                         }
-                                                        onCheckedChange={toggleSelectAll}
+                                                        onCheckedChange={
+                                                            toggleSelectAll
+                                                        }
                                                     />
                                                 </TableHead>
                                                 <TableHead>Server</TableHead>
                                                 <TableHead>SSH Host</TableHead>
                                                 <TableHead>OS</TableHead>
-                                                <TableHead>Architecture</TableHead>
+                                                <TableHead>
+                                                    Architecture
+                                                </TableHead>
                                                 <TableHead>Status</TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -334,25 +369,36 @@ export default function CreateDeployment() {
                                                 <TableRow key={server.id}>
                                                     <TableCell>
                                                         <Checkbox
-                                                            checked={selectedServers.has(server.id)}
+                                                            checked={selectedServers.has(
+                                                                server.id,
+                                                            )}
                                                             onCheckedChange={() =>
-                                                                toggleServerSelection(server.id)
+                                                                toggleServerSelection(
+                                                                    server.id,
+                                                                )
                                                             }
                                                         />
                                                     </TableCell>
                                                     <TableCell>
                                                         <div>
                                                             <div className="font-medium">
-                                                                {server.display_name}
+                                                                {
+                                                                    server.display_name
+                                                                }
                                                             </div>
                                                             <div className="text-sm text-muted-foreground">
-                                                                {server.hostname}
+                                                                {
+                                                                    server.hostname
+                                                                }
                                                             </div>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <code className="text-sm">
-                                                            {server.ssh_username}@{server.ssh_host}
+                                                            {
+                                                                server.ssh_username
+                                                            }
+                                                            @{server.ssh_host}
                                                         </code>
                                                     </TableCell>
                                                     <TableCell>
@@ -369,7 +415,9 @@ export default function CreateDeployment() {
                                                     <TableCell>
                                                         {server.architecture ? (
                                                             <Badge variant="secondary">
-                                                                {server.architecture}
+                                                                {
+                                                                    server.architecture
+                                                                }
                                                             </Badge>
                                                         ) : (
                                                             <span className="text-muted-foreground">
@@ -379,7 +427,9 @@ export default function CreateDeployment() {
                                                     </TableCell>
                                                     <TableCell>
                                                         {server.agent_installed ? (
-                                                            <Badge variant="default">Installed</Badge>
+                                                            <Badge variant="default">
+                                                                Installed
+                                                            </Badge>
                                                         ) : (
                                                             <Badge variant="secondary">
                                                                 Not Installed
@@ -405,17 +455,25 @@ export default function CreateDeployment() {
                         >
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={submitting || selectedServers.size === 0}>
+                        <Button
+                            type="submit"
+                            disabled={submitting || selectedServers.size === 0}
+                        >
                             {submitting ? (
                                 <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     Creating...
                                 </>
                             ) : (
                                 <>
-                                    <Rocket className="h-4 w-4 mr-2" />
-                                    Create Deployment ({selectedServers.size}{' '}
-                                    {selectedServers.size === 1 ? 'server' : 'servers'})
+                                    <Rocket className="mr-2 h-4 w-4" />
+                                    Create Deployment ({
+                                        selectedServers.size
+                                    }{' '}
+                                    {selectedServers.size === 1
+                                        ? 'server'
+                                        : 'servers'}
+                                    )
                                 </>
                             )}
                         </Button>

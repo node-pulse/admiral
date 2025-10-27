@@ -31,7 +31,7 @@ class DeploymentsController extends Controller
      */
     public function details(string $id)
     {
-        return Inertia::render('deployments/show', [
+        return Inertia::render('deployments/details', [
             'deploymentId' => $id,
         ]);
     }
