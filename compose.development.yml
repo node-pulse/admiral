@@ -125,6 +125,7 @@ services:
       - .env
     environment:
       <<: *common-variables
+      MASTER_KEY_PATH: /secrets/master.key
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,7 +136,7 @@ services:
     volumes:
       - ./submarines:/app
       - ./flagship/ansible:/app/flagship/ansible:ro  # Mount Ansible playbooks
-      - ~/.ssh:/root/.ssh:ro  # Mount SSH keys for Ansible
+      - ./secrets:/secrets:ro  # Mount master key for SSH key decryption
     networks:
       - node-pulse-admiral
 

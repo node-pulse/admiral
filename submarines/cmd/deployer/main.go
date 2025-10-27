@@ -13,8 +13,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nodepulse/admiral/submarines/internal/config"
 	"github.com/nodepulse/admiral/submarines/internal/database"
+	"github.com/nodepulse/admiral/submarines/internal/sshws"
 	"github.com/nodepulse/admiral/submarines/internal/valkey"
 )
 
@@ -44,9 +46,9 @@ func main() {
 	logger = log.New(os.Stdout, "[DEPLOYER] ", log.LstdFlags)
 	logger.Println("Starting NodePulse Deployment Worker...")
 
-	// Load configuration (master key not required for deployer - SSH keys mounted directly)
+	// Load configuration (master key required for decrypting SSH private keys)
 	cfg = config.Load(config.LoadOptions{
-		RequireMasterKey: false,
+		RequireMasterKey: true,
 	})
 
 	// Connect to PostgreSQL
@@ -67,8 +69,10 @@ func main() {
 	logger.Println("✓ Connected to Valkey")
 
 	// Ensure consumer group exists
+	// Use "$" to process only NEW messages from this point forward
+	// This ensures the consumer group tracks the stream properly
 	ctx := context.Background()
-	if err := vk.XGroupCreate(ctx, StreamKey, ConsumerGroup, "0"); err != nil {
+	if err := vk.XGroupCreate(ctx, StreamKey, ConsumerGroup, "$"); err != nil {
 		logger.Printf("Consumer group may already exist (this is OK): %v", err)
 	}
 
@@ -79,6 +83,10 @@ func main() {
 	logger.Printf("Consumer name: %s", ConsumerName)
 	logger.Printf("Listening for deployment jobs on stream: %s", StreamKey)
 
+	// Heartbeat ticker to confirm loop is running
+	heartbeatTicker := time.NewTicker(30 * time.Second)
+	defer heartbeatTicker.Stop()
+
 	// Main processing loop
 	running := true
 	for running {
@@ -86,6 +94,8 @@ func main() {
 		case <-sigChan:
 			logger.Println("Received shutdown signal, stopping gracefully...")
 			running = false
+		case <-heartbeatTicker.C:
+			logger.Println("[HEARTBEAT] Deployer is alive and polling stream")
 		default:
 			if err := processDeployments(ctx); err != nil {
 				logger.Printf("Error processing deployments: %v", err)
@@ -98,28 +108,55 @@ func main() {
 }
 
 func processDeployments(ctx context.Context) error {
-	// Read from stream - use "0" to process ALL pending/undelivered messages
-	// This ensures we process messages that were added before the consumer started
-	messages, err := vk.XReadGroup(ctx, ConsumerGroup, ConsumerName, StreamKey, "0", BatchSize)
+	// Two-phase message reading to ensure we process ALL messages:
+	// Phase 1: Read pending messages for THIS consumer (messages we claimed but didn't ACK)
+	// Phase 2: Read new messages that haven't been delivered to ANY consumer yet
+
+	var allMessages []valkey.StreamMessage
+
+	// Phase 1: Check for pending messages using "0"
+	logger.Printf("[POLL] Checking for pending messages...")
+	pendingMessages, err := vk.XReadGroup(ctx, ConsumerGroup, ConsumerName, StreamKey, "0", BatchSize)
 	if err != nil {
-		return fmt.Errorf("failed to read from stream: %w", err)
+		return fmt.Errorf("failed to read pending messages: %w", err)
+	}
+	if len(pendingMessages) > 0 {
+		logger.Printf("[DEBUG] Found %d pending message(s) for this consumer", len(pendingMessages))
+		allMessages = append(allMessages, pendingMessages...)
 	}
 
-	if len(messages) == 0 {
+	// Phase 2: Read new messages using ">"
+	// Only read new messages if we haven't hit the batch limit with pending messages
+	logger.Printf("[POLL] Checking for new messages...")
+	if len(allMessages) < int(BatchSize) {
+		remainingCapacity := BatchSize - int64(len(allMessages))
+		newMessages, err := vk.XReadGroup(ctx, ConsumerGroup, ConsumerName, StreamKey, ">", remainingCapacity)
+		if err != nil {
+			return fmt.Errorf("failed to read new messages: %w", err)
+		}
+		if len(newMessages) > 0 {
+			logger.Printf("[DEBUG] Found %d new message(s) in stream", len(newMessages))
+			allMessages = append(allMessages, newMessages...)
+		}
+	}
+
+	// If no messages found in either phase, sleep briefly
+	if len(allMessages) == 0 {
 		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
 
-	logger.Printf("[DEBUG] Read %d message(s) from stream", len(messages))
+	logger.Printf("[DEBUG] Processing %d total message(s)", len(allMessages))
 
-	for _, msg := range messages {
+	// Process all messages (pending + new)
+	for _, msg := range allMessages {
 		if err := handleDeployment(ctx, msg); err != nil {
 			logger.Printf("[ERROR] Failed to handle deployment %s: %v", msg.ID, err)
-			// Don't ACK on error - message will be retried
-			continue
+			// Still ACK the message even on error - the deployment status is already set to "failed"
+			// We don't want to retry indefinitely for permanent failures (like bad data)
 		}
 
-		// ACK message after successful processing
+		// ACK message after processing (success or failure)
 		if err := vk.XAck(ctx, StreamKey, ConsumerGroup, msg.ID); err != nil {
 			logger.Printf("[WARNING] Failed to ACK message %s: %v", msg.ID, err)
 		}
@@ -171,11 +208,22 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 }
 
 func runAnsiblePlaybook(deploymentID, playbook string, serverIDs []string, variablesJSON string) (string, string, error) {
-	// Build inventory from server IDs
-	inventory, err := buildInventory(serverIDs)
+	// Build inventory from server IDs (also creates temp SSH key files)
+	inventory, tempKeyFiles, err := buildInventory(serverIDs)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to build inventory: %w", err)
 	}
+
+	// Ensure temp SSH key files are cleaned up after playbook execution
+	defer func() {
+		for _, keyFile := range tempKeyFiles {
+			if err := os.Remove(keyFile); err != nil {
+				logger.Printf("[WARNING] Failed to cleanup temp key file %s: %v", keyFile, err)
+			} else {
+				logger.Printf("[CLEANUP] Removed temp key file: %s", keyFile)
+			}
+		}
+	}()
 
 	// Write inventory to temp file
 	inventoryFile, err := os.CreateTemp("", "ansible-inventory-*.yml")
@@ -204,6 +252,8 @@ func runAnsiblePlaybook(deploymentID, playbook string, serverIDs []string, varia
 	args := []string{
 		"-i", inventoryFile.Name(),
 		playbookPath,
+		// Disable SSH config file to avoid macOS-specific options like UseKeychain
+		"--ssh-common-args", "-F /dev/null -o StrictHostKeyChecking=no",
 	}
 
 	// Add extra vars
@@ -237,12 +287,16 @@ func runAnsiblePlaybook(deploymentID, playbook string, serverIDs []string, varia
 	return stdout, stderr, nil
 }
 
-func buildInventory(serverIDs []string) (string, error) {
+func buildInventory(serverIDs []string) (string, []string, error) {
 	// Fetch server details from database
 	servers, err := fetchServers(serverIDs)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
+
+	logger.Printf("[INVENTORY] Fetched %d server(s) from database for IDs: %v", len(servers), serverIDs)
+
+	var tempKeyFiles []string
 
 	// Build YAML inventory
 	var sb strings.Builder
@@ -255,32 +309,72 @@ func buildInventory(serverIDs []string) (string, error) {
 		sb.WriteString(fmt.Sprintf("      ansible_port: %d\n", server.SSHPort))
 		sb.WriteString(fmt.Sprintf("      ansible_user: %s\n", server.SSHUsername))
 
-		// Add SSH key if available
-		if server.SSHKeyPath != "" {
-			sb.WriteString(fmt.Sprintf("      ansible_ssh_private_key_file: %s\n", server.SSHKeyPath))
+		// Decrypt and write SSH key if available
+		if server.EncryptedKeyData != "" {
+			// Decrypt the SSH key
+			decryptedKey, err := sshws.DecryptPrivateKey(server.EncryptedKeyData, cfg.MasterKey)
+			if err != nil {
+				logger.Printf("[WARNING] Failed to decrypt SSH key for %s: %v", server.Hostname, err)
+				continue
+			}
+
+			// Write key to temporary file
+			keyFile, err := os.CreateTemp("", "ansible_key_*")
+			if err != nil {
+				return "", tempKeyFiles, fmt.Errorf("failed to create temp key file: %w", err)
+			}
+
+			if _, err := keyFile.WriteString(decryptedKey); err != nil {
+				keyFile.Close()
+				os.Remove(keyFile.Name())
+				return "", tempKeyFiles, fmt.Errorf("failed to write key file: %w", err)
+			}
+
+			// Set secure permissions (0600)
+			if err := keyFile.Chmod(0600); err != nil {
+				keyFile.Close()
+				os.Remove(keyFile.Name())
+				return "", tempKeyFiles, fmt.Errorf("failed to set key file permissions: %w", err)
+			}
+
+			keyFile.Close()
+			tempKeyFiles = append(tempKeyFiles, keyFile.Name())
+
+			sb.WriteString(fmt.Sprintf("      ansible_ssh_private_key_file: %s\n", keyFile.Name()))
+			logger.Printf("[INVENTORY] Created temp SSH key file for %s: %s", server.Hostname, keyFile.Name())
 		}
 	}
 
-	return sb.String(), nil
+	inventory := sb.String()
+	logger.Printf("[INVENTORY] Generated inventory:\n%s", inventory)
+	return inventory, tempKeyFiles, nil
 }
 
 type ServerInfo struct {
-	Hostname    string
-	SSHHost     string
-	SSHPort     int
-	SSHUsername string
-	SSHKeyPath  string
+	Hostname         string
+	SSHHost          string
+	SSHPort          int
+	SSHUsername      string
+	SSHKeyPath       string // Will be set to temp file path after decryption
+	EncryptedKeyData string // Encrypted private key from database
 }
 
 func fetchServers(serverIDs []string) ([]ServerInfo, error) {
 	query := `
-		SELECT hostname, ssh_host, ssh_port, ssh_username
-		FROM admiral.servers
-		WHERE id = ANY($1)
+		SELECT
+			COALESCE(NULLIF(s.hostname, ''), s.name) as hostname,
+			s.ssh_host,
+			s.ssh_port,
+			s.ssh_username,
+			pk.private_key_content
+		FROM admiral.servers s
+		LEFT JOIN admiral.server_private_keys spk ON s.id = spk.server_id AND spk.is_primary = true
+		LEFT JOIN admiral.private_keys pk ON spk.private_key_id = pk.id
+		WHERE s.id = ANY($1)
 	`
 
-	// Convert string UUIDs to proper format for PostgreSQL
-	rows, err := db.Query(query, serverIDs)
+	// Convert Go string slice to PostgreSQL array using pq.Array
+	rows, err := db.Query(query, pq.Array(serverIDs))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query servers: %w", err)
 	}
@@ -289,8 +383,12 @@ func fetchServers(serverIDs []string) ([]ServerInfo, error) {
 	var servers []ServerInfo
 	for rows.Next() {
 		var s ServerInfo
-		if err := rows.Scan(&s.Hostname, &s.SSHHost, &s.SSHPort, &s.SSHUsername); err != nil {
+		var encryptedKey *string // Nullable
+		if err := rows.Scan(&s.Hostname, &s.SSHHost, &s.SSHPort, &s.SSHUsername, &encryptedKey); err != nil {
 			return nil, fmt.Errorf("failed to scan server: %w", err)
+		}
+		if encryptedKey != nil {
+			s.EncryptedKeyData = *encryptedKey
 		}
 		servers = append(servers, s)
 	}
