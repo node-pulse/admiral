@@ -15,8 +15,7 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Expose no ports (background worker)
-EXPOSE
+# No ports exposed (background worker)
 
 # Run with Air for live reload
 CMD ["air", "-c", ".air.deployer.toml"]
