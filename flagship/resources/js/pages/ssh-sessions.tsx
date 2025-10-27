@@ -1,3 +1,4 @@
+import { ServerSelector } from '@/components/servers/server-selector';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +19,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { ServerSelector } from '@/components/servers/server-selector';
 import {
     Table,
     TableBody,
@@ -308,7 +308,7 @@ export default function SshSessions() {
 
                 {/* Filters */}
                 <Card>
-                    <CardContent>
+                    <CardHeader>
                         <div className="flex flex-col gap-4 md:flex-row">
                             <div className="flex-1">
                                 <Label>Search</Label>
@@ -369,15 +369,9 @@ export default function SshSessions() {
                                 </Select>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
-
-                {/* Sessions Table */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Session History</CardTitle>
                     </CardHeader>
                     <CardContent>
+                        {/* Sessions Table */}
                         {loading ? (
                             <div className="flex items-center justify-center py-8">
                                 <div className="text-muted-foreground">
