@@ -32,7 +32,7 @@ export function QuickConnectBar({ className }: QuickConnectBarProps) {
     const [servers, setServers] = useState<ServerData[]>([]);
     const [filteredServers, setFilteredServers] = useState<ServerData[]>([]);
     const [loading, setLoading] = useState(false);
-    const [recentServers, setRecentServers] = useState<ServerData[]>([]);
+
     const [addServerOpen, setAddServerOpen] = useState(false);
 
     // Fetch servers when search opens
@@ -88,8 +88,6 @@ export function QuickConnectBar({ className }: QuickConnectBarProps) {
                 }
             });
         }
-
-        setRecentServers(Array.from(recentMap.values()).slice(0, 5));
     }, [sessions, servers]);
 
     const fetchServers = async () => {
@@ -138,9 +136,6 @@ export function QuickConnectBar({ className }: QuickConnectBarProps) {
                 className,
             )}
         >
-            {/* Separator */}
-            {recentServers.length > 0 && <div className="h-4 w-px bg-border" />}
-
             {/* Search and Connect */}
             <Popover open={searchOpen} onOpenChange={setSearchOpen}>
                 <PopoverTrigger asChild>
