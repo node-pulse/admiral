@@ -10,6 +10,9 @@ class Deployment extends Model
 {
     protected $table = 'admiral.deployments';
 
+    public $incrementing = false;
+    protected $keyType = 'string';
+
     protected $fillable = [
         'name',
         'description',
@@ -36,6 +39,17 @@ class Deployment extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->id)) {
+                $model->id = \Illuminate\Support\Str::uuid()->toString();
+            }
+        });
+    }
 
     public function servers(): BelongsToMany
     {
