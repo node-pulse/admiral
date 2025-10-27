@@ -194,18 +194,21 @@ export default function PrivateKeys() {
         if (!keyToManage || !selectedServerId) return;
 
         try {
-            const response = await fetch(`/dashboard/servers/${selectedServerId}/keys`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
+            const response = await fetch(
+                `/dashboard/servers/${selectedServerId}/keys`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: JSON.stringify({
+                        private_key_id: keyToManage.id,
+                        is_primary: true,
+                        purpose: 'default',
+                    }),
                 },
-                body: JSON.stringify({
-                    private_key_id: keyToManage.id,
-                    is_primary: true,
-                    purpose: 'default',
-                }),
-            });
+            );
 
             if (response.ok) {
                 setSelectedServerId('');
@@ -311,12 +314,15 @@ export default function PrivateKeys() {
         if (!selectedKey) return;
 
         try {
-            const response = await fetch(`/dashboard/ssh-keys/${selectedKey.id}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
+            const response = await fetch(
+                `/dashboard/ssh-keys/${selectedKey.id}`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
                 },
-            });
+            );
 
             if (response.ok) {
                 const keyName = selectedKey.name;
@@ -695,7 +701,7 @@ export default function PrivateKeys() {
                 open={viewServersDialogOpen}
                 onOpenChange={setViewServersDialogOpen}
             >
-                <DialogContent className="!max-w-5xl">
+                <DialogContent className="max-w-5xl!">
                     <DialogHeader>
                         <DialogTitle>
                             Servers Using "{keyToManage?.name}"

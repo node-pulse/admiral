@@ -170,6 +170,8 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
+    prompt_config "VALKEY_HOST" "valkey" "Valkey hostname (Docker service name)"
+    prompt_config "VALKEY_PORT" "6379" "Valkey port"
     prompt_config "VALKEY_PASSWORD" "$(generate_secret)" "Valkey password (auto-generated)" "true"
 
     echo ""
@@ -182,27 +184,22 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    # Database connection (mirrors PostgreSQL settings)
-    CONFIG["DB_HOST"]="postgres"
-    CONFIG["DB_PORT"]="5432"
+    # Database connection
+    prompt_config "DB_HOST" "postgres" "Database hostname (Docker service name)"
+    prompt_config "DB_PORT" "5432" "Database port"
+    prompt_config "DB_SSLMODE" "disable" "Database SSL mode (disable/require/verify-full)"
+
+    # These reference PostgreSQL values
     CONFIG["DB_USER"]="${CONFIG[POSTGRES_USER]}"
     CONFIG["DB_PASSWORD"]="${CONFIG[POSTGRES_PASSWORD]}"
     CONFIG["DB_NAME"]="${CONFIG[POSTGRES_DB]}"
-    CONFIG["DB_SSLMODE"]="disable"
 
-    echo -e "${CYAN}Database connection settings auto-configured from PostgreSQL${NC}"
-    echo ""
-
-    # Valkey connection
-    CONFIG["VALKEY_HOST"]="valkey"
-    CONFIG["VALKEY_PORT"]="6379"
-
-    echo -e "${CYAN}Valkey connection settings auto-configured${NC}"
+    echo -e "${CYAN}DB_USER, DB_PASSWORD, DB_NAME auto-set from PostgreSQL config${NC}"
     echo ""
 
     # Server settings
     prompt_config "PORT" "8080" "Submarines API port"
-    prompt_config "INGEST_PORT" "8080" "Ingest service port"
+    prompt_config "INGEST_PORT" "${CONFIG[PORT]}" "Ingest service port (typically same as PORT)"
     prompt_config "STATUS_PORT" "8082" "Status service port"
     prompt_config "GIN_MODE" "release" "Gin mode (debug/release)"
 
@@ -311,31 +308,34 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     echo ""
 
-    # Database (uses backend schema shared with Submarines)
-    CONFIG["DB_CONNECTION"]="pgsql"
+    # Database connection
+    prompt_config "DB_CONNECTION" "pgsql" "Database driver (pgsql/mysql/sqlite)"
+
+    # These reference PostgreSQL values
     CONFIG["DB_DATABASE"]="${CONFIG[POSTGRES_DB]}"
     CONFIG["DB_USERNAME"]="${CONFIG[POSTGRES_USER]}"
 
-    echo -e "${CYAN}Database connection auto-configured from PostgreSQL${NC}"
+    echo -e "${CYAN}DB_DATABASE and DB_USERNAME auto-set from PostgreSQL config${NC}"
     echo ""
 
-    # Sessions & Cache (Valkey/Redis)
-    CONFIG["SESSION_DRIVER"]="redis"
-    CONFIG["SESSION_LIFETIME"]="120"
-    CONFIG["CACHE_STORE"]="redis"
-    CONFIG["QUEUE_CONNECTION"]="redis"
-    CONFIG["REDIS_CLIENT"]="phpredis"
-    CONFIG["REDIS_HOST"]="valkey"
-    CONFIG["REDIS_PORT"]="6379"
+    # Sessions & Cache
+    prompt_config "SESSION_DRIVER" "redis" "Session driver (redis/file/database)"
+    prompt_config "SESSION_LIFETIME" "120" "Session lifetime in minutes"
+    prompt_config "CACHE_STORE" "redis" "Cache store (redis/file/database)"
+    prompt_config "QUEUE_CONNECTION" "redis" "Queue driver (redis/sync/database)"
+    prompt_config "REDIS_CLIENT" "phpredis" "Redis client (phpredis/predis)"
+
+    # These reference Valkey values
+    CONFIG["REDIS_HOST"]="${CONFIG[VALKEY_HOST]}"
+    CONFIG["REDIS_PORT"]="${CONFIG[VALKEY_PORT]}"
     CONFIG["REDIS_PASSWORD"]="${CONFIG[VALKEY_PASSWORD]}"
 
-    echo -e "${CYAN}Redis/Valkey session and cache settings auto-configured${NC}"
+    echo -e "${CYAN}REDIS_HOST, REDIS_PORT, REDIS_PASSWORD auto-set from Valkey config${NC}"
     echo ""
 
     # Submarines API endpoint
-    CONFIG["SUBMARINES_API_URL"]="http://submarines-ingest:8080"
+    prompt_config "SUBMARINES_API_URL" "http://submarines-ingest:8080" "Submarines API endpoint for server-side calls"
 
-    echo -e "${CYAN}Submarines API endpoint auto-configured${NC}"
     echo ""
 
     # Mail
@@ -591,36 +591,34 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     cat > "$ENV_FILE" << EOF
 # =============================================================================
-# PostgreSQL Configuration
+# PostgreSQL Configuration (Source of Truth)
 # =============================================================================
 POSTGRES_USER=${CONFIG[POSTGRES_USER]}
 POSTGRES_PASSWORD=${CONFIG[POSTGRES_PASSWORD]}
 POSTGRES_DB=${CONFIG[POSTGRES_DB]}
 
 # =============================================================================
-# Valkey/Redis Configuration
+# Valkey/Redis Configuration (Source of Truth)
 # =============================================================================
+VALKEY_HOST=${CONFIG[VALKEY_HOST]}
+VALKEY_PORT=${CONFIG[VALKEY_PORT]}
 VALKEY_PASSWORD=${CONFIG[VALKEY_PASSWORD]}
 
 # =============================================================================
 # Submarines Configuration (Go-Gin Backend)
 # =============================================================================
 
-# Database connection
+# Database connection (references PostgreSQL config)
 DB_HOST=${CONFIG[DB_HOST]}
 DB_PORT=${CONFIG[DB_PORT]}
-DB_USER=${CONFIG[DB_USER]}
-DB_PASSWORD=${CONFIG[DB_PASSWORD]}
-DB_NAME=${CONFIG[DB_NAME]}
+DB_USER=\${POSTGRES_USER}
+DB_PASSWORD=\${POSTGRES_PASSWORD}
+DB_NAME=\${POSTGRES_DB}
 DB_SSLMODE=${CONFIG[DB_SSLMODE]}
-
-# Valkey connection
-VALKEY_HOST=${CONFIG[VALKEY_HOST]}
-VALKEY_PORT=${CONFIG[VALKEY_PORT]}
 
 # Server settings
 PORT=${CONFIG[PORT]}
-INGEST_PORT=${CONFIG[INGEST_PORT]}
+INGEST_PORT=\${PORT}
 STATUS_PORT=${CONFIG[STATUS_PORT]}
 GIN_MODE=${CONFIG[GIN_MODE]}
 
@@ -651,21 +649,21 @@ LOG_STACK=${CONFIG[LOG_STACK]}
 LOG_DEPRECATIONS_CHANNEL=${CONFIG[LOG_DEPRECATIONS_CHANNEL]}
 LOG_LEVEL=${CONFIG[LOG_LEVEL]}
 
-# Database (uses 'backend' schema shared with Submarines)
+# Database (references PostgreSQL config)
 DB_CONNECTION=${CONFIG[DB_CONNECTION]}
-DB_DATABASE=${CONFIG[DB_DATABASE]}
-DB_USERNAME=${CONFIG[DB_USERNAME]}
+DB_DATABASE=\${POSTGRES_DB}
+DB_USERNAME=\${POSTGRES_USER}
 # DB_HOST, DB_PORT, DB_PASSWORD, DB_SSLMODE - uses values from Submarines section above
 
-# Sessions & Cache (Valkey/Redis)
+# Sessions & Cache (references Valkey config)
 SESSION_DRIVER=${CONFIG[SESSION_DRIVER]}
 SESSION_LIFETIME=${CONFIG[SESSION_LIFETIME]}
 CACHE_STORE=${CONFIG[CACHE_STORE]}
 QUEUE_CONNECTION=${CONFIG[QUEUE_CONNECTION]}
 REDIS_CLIENT=${CONFIG[REDIS_CLIENT]}
-REDIS_HOST=${CONFIG[REDIS_HOST]}
-REDIS_PORT=${CONFIG[REDIS_PORT]}
-REDIS_PASSWORD=${CONFIG[REDIS_PASSWORD]}
+REDIS_HOST=\${VALKEY_HOST}
+REDIS_PORT=\${VALKEY_PORT}
+REDIS_PASSWORD=\${VALKEY_PASSWORD}
 
 # Submarines API endpoint (server-side calls)
 SUBMARINES_API_URL=${CONFIG[SUBMARINES_API_URL]}
