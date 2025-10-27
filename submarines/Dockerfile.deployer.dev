@@ -1,0 +1,22 @@
+FROM golang:1.24-alpine AS base
+
+# Install Air for live reload + Ansible + OpenSSH
+RUN apk add --no-cache git ansible openssh-client
+
+# Install Air
+RUN go install github.com/air-verse/air@latest
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Expose no ports (background worker)
+EXPOSE
+
+# Run with Air for live reload
+CMD ["air", "-c", ".air.deployer.toml"]

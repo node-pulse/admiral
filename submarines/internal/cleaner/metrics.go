@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/nodepulse/dashboard/backend/internal/models"
+	"github.com/nodepulse/admiral/submarines/internal/models"
 )
 
 // CleanOldMetrics removes metrics older than retention policy

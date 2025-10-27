@@ -1,4 +1,4 @@
-module github.com/nodepulse/dashboard/backend
+module github.com/nodepulse/admiral/submarines
 
 go 1.23
 

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\DeployAgentJob;
 use App\Models\Deployment;
 use App\Models\Server;
+use App\Services\DeploymentQueue;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -139,7 +139,7 @@ class DeploymentsController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'playbook' => 'required|string|in:deploy-agent.yml,update-agent.yml,remove-agent.yml,rollback-agent.yml',
+            'playbook' => 'required|string|in:deploy-agent.yml,update-agent.yml,uninstall-agent.yml,rollback-agent.yml',
             'server_ids' => 'required|array|min:1',
             'server_ids.*' => 'required|uuid|exists:admiral.servers,id',
             'variables' => 'nullable|array',
@@ -163,15 +163,20 @@ class DeploymentsController extends Controller
             'agent_version' => $validated['variables']['agent_version'] ?? 'latest',
         ]);
 
-        // Dispatch job
-        DeployAgentJob::dispatch(
+        // Publish to Valkey stream for Submarines deployer to consume
+        $messageId = DeploymentQueue::publish(
             $deployment,
             $validated['server_ids'],
             $extraVars
         );
 
+        \Log::info('Deployment published to stream', [
+            'deployment_id' => $deployment->id,
+            'message_id' => $messageId,
+        ]);
+
         return response()->json([
-            'message' => 'Deployment job queued successfully',
+            'message' => 'Deployment queued successfully',
             'deployment' => [
                 'id' => $deployment->id,
                 'name' => $deployment->name,

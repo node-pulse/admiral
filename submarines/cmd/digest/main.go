@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/nodepulse/dashboard/backend/internal/cleaner"
-	"github.com/nodepulse/dashboard/backend/internal/config"
-	"github.com/nodepulse/dashboard/backend/internal/database"
-	"github.com/nodepulse/dashboard/backend/internal/handlers"
-	"github.com/nodepulse/dashboard/backend/internal/models"
-	"github.com/nodepulse/dashboard/backend/internal/valkey"
+	"github.com/nodepulse/admiral/submarines/internal/cleaner"
+	"github.com/nodepulse/admiral/submarines/internal/config"
+	"github.com/nodepulse/admiral/submarines/internal/database"
+	"github.com/nodepulse/admiral/submarines/internal/handlers"
+	"github.com/nodepulse/admiral/submarines/internal/models"
+	"github.com/nodepulse/admiral/submarines/internal/valkey"
 )
 
 const (

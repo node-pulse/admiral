@@ -115,6 +115,30 @@ services:
     networks:
       - node-pulse-admiral
 
+  # Go Submarines Deployer - Ansible deployment worker (Valkey Stream -> Ansible)
+  submarines-deployer:
+    build:
+      context: ./submarines
+      dockerfile: Dockerfile.deployer.dev
+    container_name: node-pulse-submarines-deployer
+    env_file:
+      - .env
+    environment:
+      <<: *common-variables
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      flagship:
+        condition: service_healthy
+    volumes:
+      - ./submarines:/app
+      - ./flagship/ansible:/app/flagship/ansible:ro  # Mount Ansible playbooks
+      - ~/.ssh:/root/.ssh:ro  # Mount SSH keys for Ansible
+    networks:
+      - node-pulse-admiral
+
   # Go Submarines Status - Public status pages and badges (read-only)
   submarines-status:
     build:

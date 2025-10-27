@@ -9,12 +9,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/nodepulse/dashboard/backend/internal/database"
-	"github.com/nodepulse/dashboard/backend/internal/models"
-	"github.com/nodepulse/dashboard/backend/internal/valkey"
+	"github.com/nodepulse/admiral/submarines/internal/database"
+	"github.com/nodepulse/admiral/submarines/internal/models"
+	"github.com/nodepulse/admiral/submarines/internal/valkey"
 )
 
-const MetricsStreamKey = "nodepulse:metrics:stream"
+const (
+	MetricsStreamKey = "nodepulse:metrics:stream"
+	MaxStreamBacklog = 10000 // Reject new metrics if stream has more than this many pending
+	// NO MAXLEN/auto-trimming - we don't want to lose data!
+	// Messages are removed only after digest workers successfully process and ACK them
+)
 
 type MetricsHandler struct {
 	db     *database.DB
@@ -55,8 +60,18 @@ func (h *MetricsHandler) IngestMetrics(c *gin.Context) {
 		return
 	}
 
-	// Process each report
+	// Check stream backpressure before accepting new metrics
 	ctx := c.Request.Context()
+	if err := h.valkey.CheckStreamBackpressure(ctx, MetricsStreamKey, MaxStreamBacklog); err != nil {
+		log.Printf("[BACKPRESSURE] %v", err)
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "metrics ingestion temporarily unavailable",
+			"detail": "system is processing backlog, please retry in a few moments",
+		})
+		return
+	}
+
+	// Process each report
 	successCount := 0
 
 	for _, report := range reports {

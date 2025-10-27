@@ -256,8 +256,8 @@ export default function CreateDeployment() {
                                             <SelectItem value="update-agent.yml">
                                                 Update Agent
                                             </SelectItem>
-                                            <SelectItem value="remove-agent.yml">
-                                                Remove Agent
+                                            <SelectItem value="uninstall-agent.yml">
+                                                Uninstall Agent
                                             </SelectItem>
                                             <SelectItem value="rollback-agent.yml">
                                                 Rollback Agent

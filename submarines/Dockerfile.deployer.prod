@@ -1,0 +1,58 @@
+# Multi-stage build for production deployer
+
+# Stage 1: Build
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the deployer binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o deployer \
+    ./cmd/deployer
+
+# Stage 2: Runtime
+FROM alpine:3.19
+
+# Install runtime dependencies: Ansible + OpenSSH client
+RUN apk add --no-cache \
+    ansible \
+    openssh-client \
+    ca-certificates \
+    tzdata
+
+# Create non-root user (but we'll run as root for Ansible/SSH)
+RUN addgroup -g 1000 deployer && \
+    adduser -D -u 1000 -G deployer deployer
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /build/deployer /app/deployer
+
+# Create directories for SSH keys and Ansible playbooks
+RUN mkdir -p /root/.ssh && \
+    chmod 700 /root/.ssh
+
+# Set ownership
+RUN chown -R deployer:deployer /app
+
+# Health check (check if process is running)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD pgrep -x deployer || exit 1
+
+# Run as root (needed for Ansible SSH operations)
+USER root
+
+# Run the deployer
+CMD ["/app/deployer"]

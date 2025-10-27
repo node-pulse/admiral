@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/nodepulse/dashboard/backend/internal/config"
-	"github.com/nodepulse/dashboard/backend/internal/database"
+	"github.com/nodepulse/admiral/submarines/internal/config"
+	"github.com/nodepulse/admiral/submarines/internal/database"
 )
 
 func main() {

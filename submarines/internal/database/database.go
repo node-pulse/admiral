@@ -6,7 +6,7 @@ import (
 	"log"
 
 	_ "github.com/lib/pq"
-	"github.com/nodepulse/dashboard/backend/internal/config"
+	"github.com/nodepulse/admiral/submarines/internal/config"
 )
 
 type DB struct {

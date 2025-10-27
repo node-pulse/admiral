@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/nodepulse/dashboard/backend/internal/config"
+	"github.com/nodepulse/admiral/submarines/internal/config"
 	"github.com/valkey-io/valkey-go"
 )
 
@@ -61,8 +61,11 @@ func (c *Client) Close() {
 	c.client.Close()
 }
 
-// XAdd publishes a message to a Redis/Valkey Stream
+// XAdd publishes a message to a Redis/Valkey Stream (NO auto-trimming to prevent data loss)
 func (c *Client) XAdd(ctx context.Context, stream string, values map[string]string) (string, error) {
+	// Build XADD command WITHOUT MAXLEN - we don't want to lose data
+	// Backpressure protection happens at application level (reject when stream too long)
+	// Messages are removed only after digest workers ACK them
 	cmd := c.client.B().Xadd().Key(stream).Id("*").FieldValue()
 	for k, v := range values {
 		cmd = cmd.FieldValue(k, v)
@@ -73,6 +76,30 @@ func (c *Client) XAdd(ctx context.Context, stream string, values map[string]stri
 		return "", fmt.Errorf("failed to add to stream %s: %w", stream, err)
 	}
 	return result.ToString()
+}
+
+// XLen returns the number of entries in a stream
+func (c *Client) XLen(ctx context.Context, stream string) (int64, error) {
+	cmd := c.client.B().Xlen().Key(stream).Build()
+	result := c.client.Do(ctx, cmd)
+	if err := result.Error(); err != nil {
+		return 0, fmt.Errorf("failed to get stream length: %w", err)
+	}
+	return result.AsInt64()
+}
+
+// CheckStreamBackpressure checks if stream is above threshold and returns error if so
+func (c *Client) CheckStreamBackpressure(ctx context.Context, stream string, maxLen int64) error {
+	length, err := c.XLen(ctx, stream)
+	if err != nil {
+		return fmt.Errorf("failed to check stream backpressure: %w", err)
+	}
+
+	if length > maxLen {
+		return fmt.Errorf("stream %s is overloaded: %d messages (max: %d) - digest workers may be falling behind", stream, length, maxLen)
+	}
+
+	return nil
 }
 
 // XReadGroup reads messages from a Redis/Valkey Stream using a consumer group

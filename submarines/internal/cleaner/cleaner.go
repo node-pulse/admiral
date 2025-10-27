@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/nodepulse/dashboard/backend/internal/config"
+	"github.com/nodepulse/admiral/submarines/internal/config"
 )
 
 // Cleaner orchestrates all data cleanup jobs
