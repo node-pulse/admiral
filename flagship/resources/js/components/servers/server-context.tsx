@@ -101,8 +101,8 @@ export function ServerProvider({ children }: ServerProviderProps) {
         setPrivateKeysLoading(true);
         try {
             const response = await fetch('/dashboard/ssh-keys/list');
-            const data = await response.json();
-            setPrivateKeys(data.keys || []);
+            const json = await response.json();
+            setPrivateKeys(json.private_keys?.data || []);
         } catch (error) {
             console.error('Failed to fetch private keys:', error);
             setPrivateKeys([]);

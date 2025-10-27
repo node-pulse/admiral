@@ -218,6 +218,9 @@ class ServersController extends Controller
         // Generate a unique server_id
         $validated['server_id'] = \Illuminate\Support\Str::uuid()->toString();
 
+        // Set default hostname to empty string if null
+        $validated['hostname'] ??= '';
+
         // Set default SSH port if not provided
         if (!isset($validated['ssh_port'])) {
             $validated['ssh_port'] = 22;
