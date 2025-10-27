@@ -96,6 +96,4 @@ else
     exit 1
 fi
 
-echo ""
-echo -e "${YELLOW}⚠️  Note: Please change your password after first login${NC}"
-echo ""
+ 
