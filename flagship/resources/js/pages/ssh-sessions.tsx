@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { ServerSelector } from '@/components/servers/server-selector';
 import {
     Table,
     TableBody,
@@ -102,6 +103,7 @@ export default function SshSessions() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [serverFilter, setServerFilter] = useState<string[]>([]);
     const [page, setPage] = useState(1);
     const [totalSessions, setTotalSessions] = useState(0);
     const [lastPage, setLastPage] = useState(1);
@@ -128,6 +130,12 @@ export default function SshSessions() {
                 params.append('status', statusFilter);
             }
 
+            if (serverFilter.length > 0) {
+                serverFilter.forEach((serverId) => {
+                    params.append('server_ids[]', serverId);
+                });
+            }
+
             const response = await fetch(
                 `/dashboard/ssh-sessions/list?${params.toString()}`,
             );
@@ -150,7 +158,7 @@ export default function SshSessions() {
         }, 300); // 300ms debounce for search
 
         return () => clearTimeout(timeoutId);
-    }, [page, search, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [page, search, statusFilter, serverFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleViewDetails = async (sessionId: string) => {
         try {
@@ -300,9 +308,6 @@ export default function SshSessions() {
 
                 {/* Filters */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Filters</CardTitle>
-                    </CardHeader>
                     <CardContent>
                         <div className="flex flex-col gap-4 md:flex-row">
                             <div className="flex-1">
@@ -319,6 +324,20 @@ export default function SshSessions() {
                                         className="pl-8"
                                     />
                                 </div>
+                            </div>
+
+                            <div className="w-full md:w-64">
+                                <Label>Servers</Label>
+                                <ServerSelector
+                                    selectedServers={serverFilter}
+                                    onSelectionChange={(selected) => {
+                                        setServerFilter(selected);
+                                        setPage(1);
+                                    }}
+                                    multiSelect={true}
+                                    placeholder="All servers"
+                                    endpoint="/api/dashboard/servers"
+                                />
                             </div>
 
                             <div className="w-full md:w-48">

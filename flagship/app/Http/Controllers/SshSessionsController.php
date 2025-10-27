@@ -27,9 +27,17 @@ class SshSessionsController extends Controller
             }])
             ->orderBy('started_at', 'desc');
 
-        // Filter by server
+        // Filter by server (single or multiple)
         if ($request->has('server_id')) {
             $query->where('server_id', $request->input('server_id'));
+        }
+
+        // Filter by multiple servers
+        if ($request->has('server_ids')) {
+            $serverIds = $request->input('server_ids');
+            if (is_array($serverIds) && count($serverIds) > 0) {
+                $query->whereIn('server_id', $serverIds);
+            }
         }
 
         // Filter by status

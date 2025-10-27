@@ -45,6 +45,7 @@ interface ServerSelectorProps {
     onSelectionChange: (serverIds: string[]) => void;
     multiSelect?: boolean;
     placeholder?: string;
+    endpoint?: string;
 }
 
 export function ServerSelector({
@@ -52,6 +53,7 @@ export function ServerSelector({
     onSelectionChange,
     multiSelect = false,
     placeholder = 'Select server...',
+    endpoint = '/api/dashboard/servers-with-metrics',
 }: ServerSelectorProps) {
     const [open, setOpen] = useState(false);
     const [servers, setServers] = useState<Server[]>([]);
@@ -68,10 +70,7 @@ export function ServerSelector({
                 }
                 params.append('limit', '100');
 
-                // Use servers-with-metrics endpoint to only show servers that have data
-                const response = await fetch(
-                    `/api/dashboard/servers-with-metrics?${params}`,
-                );
+                const response = await fetch(`${endpoint}?${params}`);
                 const data = await response.json();
                 setServers(data.servers);
             } catch (error) {
@@ -82,7 +81,7 @@ export function ServerSelector({
         };
 
         fetchServers();
-    }, [searchQuery]);
+    }, [searchQuery, endpoint]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleSelect = (serverId: string) => {
         if (multiSelect) {
