@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -159,6 +160,14 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 		return err
 	}
 
+	// Update server's last_seen_at timestamp to mark it as online
+	// This allows the dashboard to show the server as "Online" when metrics are flowing
+	if err := updateServerLastSeen(tx, serverID); err != nil {
+		log.Printf("[WARN] Failed to update last_seen_at for server %s: %v", serverID, err)
+		// Don't fail the entire transaction if this update fails
+		// Metrics are more important than the online status
+	}
+
 	// Commit transaction
 	return tx.Commit()
 }
@@ -233,6 +242,32 @@ func insertPrometheusMetrics(tx *sql.Tx, serverID string, metrics []*parsers.Pro
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// updateServerLastSeen updates the server's last_seen_at timestamp
+// This is used to determine if a server is "online" in the dashboard
+func updateServerLastSeen(tx *sql.Tx, serverID string) error {
+	query := `
+		UPDATE admiral.servers
+		SET last_seen_at = NOW(), updated_at = NOW()
+		WHERE server_id = $1
+	`
+
+	result, err := tx.Exec(query, serverID)
+	if err != nil {
+		return fmt.Errorf("failed to update last_seen_at: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		log.Printf("[WARN] Server %s not found in database, last_seen_at not updated", serverID)
 	}
 
 	return nil

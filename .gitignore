@@ -36,3 +36,10 @@ tmp/
 # Air hot reload
 submarines/tmp/
 flagship/tmp/
+
+# Go binaries (compiled executables)
+submarines/deployer
+submarines/digest
+submarines/ingest
+submarines/sshws
+submarines/status

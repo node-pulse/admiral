@@ -21,6 +21,7 @@
   - **Created `upgrade-agent.yml`**: Comprehensive agent upgrade playbook with backup/rollback
 
 - [x] **Prometheus Integration (2025-10-27 to 2025-10-28)**:
+
   - Database schema redesigned with Prometheus-native `metric_samples` table
   - node_exporter Ansible role created and deployed
   - Node Pulse Agent refactored to scrape Prometheus exporters
@@ -30,6 +31,7 @@
   - Documentation updated (README.md, CLAUDE.md)
 
 - [x] **Deployment System (2025-10-28)**:
+
   - ✅ **MAJOR FIX**: Fixed `deployment_servers` status parsing issue
   - Implemented JSON extraction from Ansible mixed output (handles profile_tasks/timer callbacks)
   - Root cause: `profile_tasks`/`timer` callbacks were mixing timing output with JSON
@@ -38,6 +40,15 @@
   - `changed` field accurately reflects whether Ansible made changes
   - Deployer service running in development environment with Air hot-reload
   - Deployment tracking now fully functional end-to-end
+  - ✅ Added deployer service to production `compose.yml`
+
+- [x] **Server Online Status Fix (2025-10-28)**:
+  - ✅ **MAJOR FIX**: Fixed servers showing "Offline" despite metrics flowing
+  - Root cause: `last_seen_at` field was never updated when metrics arrived
+  - Solution: Added `updateServerLastSeen()` in digest worker (submarines/cmd/digest/main.go:249-273)
+  - Now updates `servers.last_seen_at` to NOW() when processing metrics
+  - Dashboard correctly shows servers as "Online" when metrics are flowing (within 5 minutes)
+  - Non-destructive: Won't fail metric insertion if `last_seen_at` update fails
 
 ### 🚧 Known Issues to Fix (Section 3)
 
@@ -288,6 +299,8 @@ Based on `docs/prometheus-integration-plan.md`, the following items are still in
 - [x] ✅ **Deployment System Fixed** - Server status tracking now working correctly
 - [x] ✅ **upgrade-agent.yml** - Created and tested successfully
 - [x] ✅ **Prometheus Pipeline** - End-to-end metrics flow working (node_exporter → agent → submarines → database)
+- [x] ✅ **Server Online Status Fixed** - Servers now show "Online" when metrics are flowing
+- [x] ✅ **Production Compose** - Added deployer service to production compose.yml
 
 ### Upcoming Priorities
 
