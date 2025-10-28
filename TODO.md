@@ -163,7 +163,7 @@ flagship:
 ## 3. Playbook Testing & Validation
 
 - [ ] Test all existing playbooks in `flagship/ansible/playbooks/`
-  - [ ] deploy-agent.yml - needs testing
+  - [x] deploy-agent.yml - needs testing
   - [ ] retry-failed.yml - needs testing
   - [ ] rollback-agent.yml - needs testing
   - [ ] uninstall-agent.yml - partially tested
