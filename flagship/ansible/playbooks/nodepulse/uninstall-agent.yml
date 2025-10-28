@@ -1,6 +1,6 @@
 ---
 #
-# NodePulse Agent v2.0 - Complete Uninstall Playbook
+# NodePulse Agent - Complete Uninstall Playbook
 #
 # This playbook completely removes the NodePulse agent from target servers.
 # It stops the service, removes all files, and cleans up systemd units.
@@ -20,7 +20,7 @@
 #   - keep_buffer: Preserve buffered metrics (default: false)
 #
 
-- name: Uninstall NodePulse Agent v2.0
+- name: Uninstall NodePulse Agent
   hosts: all
   become: true
   gather_facts: false
@@ -47,7 +47,7 @@
     - name: Display uninstallation mode
       ansible.builtin.debug:
         msg: |
-          Uninstalling NodePulse Agent v2.0 from {{ inventory_hostname }}
+          Uninstalling NodePulse Agent from {{ inventory_hostname }}
           Binary location: {{ agent_install_dir }}/nodepulse
           Keep config: {{ keep_config }}
           Keep logs: {{ keep_logs }}
@@ -147,7 +147,7 @@
     - name: Display completion message
       ansible.builtin.debug:
         msg: |
-          ✓ NodePulse agent v2.0 successfully uninstalled from {{ inventory_hostname }}
+          ✓ NodePulse agent successfully uninstalled from {{ inventory_hostname }}
           {% if keep_config %}  Configuration preserved in {{ agent_config_dir }}{% endif %}
           {% if keep_logs %}  Logs preserved in {{ agent_log_dir }}{% endif %}
           {% if keep_buffer %}  Buffered metrics preserved in {{ agent_data_dir }}/buffer{% endif %}

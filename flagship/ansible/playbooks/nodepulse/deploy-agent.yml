@@ -21,7 +21,7 @@
     # Dashboard endpoint - passed from Laravel job via extra vars
     dashboard_endpoint: "{{ dashboard_endpoint }}"
 
-    # Agent behavior (v2.0 defaults)
+    # Agent behavior (defaults)
     agent_interval: "{{ agent_interval | default('15s') }}"
     agent_timeout: "{{ agent_timeout | default('5s') }}"
 

@@ -5,16 +5,26 @@
   gather_facts: yes
 
   vars:
+    # Agent version (GitHub release tag)
     agent_version: "{{ agent_version | default('latest') }}"
-    agent_download_base_url: "{{ lookup('env', 'AGENT_DOWNLOAD_BASE_URL') }}"
-    agent_download_url: "{{ agent_download_base_url }}/{{ agent_version }}"
+
+    # GitHub repository configuration
+    agent_github_owner: "node-pulse"
+    agent_github_repo: "agent"
+
+    # Installation paths
     agent_install_dir: "/opt/nodepulse"
     agent_config_dir: "/etc/nodepulse"
     agent_data_dir: "/var/lib/nodepulse"
     agent_log_dir: "/var/log/nodepulse"
+
+    # Dashboard endpoint - passed from Laravel job via extra vars
     dashboard_endpoint: "{{ dashboard_endpoint }}"
-    agent_interval: "{{ agent_interval | default('5s') }}"
-    agent_timeout: "{{ agent_timeout | default('3s') }}"
+
+    # Agent behavior (defaults)
+    agent_interval: "{{ agent_interval | default('15s') }}"
+    agent_timeout: "{{ agent_timeout | default('5s') }}"
+
     # Increase retries for failed servers
     max_retries: 5
     retry_delay: 10
