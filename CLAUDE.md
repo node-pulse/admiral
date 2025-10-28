@@ -85,15 +85,62 @@ PostgreSQL has 1 main schema:
 
 1. **`admiral`** - Application data (shared by Submarines and Flagship)
    - `servers` - Agent/server registry
-   - `metrics` - Time-series metrics data
+   - `metric_samples` - **Prometheus-native time-series metrics** (JSONB labels, unlimited metrics)
    - `alerts` - Alert records
    - `alert_rules` - Alert configurations
    - `users` - User accounts (Laravel Fortify authentication)
    - `sessions` - User sessions
+   - `ssh_sessions` - SSH session audit logs
+   - `private_keys` - SSH private keys for server access
 
-## Current Protocol
+## Current Protocol: Prometheus Format (Primary)
 
-The agent currently sends metrics using a **simple JSON format** (see `../agent/README.md`):
+**The system now uses Prometheus text format as the primary metric format.**
+
+Agents scrape Prometheus exporters (like `node_exporter`) and push metrics to:
+
+**Endpoint**: `POST /metrics/prometheus`
+
+Example Prometheus text format:
+```
+# HELP node_cpu_seconds_total Seconds the CPUs spent in each mode.
+# TYPE node_cpu_seconds_total counter
+node_cpu_seconds_total{cpu="0",mode="idle"} 123456.78
+node_cpu_seconds_total{cpu="0",mode="system"} 12345.67
+node_memory_MemTotal_bytes 8589934592
+node_memory_MemAvailable_bytes 4294967296
+```
+
+### Database Schema (Prometheus-First)
+
+The `metric_samples` table stores Prometheus metrics natively:
+
+```sql
+CREATE TABLE admiral.metric_samples (
+    id BIGSERIAL PRIMARY KEY,
+    server_id TEXT NOT NULL,
+    metric_name TEXT NOT NULL,        -- e.g., "node_cpu_seconds_total"
+    metric_type TEXT NOT NULL,        -- counter, gauge, histogram, summary
+    labels JSONB DEFAULT '{}'::jsonb, -- e.g., {"cpu": "0", "mode": "idle"}
+    value DOUBLE PRECISION NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+    help_text TEXT,
+    unit TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Key Features:**
+- Native JSONB label support for multi-dimensional metrics
+- Works with ANY Prometheus exporter (node, postgres, redis, etc.)
+- Dashboard queries directly from `metric_samples` table
+- No views needed - flexibility at query time
+
+### Legacy JSON Protocol (Deprecated)
+
+The old JSON format is deprecated but may still be supported:
+
+**Endpoint**: `POST /metrics` (legacy)
 
 ```json
 {
@@ -107,8 +154,6 @@ The agent currently sends metrics using a **simple JSON format** (see `../agent/
   "uptime": {...}
 }
 ```
-
-**Endpoint**: `POST /metrics`
 
 ## Future Protocol: NPI v1
 
@@ -248,25 +293,62 @@ php artisan pail               # View logs
 
 ## Agent Integration
 
-Agents send metrics to: `http://dashboard-host/metrics`
+### Current: Prometheus Exporters + Agent
 
-Configure agent (`/etc/node-pulse/nodepulse.yml`):
+The recommended deployment model:
+
+1. **node_exporter** runs on target server (port 9100, localhost only)
+2. **Node Pulse Agent** (refactored) scrapes node_exporter and pushes to Submarines
+3. Agent buffers metrics locally (WAL) for reliability
+
+Configure agent (`/etc/nodepulse/nodepulse.yml`):
 
 ```yaml
-server:
-  endpoint: "http://your-dashboard/metrics"
-  timeout: 3s
+# Prometheus scraper configuration
+scrapers:
+  prometheus:
+    enabled: true
+    endpoints:
+      - url: "http://127.0.0.1:9100/metrics"
+        name: "node_exporter"
+        interval: 15s
 
+# Server configuration
+server:
+  endpoint: "https://dashboard.example.com/metrics/prometheus"
+  format: "prometheus"  # Options: "prometheus" or "json" (legacy)
+  timeout: 10s
+
+# Agent behavior
 agent:
   server_id: "auto-generated-uuid"
-  interval: 5s
+  interval: 15s  # How often to scrape and push
+
+# Buffering (WAL)
+buffer:
+  enabled: true
+  retention_hours: 48
+  max_size_mb: 100
+```
+
+### Deployment via Ansible
+
+Use the Ansible roles to deploy both node_exporter and the agent:
+
+```bash
+# Deploy node_exporter
+ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-node-exporter.yml
+
+# Deploy Node Pulse Agent
+ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent.yml
 ```
 
 ## API Endpoints
 
-### Current (v1)
+### Current (Prometheus)
 
-- `POST /metrics` - Agent metrics ingestion
+- `POST /metrics/prometheus` - **Primary endpoint** for Prometheus text format metrics
+- `POST /metrics` - Legacy JSON format (deprecated)
 - `GET /api/servers` - List all servers
 - `GET /api/servers/:id/metrics` - Get server metrics
 - `GET /health` - Health check
