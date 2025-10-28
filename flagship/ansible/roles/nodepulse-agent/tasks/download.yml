@@ -21,15 +21,50 @@
       Please upgrade to a 64-bit operating system.
   when: agent_arch == 'unknown'
 
+- name: Get latest release tag if using 'latest'
+  uri:
+    url: "https://api.github.com/repos/{{ agent_github_owner }}/{{ agent_github_repo }}/releases/latest"
+    return_content: yes
+  register: latest_release
+  when: agent_version == 'latest'
+
+- name: Extract version from tag_name (remove 'v' prefix)
+  set_fact:
+    resolved_version: "{{ latest_release.json.tag_name | regex_replace('^v', '') }}"
+  when: agent_version == 'latest'
+
+- name: Use specified version as-is (remove 'v' prefix if present)
+  set_fact:
+    resolved_version: "{{ agent_version | regex_replace('^v', '') }}"
+  when: agent_version != 'latest'
+
 - name: Determine archive filename
   set_fact:
-    archive_filename: "nodepulse-{{ agent_version }}-linux-{{ agent_arch }}.tar.gz"
-    archive_url: "{{ agent_download_url }}/nodepulse-{{ agent_version }}-linux-{{ agent_arch }}.tar.gz"
+    archive_filename: "nodepulse-{{ resolved_version }}-linux-{{ agent_arch }}.tar.gz"
+    archive_url: "{{ agent_download_url }}/nodepulse-{{ resolved_version }}-linux-{{ agent_arch }}.tar.gz"
+
+- name: Download checksums file
+  get_url:
+    url: "{{ agent_download_url }}/checksums.txt"
+    dest: "/tmp/nodepulse-checksums.txt"
+    mode: "0644"
+    force: yes
+    timeout: 30
+  register: checksum_download
+  retries: 3
+  delay: 5
+  until: checksum_download is succeeded
+
+- name: Extract expected checksum for our archive
+  shell: "grep '{{ archive_filename }}' /tmp/nodepulse-checksums.txt | awk '{print $1}'"
+  register: expected_checksum
+  changed_when: false
 
 - name: Download Node Pulse agent archive
   get_url:
     url: "{{ archive_url }}"
     dest: "/tmp/{{ archive_filename }}"
+    checksum: "sha256:{{ expected_checksum.stdout }}"
     mode: "0644"
     force: yes
     timeout: 120
@@ -64,10 +99,13 @@
     - nodepulse.yml
   ignore_errors: yes
 
-- name: Clean up downloaded archive
+- name: Clean up downloaded archive and checksums
   file:
-    path: "/tmp/{{ archive_filename }}"
+    path: "/tmp/{{ item }}"
     state: absent
+  loop:
+    - "{{ archive_filename }}"
+    - nodepulse-checksums.txt
 
 - name: Verify binary is executable
   command: "{{ agent_install_dir }}/nodepulse --version"

@@ -19,7 +19,6 @@ import {
     Clock,
     Loader2,
     RefreshCw,
-    Server,
     XCircle,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -44,10 +43,6 @@ interface DeploymentData {
     playbook: string;
     status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
     total_servers: number;
-    successful_servers: number;
-    failed_servers: number;
-    skipped_servers: number;
-    success_rate: number;
     duration: number | null;
     started_at: string | null;
     completed_at: string | null;
@@ -380,70 +375,6 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                             Back
                         </Button>
                     </div>
-                </div>
-
-                {/* Stats */}
-                <div className="grid gap-4 md:grid-cols-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Total Servers
-                            </CardTitle>
-                            <Server className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {deployment.total_servers}
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Successful
-                            </CardTitle>
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-green-600">
-                                {deployment.successful_servers}
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Failed
-                            </CardTitle>
-                            <XCircle className="h-4 w-4 text-red-600" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-red-600">
-                                {deployment.failed_servers}
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Success Rate
-                            </CardTitle>
-                            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div
-                                className={`text-2xl font-bold ${
-                                    deployment.success_rate === 100
-                                        ? 'text-green-600'
-                                        : deployment.success_rate > 50
-                                          ? 'text-yellow-600'
-                                          : 'text-red-600'
-                                }`}
-                            >
-                                {deployment.success_rate.toFixed(1)}%
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
 
                 {/* Deployment Info */}
