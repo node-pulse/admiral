@@ -2,6 +2,39 @@
 
 A comprehensive agent fleet management dashboard for monitoring Node Pulse agents across your infrastructure.
 
+## Why Push-Based Architecture?
+
+Node Pulse uses a **push-based** approach where agents actively send metrics to the dashboard, unlike traditional pull-based systems (e.g., Prometheus) that scrape metrics from targets. This provides significant advantages:
+
+### Key Benefits
+
+1. **Firewall-Friendly**: Agents can push metrics through firewalls, NAT, and network restrictions without requiring inbound ports to be exposed. This makes it ideal for:
+   - Agents behind corporate firewalls
+   - Servers with strict security policies
+   - Cloud instances without public IPs
+   - Edge devices with dynamic IPs
+
+2. **Built-in Reliability**: Each agent has a local buffer that stores metrics when the dashboard is unreachable, ensuring:
+   - No data loss during network outages or dashboard maintenance
+   - Automatic retry with exponential backoff
+   - Up to 48 hours of buffered metrics (configurable)
+
+3. **Simplified Network Configuration**: No need to:
+   - Open inbound firewall rules on monitored servers
+   - Configure service discovery mechanisms
+   - Maintain allowlists of scraper IPs
+   - Set up VPN tunnels for monitoring access
+
+4. **Real-time Data**: Metrics arrive as soon as they're collected (5-second default interval), providing:
+   - Immediate visibility into system state
+   - Faster incident detection and response
+   - No scrape interval delays
+
+5. **Scalability**: The dashboard scales independently from the number of agents:
+   - Valkey Streams buffer incoming metrics during traffic spikes
+   - Multiple digest workers process metrics in parallel
+   - No need to manage scrape scheduling and intervals
+
 ## Architecture
 
 This project uses Docker Compose to orchestrate multiple services:
