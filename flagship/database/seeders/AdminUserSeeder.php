@@ -77,7 +77,6 @@ class AdminUserSeeder extends Seeder
             $this->command->info('✓ Admin user created successfully');
             $this->command->info("  Name:  {$user->name}");
             $this->command->info("  Email: {$user->email}");
-            $this->command->warn('⚠️  Please change your password after first login');
         } catch (\Exception $e) {
             $this->command->error('❌ Failed to create admin user: ' . $e->getMessage());
             throw $e;
