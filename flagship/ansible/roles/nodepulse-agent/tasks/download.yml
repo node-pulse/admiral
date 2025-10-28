@@ -21,23 +21,53 @@
       Please upgrade to a 64-bit operating system.
   when: agent_arch == 'unknown'
 
-- name: Determine binary URL
+- name: Determine archive filename
   set_fact:
-    binary_url: "{{ agent_download_url }}/nodepulse-linux-{{ agent_arch }}"
+    archive_filename: "nodepulse-{{ agent_version }}-linux-{{ agent_arch }}.tar.gz"
+    archive_url: "{{ agent_download_url }}/nodepulse-{{ agent_version }}-linux-{{ agent_arch }}.tar.gz"
 
-- name: Download Node Pulse agent binary
+- name: Download Node Pulse agent archive
   get_url:
-    url: "{{ binary_url }}"
-    dest: "{{ agent_install_dir }}/nodepulse"
-    mode: "0755"
-    owner: nodepulse
-    group: nodepulse
+    url: "{{ archive_url }}"
+    dest: "/tmp/{{ archive_filename }}"
+    mode: "0644"
     force: yes
     timeout: 120
   register: download_result
   retries: 3
   delay: 5
   until: download_result is succeeded
+
+- name: Extract agent archive to temporary location
+  unarchive:
+    src: "/tmp/{{ archive_filename }}"
+    dest: "/tmp"
+    remote_src: yes
+
+- name: Copy binary to installation directory
+  copy:
+    src: "/tmp/nodepulse"
+    dest: "{{ agent_install_dir }}/nodepulse"
+    remote_src: yes
+    owner: nodepulse
+    group: nodepulse
+    mode: "0755"
+  notify: restart nodepulse
+
+- name: Clean up extracted files
+  file:
+    path: "/tmp/{{ item }}"
+    state: absent
+  loop:
+    - nodepulse
+    - README.md
+    - nodepulse.yml
+  ignore_errors: yes
+
+- name: Clean up downloaded archive
+  file:
+    path: "/tmp/{{ archive_filename }}"
+    state: absent
 
 - name: Verify binary is executable
   command: "{{ agent_install_dir }}/nodepulse --version"

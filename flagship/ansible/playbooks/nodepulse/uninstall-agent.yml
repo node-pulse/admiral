@@ -1,6 +1,6 @@
 ---
 #
-# NodePulse Agent - Complete Uninstall Playbook
+# NodePulse Agent v2.0 - Complete Uninstall Playbook
 #
 # This playbook completely removes the NodePulse agent from target servers.
 # It stops the service, removes all files, and cleans up systemd units.
@@ -17,9 +17,10 @@
 # Options:
 #   - keep_config: Preserve configuration and server_id (default: false)
 #   - keep_logs: Preserve log files (default: false)
+#   - keep_buffer: Preserve buffered metrics (default: false)
 #
 
-- name: Uninstall NodePulse Agent
+- name: Uninstall NodePulse Agent v2.0
   hosts: all
   become: true
   gather_facts: false
@@ -29,132 +30,130 @@
     keep_config: false
     # Set to true to keep log files
     keep_logs: false
+    # Set to true to keep buffered metrics
+    keep_buffer: false
+    # Installation directories
+    agent_install_dir: "/opt/nodepulse"
+    agent_config_dir: "/etc/nodepulse"
+    agent_data_dir: "/var/lib/nodepulse"
+    agent_log_dir: "/var/log/nodepulse"
 
   tasks:
-    - name: Find pulse binary location
-      ansible.builtin.command: which pulse
-      register: pulse_location
-      failed_when: false
-      changed_when: false
-
-    - name: Set pulse binary path
-      ansible.builtin.set_fact:
-        pulse_path: "{{ pulse_location.stdout | default('/usr/local/bin/pulse') }}"
-        pulse_exists: "{{ pulse_location.rc == 0 }}"
+    - name: Check if nodepulse binary exists
+      ansible.builtin.stat:
+        path: "{{ agent_install_dir }}/nodepulse"
+      register: nodepulse_binary
 
     - name: Display uninstallation mode
       ansible.builtin.debug:
         msg: |
-          Uninstalling NodePulse Agent from {{ inventory_hostname }}
-          Binary location: {{ pulse_path }}
+          Uninstalling NodePulse Agent v2.0 from {{ inventory_hostname }}
+          Binary location: {{ agent_install_dir }}/nodepulse
           Keep config: {{ keep_config }}
           Keep logs: {{ keep_logs }}
-      when: pulse_exists
+          Keep buffer: {{ keep_buffer }}
+      when: nodepulse_binary.stat.exists
 
-    - name: Stop NodePulse service using pulse command (if installed as service)
-      ansible.builtin.command: "{{ pulse_path }} service stop"
-      ignore_errors: true
-      changed_when: false
-      when: pulse_exists
-
-    - name: Fallback - Stop NodePulse service via systemctl
+    - name: Stop nodepulse service
       ansible.builtin.systemd:
-        name: node-pulse
+        name: nodepulse
         state: stopped
       ignore_errors: true
-      when: pulse_exists
+      when: nodepulse_binary.stat.exists
 
-    - name: Stop NodePulse daemon (if running via PID file)
-      ansible.builtin.shell: |
-        if [ -f /tmp/nodepulse.pid ]; then
-          kill $(cat /tmp/nodepulse.pid) 2>/dev/null || true
-          rm -f /tmp/nodepulse.pid
-        fi
-      args:
-        executable: /bin/bash
-      ignore_errors: true
-      when: pulse_exists
-
-    - name: Stop and disable auto-updater timer
+    - name: Disable nodepulse service
       ansible.builtin.systemd:
-        name: node-pulse-updater.timer
-        state: stopped
+        name: nodepulse
         enabled: false
       ignore_errors: true
-      when: pulse_exists
+      when: nodepulse_binary.stat.exists
 
-    - name: Disable NodePulse service
-      ansible.builtin.systemd:
-        name: node-pulse
-        enabled: false
-      ignore_errors: true
-      when: pulse_exists
-
-    - name: Remove systemd service files
+    - name: Remove systemd service file
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: /etc/systemd/system/nodepulse.service
         state: absent
-      loop:
-        - /etc/systemd/system/node-pulse.service
-        - /etc/systemd/system/node-pulse-updater.service
-        - /etc/systemd/system/node-pulse-updater.timer
-      when: pulse_exists
+      when: nodepulse_binary.stat.exists
 
     - name: Reload systemd daemon
       ansible.builtin.systemd:
         daemon_reload: true
-      when: pulse_exists
+      when: nodepulse_binary.stat.exists
 
-    - name: Remove pulse binary
+    - name: Remove nodepulse binary
       ansible.builtin.file:
-        path: "{{ pulse_path }}"
+        path: "{{ agent_install_dir }}/nodepulse"
         state: absent
-      when: pulse_exists
+      when: nodepulse_binary.stat.exists
 
+    - name: Remove installation directory
+      ansible.builtin.file:
+        path: "{{ agent_install_dir }}"
+        state: absent
+      when: nodepulse_binary.stat.exists
+
+    - name: Remove logrotate configuration
+      ansible.builtin.file:
+        path: /etc/logrotate.d/nodepulse
+        state: absent
+      when: nodepulse_binary.stat.exists
+
+    # Conditional removal based on flags
     - name: Remove configuration directory (unless keep_config=true)
       ansible.builtin.file:
-        path: /etc/node-pulse
+        path: "{{ agent_config_dir }}"
         state: absent
       when:
-        - pulse_exists
+        - nodepulse_binary.stat.exists
+        - not keep_config
+
+    - name: Remove buffer directory (unless keep_buffer=true or keep_config=true)
+      ansible.builtin.file:
+        path: "{{ agent_data_dir }}/buffer"
+        state: absent
+      when:
+        - nodepulse_binary.stat.exists
+        - not keep_buffer
         - not keep_config
 
     - name: Remove data directory (unless keep_config=true)
       ansible.builtin.file:
-        path: /var/lib/node-pulse
+        path: "{{ agent_data_dir }}"
         state: absent
       when:
-        - pulse_exists
+        - nodepulse_binary.stat.exists
         - not keep_config
 
     - name: Remove log directory (unless keep_logs=true)
       ansible.builtin.file:
-        path: /var/log/node-pulse
+        path: "{{ agent_log_dir }}"
         state: absent
       when:
-        - pulse_exists
+        - nodepulse_binary.stat.exists
         - not keep_logs
 
-    - name: Remove PID file (if exists)
-      ansible.builtin.file:
-        path: /tmp/nodepulse.pid
+    - name: Remove nodepulse system user
+      ansible.builtin.user:
+        name: nodepulse
         state: absent
-      when: pulse_exists
+        remove: yes
+      when: nodepulse_binary.stat.exists
+
+    - name: Remove nodepulse system group
+      ansible.builtin.group:
+        name: nodepulse
+        state: absent
+      when: nodepulse_binary.stat.exists
 
     - name: Display completion message
       ansible.builtin.debug:
         msg: |
-          NodePulse agent successfully uninstalled from {{ inventory_hostname }}
-          {% if keep_config %}Configuration preserved in /etc/node-pulse{% endif %}
-          {% if keep_logs %}Logs preserved in /var/log/node-pulse{% endif %}
-      when: pulse_exists
+          ✓ NodePulse agent v2.0 successfully uninstalled from {{ inventory_hostname }}
+          {% if keep_config %}  Configuration preserved in {{ agent_config_dir }}{% endif %}
+          {% if keep_logs %}  Logs preserved in {{ agent_log_dir }}{% endif %}
+          {% if keep_buffer %}  Buffered metrics preserved in {{ agent_data_dir }}/buffer{% endif %}
+      when: nodepulse_binary.stat.exists
 
     - name: Display skip message
       ansible.builtin.debug:
         msg: "NodePulse agent not found on {{ inventory_hostname }}, skipping"
-      when: not pulse_exists
-
-  handlers:
-    - name: Reload systemd
-      ansible.builtin.systemd:
-        daemon_reload: true
+      when: not nodepulse_binary.stat.exists

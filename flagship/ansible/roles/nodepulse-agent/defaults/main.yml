@@ -4,10 +4,12 @@
 # Agent version
 agent_version: "latest"
 
-# Download configuration (Cloudflare R2)
-# Set AGENT_DOWNLOAD_BASE_URL environment variable or pass via extra vars
-agent_download_base_url: "https://pub-xxxxx.r2.dev"
-agent_download_url: "{{ agent_download_base_url }}/{{ agent_version }}"
+# Download configuration (GitHub Releases)
+# GitHub releases URL format: https://github.com/owner/repo/releases/download/tag/file
+# For "latest" version, GitHub provides a special redirect URL
+agent_github_owner: "node-pulse"
+agent_github_repo: "agent"
+agent_download_url: "https://github.com/{{ agent_github_owner }}/{{ agent_github_repo }}/releases/{{ 'latest/download' if agent_version == 'latest' else 'download/' + agent_version }}"
 
 # Installation paths
 agent_install_dir: "/opt/nodepulse"
