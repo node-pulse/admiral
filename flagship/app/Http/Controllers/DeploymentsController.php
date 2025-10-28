@@ -102,6 +102,8 @@ class DeploymentsController extends Controller
                 'name' => $deployment->name,
                 'description' => $deployment->description,
                 'playbook' => $deployment->playbook,
+                'server_filter' => $deployment->server_filter,
+                'variables' => $deployment->variables,
                 'status' => $deployment->status,
                 'total_servers' => $deployment->total_servers,
                 'successful_servers' => $deployment->successful_servers,
@@ -157,6 +159,15 @@ class DeploymentsController extends Controller
             'variables' => 'nullable|array',
         ]);
 
+        // Prepare variables to store in database
+        // Use ingest domain for metrics endpoint (user can override via variables)
+        $defaultEndpoint = 'http://' . config('submarines.ingest_domain') . '/metrics/prometheus';
+
+        $storedVariables = [
+            'agent_version' => $validated['variables']['agent_version'] ?? 'latest',
+            'ingest_endpoint' => $validated['variables']['ingest_endpoint'] ?? $defaultEndpoint,
+        ];
+
         // Create deployment record
         $deployment = Deployment::create([
             'name' => $validated['name'],
@@ -165,18 +176,12 @@ class DeploymentsController extends Controller
             'server_filter' => [
                 'server_ids' => $validated['server_ids'],
             ],
-            'variables' => $validated['variables'] ?? [],
+            'variables' => $storedVariables,
             'status' => 'pending',
         ]);
 
-        // Prepare extra vars for Ansible
-        // Use ingest domain for metrics endpoint (user can override via variables)
-        $defaultEndpoint = 'http://' . config('submarines.ingest_domain') . '/metrics/prometheus';
-
-        $extraVars = array_merge($validated['variables'] ?? [], [
-            'ingest_endpoint' => $validated['variables']['ingest_endpoint'] ?? $defaultEndpoint,
-            'agent_version' => 'latest', // Always use latest version
-        ]);
+        // Extra vars for Ansible (same as stored variables)
+        $extraVars = $storedVariables;
 
         // Publish to Valkey stream for Submarines deployer to consume
         $messageId = DeploymentQueue::publish(

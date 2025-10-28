@@ -44,14 +44,39 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+// Define field configurations
+interface FieldConfig {
+    name: string;
+    label: string;
+    placeholder: string;
+    helpText: string;
+}
+
+const extraVariables = {
+    agent_version: {
+        name: 'agent_version',
+        label: 'Agent Version (Optional)',
+        placeholder: 'latest',
+        helpText: 'Leave blank for latest (e.g., v0.1.0 for specific version)',
+    },
+    ingest_endpoint: {
+        name: 'ingest_endpoint',
+        label: 'Ingest Endpoint (Optional)',
+        placeholder: 'http://ingest.localhost/metrics/prometheus',
+        helpText: 'Leave blank to use default ingest endpoint',
+    },
+};
+
 // Define required fields for each playbook
-const playbookFields: Record<string, { ingestEndpoint?: boolean }> = {
-    'nodepulse/deploy-agent.yml': {
-        ingestEndpoint: true,
-    },
-    'nodepulse/retry-failed.yml': {
-        ingestEndpoint: true,
-    },
+const playbookFields: Record<string, FieldConfig[]> = {
+    'nodepulse/deploy-agent.yml': [
+        extraVariables.agent_version,
+        extraVariables.ingest_endpoint,
+    ],
+    'nodepulse/retry-failed.yml': [
+        extraVariables.agent_version,
+        extraVariables.ingest_endpoint,
+    ],
 };
 
 interface ServerData {
@@ -90,12 +115,16 @@ export default function CreateDeployment() {
     // Form state
     const [deploymentName, setDeploymentName] = useState('');
     const [deploymentDescription, setDeploymentDescription] = useState('');
-    const [playbook, setPlaybook] = useState<string>('nodepulse/deploy-agent.yml');
-    const [ingestEndpoint, setIngestEndpoint] = useState('');
+    const [playbook, setPlaybook] = useState<string>(
+        'nodepulse/deploy-agent.yml',
+    );
+    const [extraVariables, setExtraVariables] = useState<
+        Record<string, string>
+    >({});
 
     useEffect(() => {
         fetchServers();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchServers = async () => {
         setLoading(true);
@@ -176,9 +205,7 @@ export default function CreateDeployment() {
                     description: deploymentDescription || null,
                     playbook: playbook,
                     server_ids: Array.from(selectedServers),
-                    variables: {
-                        ...(ingestEndpoint && { ingest_endpoint: ingestEndpoint }),
-                    },
+                    variables: extraVariables,
                 }),
             });
 
@@ -191,7 +218,9 @@ export default function CreateDeployment() {
 
             const data = await response.json();
             toast.success('Deployment queued successfully');
-            router.visit(`/dashboard/deployments/${data.deployment.id}/details`);
+            router.visit(
+                `/dashboard/deployments/${data.deployment.id}/details`,
+            );
         } catch (error: any) {
             console.error('Error creating deployment:', error);
             toast.error(error.message || 'Failed to create deployment');
@@ -291,22 +320,37 @@ export default function CreateDeployment() {
                             </div>
 
                             {/* Playbook-specific fields */}
-                            {playbookFields[playbook]?.ingestEndpoint && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="ingest_endpoint">
-                                        Ingest Endpoint (Optional)
-                                    </Label>
-                                    <Input
-                                        id="ingest_endpoint"
-                                        placeholder="http://ingest.localhost/metrics/prometheus"
-                                        value={ingestEndpoint}
-                                        onChange={(e) =>
-                                            setIngestEndpoint(e.target.value)
-                                        }
-                                    />
-                                    <p className="text-sm text-muted-foreground">
-                                        Leave blank to use default ingest endpoint
-                                    </p>
+                            {playbookFields[playbook]?.length > 0 && (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {playbookFields[playbook].map((field) => (
+                                        <div
+                                            key={field.name}
+                                            className="space-y-2"
+                                        >
+                                            <Label htmlFor={field.name}>
+                                                {field.label}
+                                            </Label>
+                                            <Input
+                                                id={field.name}
+                                                placeholder={field.placeholder}
+                                                value={
+                                                    extraVariables[
+                                                        field.name
+                                                    ] || ''
+                                                }
+                                                onChange={(e) =>
+                                                    setExtraVariables({
+                                                        ...extraVariables,
+                                                        [field.name]:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                            />
+                                            <p className="text-sm text-muted-foreground">
+                                                {field.helpText}
+                                            </p>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </CardContent>

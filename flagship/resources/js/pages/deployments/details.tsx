@@ -73,6 +73,7 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
     const [deployment, setDeployment] = useState<DeploymentData | null>(null);
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
+    const [recreating, setRecreating] = useState(false);
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -119,7 +120,7 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
         }, 5000); // Refresh every 5 seconds
 
         return () => clearInterval(interval);
-    }, [deploymentId, deployment?.status]);
+    }, [deploymentId, deployment?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleCancel = async () => {
         if (!deployment || deployment.status !== 'running') {
@@ -155,6 +156,59 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
 
     const handleBack = () => {
         router.visit('/dashboard/deployments');
+    };
+
+    const handleRecreate = async () => {
+        if (!deployment) return;
+
+        setRecreating(true);
+        try {
+            // Fetch fresh deployment data to get server_filter and variables
+            const response = await fetch(`/api/deployments/${deploymentId}`, {
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    Accept: 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch deployment data');
+            }
+
+            const { deployment: dep } = await response.json();
+
+            // Create a new deployment with the same configuration
+            const createResponse = await fetch('/api/deployments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    Accept: 'application/json',
+                },
+                body: JSON.stringify({
+                    name: `${dep.name} (Recreated)`,
+                    description: dep.description,
+                    playbook: dep.playbook,
+                    server_ids: dep.server_filter?.server_ids || [],
+                    variables: dep.variables || {},
+                }),
+            });
+
+            if (!createResponse.ok) {
+                throw new Error('Failed to recreate deployment');
+            }
+
+            const { deployment: newDeployment } = await createResponse.json();
+            toast.success('Deployment recreated successfully');
+
+            // Navigate to the new deployment
+            router.visit(`/dashboard/deployments/${newDeployment.id}/details`);
+        } catch (error) {
+            console.error('Recreate error:', error);
+            toast.error('Failed to recreate deployment');
+        } finally {
+            setRecreating(false);
+        }
     };
 
     const getStatusBadge = (status: DeploymentData['status']) => {
@@ -302,6 +356,18 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                                 )}
                             </Button>
                         )}
+                        <Button
+                            variant="outline"
+                            onClick={handleRecreate}
+                            disabled={recreating || loading}
+                        >
+                            {recreating ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                            )}
+                            Recreate
+                        </Button>
                         <Button
                             variant="outline"
                             onClick={() => fetchDeployment()}
