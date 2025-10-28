@@ -1,44 +1,67 @@
 # TODO List - Ansible Deployment System
 
-## Progress Summary (2025-10-27)
+## Progress Summary (2025-10-28)
 
 ### ✅ Completed
 
 - [x] **Section 6**: Playbook directory organization
 
-  - Created `nodepulse/` and `custom/` subdirectories
+  - Created `nodepulse/`, `prometheus/`, and `custom/` subdirectories
   - Moved all playbooks to organized structure
   - Updated deployer, backend, and frontend to use new paths
   - Added flexible playbook validation (regex-based, no hardcoded list)
 
 - [x] **Playbook Improvements**:
+
   - Fixed `deploy-agent.yml`: Removed undefined variables, fixed check_mode issue
   - Hardcoded agent download URL: `https://agent.nodepulse.sh`
   - Added architecture detection (amd64, arm64 only - no 32-bit support)
   - Created reusable `prerequisite.yml` task for system requirements validation
   - Updated proxy trust configuration in Laravel (`bootstrap/app.php`)
+  - **Created `upgrade-agent.yml`**: Comprehensive agent upgrade playbook with backup/rollback
+
+- [x] **Prometheus Integration (2025-10-27 to 2025-10-28)**:
+  - Database schema redesigned with Prometheus-native `metric_samples` table
+  - node_exporter Ansible role created and deployed
+  - Node Pulse Agent refactored to scrape Prometheus exporters
+  - Agent successfully deployed to multiple servers (linux, hostdzire1)
+  - Metrics flowing to database (verified 4,344+ samples)
+  - Push-based architecture with buffering working correctly
+  - Documentation updated (README.md, CLAUDE.md)
+
+- [x] **Deployment System (2025-10-28)**:
+  - ✅ **MAJOR FIX**: Fixed `deployment_servers` status parsing issue
+  - Implemented JSON extraction from Ansible mixed output (handles profile_tasks/timer callbacks)
+  - Root cause: `profile_tasks`/`timer` callbacks were mixing timing output with JSON
+  - Solution: Extract JSON between first `{` and last `}` from mixed output
+  - Server deployment status now correctly shows success/failed/skipped (NOT stuck on "pending")
+  - `changed` field accurately reflects whether Ansible made changes
+  - Deployer service running in development environment with Air hot-reload
+  - Deployment tracking now fully functional end-to-end
 
 ### 🚧 Known Issues to Fix (Section 3)
 
-- [ ] **uninstall-agent.yml**: References `pulse` binary but should be `nodepulse`
-- [ ] **rollback-agent.yml**: Expects backups that `deploy-agent.yml` doesn't create
-- [ ] **deploy-agent.yml**: Needs to create version backups for rollback functionality
-- [ ] All 4 playbooks need end-to-end testing
+- [x] **uninstall-agent.yml**: References `pulse` binary but should be `nodepulse` ✅ FIXED
+- [x] **upgrade-agent.yml**: Created comprehensive upgrade playbook ✅ DONE
+- [ ] **rollback-agent.yml**: Needs testing and verification
+- [ ] **deploy-agent.yml**: Needs end-to-end testing
+- [ ] All playbooks need comprehensive end-to-end testing
 
 ---
 
 ## 1. Production Configuration
 
-- [ ] Add submarines-deployer service to compose.yml (production config - already in development compose)
+- [x] Add submarines-deployer service to compose.development.yml ✅ DONE
+- [ ] Add submarines-deployer service to compose.yml (production config)
 
 ## 2. Custom Playbook Upload Feature
 
 ### Backend Implementation
 
-- [ ] Create directory structure: `flagship/ansible/playbooks/custom/`
+- [x] Create directory structure: `flagship/ansible/playbooks/custom/` ✅ DONE
+- [x] Update deployer to scan both system and custom playbook directories ✅ DONE (supports subdirectories)
 - [ ] Implement playbook upload API endpoint in Flagship (Laravel) - save to directory
 - [ ] Add playbook file validation (Ansible YAML syntax check)
-- [ ] Update deployer to scan both system and custom playbook directories
 
 ### Frontend Implementation
 
@@ -47,17 +70,20 @@
 
 ## Implementation Details
 
-### Directory Structure
+### Directory Structure (Current Implementation)
 
 ```
 flagship/ansible/playbooks/
-├── system/                    # Built-in playbooks (read-only)
-│   ├── install_agent.yml
-│   ├── uninstall_agent.yml
-│   └── update_agent.yml
-└── custom/                    # User-uploaded playbooks (writable)
-    ├── my_playbook.yml
-    └── another_playbook.yml
+├── nodepulse/                 # Node Pulse agent playbooks ✅ DONE
+│   ├── deploy-agent.yml
+│   ├── upgrade-agent.yml
+│   ├── rollback-agent.yml
+│   ├── uninstall-agent.yml
+│   └── retry-failed.yml
+├── prometheus/                # Prometheus exporter playbooks ✅ DONE
+│   └── deploy-node-exporter.yml
+└── custom/                    # User-uploaded playbooks (writable) ✅ DONE
+    └── (empty - ready for uploads)
 ```
 
 ### User Flow
@@ -126,11 +152,13 @@ flagship:
 ## 3. Playbook Testing & Validation
 
 - [ ] Test all existing playbooks in `flagship/ansible/playbooks/`
-  - [ ] deploy-agent.yml
-  - [ ] retry-failed.yml
-  - [ ] rollback-agent.yml
-  - [ ] uninstall-agent.yml
-- [ ] Verify playbooks work with current agent architecture
+  - [ ] deploy-agent.yml - needs testing
+  - [ ] retry-failed.yml - needs testing
+  - [ ] rollback-agent.yml - needs testing
+  - [ ] uninstall-agent.yml - partially tested
+  - [x] upgrade-agent.yml - ✅ TESTED AND WORKING (deployed successfully to multiple servers)
+  - [x] prometheus/deploy-node-exporter.yml - ✅ TESTED AND WORKING
+- [x] Verify playbooks work with current agent architecture ✅ DONE (upgrade-agent tested)
 - [ ] Document playbook requirements and dependencies
 - [ ] Add error handling and rollback procedures
 
@@ -164,39 +192,115 @@ flagship:
   - [ ] Define how osquery logs will be collected
   - [ ] Consider NPI protocol integration for security logs
 
-## 6. Playbook Directory Organization
+## 6. Playbook Directory Organization ✅ DONE
 
-- [ ] Evaluate need for subdirectories in `flagship/ansible/playbooks/`
-- [ ] Proposed structure:
+- [x] Evaluate need for subdirectories in `flagship/ansible/playbooks/`
+- [x] Implemented structure:
   ```
   flagship/ansible/playbooks/
   ├── nodepulse/          # Node Pulse agent playbooks
   │   ├── deploy-agent.yml
   │   ├── rollback-agent.yml
   │   └── uninstall-agent.yml
-  ├── osquery/            # osquery playbooks
-  │   ├── install_osquery.yml
-  │   └── uninstall_osquery.yml
-  ├── syntra/             # Syntra-specific playbooks
-  ├── wazuh/              # Wazuh HIDS playbooks
   └── custom/             # User-uploaded playbooks
   ```
-- [ ] Consider pros/cons:
-  - ✅ Pro: Better organization as playbook count grows
-  - ✅ Pro: Clear separation by tool/component
-  - ✅ Pro: Easier to manage permissions per category
-  - ⚠️ Con: More complex path handling in deployer
-  - ⚠️ Con: Only 4 existing playbooks - minimal migration needed
-- [ ] Update deployer to handle subdirectory structure
-- [ ] Update Flagship UI to organize playbooks by category
-- [ ] Migrate existing playbooks to new structure
-- [ ] Update database playbook references if needed
+- [x] Update deployer to handle subdirectory structure
+- [x] Update Flagship UI to organize playbooks by category
+- [x] Migrate existing playbooks to new structure
 
 ### YAML UI Editor
 
 - https://github.com/eemeli/yaml
 - https://github.com/google/yaml-ui-editor
 
+## 7. Prometheus Integration - Remaining Tasks
+
+Based on `docs/prometheus-integration-plan.md`, the following items are still in progress:
+
+### Phase 2: Submarines Prometheus Parser ✅ DONE
+
+- [x] Verify Prometheus text format parser implementation in `submarines/internal/parsers/prometheus.go` ✅ WORKING
+- [x] Verify `/metrics/prometheus` endpoint in `submarines/internal/handlers/prometheus.go` ✅ WORKING
+- [x] Verify integration with Valkey Stream ✅ WORKING (metrics flowing to database)
+- [ ] Add comprehensive tests for Prometheus parser
+- [ ] Benchmark parser performance (target: >10,000 metrics/second)
+
+### Phase 3: Dashboard Integration (NEXT PRIORITY)
+
+- [ ] **Update Flagship dashboard to query from `metric_samples` table**
+- [ ] Implement dashboard queries for:
+  - [ ] CPU metrics (aggregate multi-core data)
+  - [ ] Memory metrics (calculate used from total - available)
+  - [ ] Disk metrics (handle multiple filesystems with labels)
+  - [ ] Network metrics (handle multiple interfaces with labels)
+- [ ] Create charts/visualizations for Prometheus metrics
+- [ ] Handle unit conversions (bytes → MB/GB)
+- [ ] Filter out unwanted metrics (tmpfs, loopback devices, etc.)
+
+### Phase 4: End-to-End Testing
+
+- [ ] Test full metric flow: node_exporter → agent → submarines → database → dashboard
+- [ ] Test offline buffering scenario (disconnect agent, verify WAL persistence)
+- [ ] Load testing with 100+ servers
+- [ ] Performance benchmarks (latency p50/p95/p99)
+- [ ] Error scenario testing (malformed metrics, parser failures)
+
+### Phase 5: Documentation
+
+- [ ] Write `docs/prometheus-integration.md`
+- [ ] Write `docs/node-exporter-deployment.md`
+- [ ] Write `docs/metrics-mapping.md`
+- [ ] Update deployment guides
+
+### Future Exporters (Post-MVP)
+
+- [ ] postgres_exporter role
+- [ ] redis_exporter role
+- [ ] blackbox_exporter for active probing
+- [ ] Custom exporter support documentation
+
+## 8. Security & Production Readiness
+
 ### Urgent:
 
-- mTLS
+- [ ] **mTLS between agents and Submarines ingest**
+
+  - [ ] Certificate generation and distribution
+  - [ ] Agent configuration for mTLS
+  - [ ] Submarines TLS termination
+  - [ ] Certificate rotation strategy
+
+- [ ] **Agent Authentication**
+
+  - [ ] Implement JWT or API key authentication
+  - [ ] Agent registration workflow
+  - [ ] Token refresh mechanism
+
+- [ ] **Rate Limiting**
+  - [ ] Implement rate limiting in Caddy or Submarines
+  - [ ] Per-agent rate limits
+  - [ ] Burst handling
+
+## Next Immediate Steps (Priority Order)
+
+1. **🎯 HIGHEST PRIORITY: Dashboard Integration**
+
+   - Update Flagship to display metrics from `metric_samples` table
+   - Users can see their Prometheus metrics in the UI
+   - This completes the end-to-end flow
+
+2. **Testing & Validation**
+
+   - End-to-end testing of the complete pipeline
+   - Performance benchmarks
+   - Error handling verification
+
+3. **Security Hardening**
+
+   - Implement mTLS for agent-to-dashboard communication
+   - Add authentication/authorization
+
+4. **Documentation**
+   - Complete Prometheus integration documentation
+   - Deployment guides
+   - Troubleshooting guides

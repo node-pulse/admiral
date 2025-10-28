@@ -90,6 +90,28 @@ services:
     networks:
       - node-pulse-admiral
 
+  # Go Submarines Deployer - Ansible deployment worker (Valkey Stream -> Ansible)
+  submarines-deployer:
+    image: ghcr.io/node-pulse/node-pulse-submarines-deployer:latest
+    container_name: node-pulse-submarines-deployer
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MASTER_KEY_PATH: /secrets/master.key
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      flagship-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./flagship/ansible:/app/flagship/ansible:ro  # Mount Ansible playbooks (read-only)
+      - ./secrets:/secrets:ro  # Mount master key for SSH key decryption (read-only)
+    networks:
+      - node-pulse-admiral
+
   # Go Submarines Status - Public status pages and badges (read-only)
   submarines-status:
     image: ghcr.io/node-pulse/node-pulse-submarines-status:latest
