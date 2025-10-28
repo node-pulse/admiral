@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,9 +40,41 @@ class SystemSettingsController extends Controller
             ];
         });
 
+        // Check mTLS status from submarines health endpoint
+        $mtlsStatus = $this->getMtlsStatus();
+
         return Inertia::render('system-settings', [
             'settings' => $settings,
+            'mtls' => $mtlsStatus,
         ]);
+    }
+
+    /**
+     * Check if submarines is running production build (with mTLS).
+     */
+    private function getMtlsStatus(): array
+    {
+        try {
+            $response = Http::timeout(3)->get(config('services.submarines.url') . '/health');
+
+            if (!$response->successful()) {
+                return ['status' => 'Unknown (Service Unreachable)', 'reachable' => false];
+            }
+
+            $data = $response->json();
+
+            // Health endpoint returns: {"mtls": "enabled"} for prod, {"mtls": "disabled"} for dev
+            $isProduction = ($data['mtls'] ?? 'disabled') === 'enabled';
+
+            return [
+                'enabled' => $isProduction,
+                'status' => $isProduction ? 'Production Build' : 'Development Build',
+                'reachable' => true,
+            ];
+
+        } catch (\Exception $e) {
+            return ['status' => 'Unknown (Service Unreachable)', 'reachable' => false];
+        }
     }
 
     /**

@@ -30,6 +30,12 @@ type Config struct {
 	// Encryption
 	MasterKey string
 
+	// Certificate Configuration
+	CertValidityDays  int
+
+	// Server ID Validation Configuration
+	ServerIDCacheTTL  int    // Cache TTL for server ID validation (seconds) - applies to both valid and invalid
+
 	// Cleaner-specific
 	DryRun           bool
 	LogLevel         string
@@ -62,6 +68,12 @@ func Load() *Config {
 		// Encryption
 		MasterKey: loadMasterKey(),
 
+		// Certificate Configuration
+		CertValidityDays: getEnvInt("CERT_VALIDITY_DAYS", 180),
+
+		// Server ID Validation Configuration
+		ServerIDCacheTTL: getEnvInt("SERVER_ID_CACHE_TTL", 3600), // Default: 1 hour for both valid and invalid
+
 		// Cleaner-specific
 		DryRun:           getEnv("DRY_RUN", "false") == "true",
 		LogLevel:         getEnv("LOG_LEVEL", "info"),
@@ -82,6 +94,16 @@ func (c *Config) GetValkeyAddress() string {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		var intValue int
+		if _, err := fmt.Sscanf(value, "%d", &intValue); err == nil {
+			return intValue
+		}
 	}
 	return defaultValue
 }

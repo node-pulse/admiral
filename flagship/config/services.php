@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'submarines' => [
+        'url' => env('SUBMARINES_API_URL', 'http://submarines-ingest:8080'),
+    ],
+
 ];

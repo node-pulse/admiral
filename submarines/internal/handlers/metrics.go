@@ -12,6 +12,7 @@ import (
 	"github.com/nodepulse/admiral/submarines/internal/database"
 	"github.com/nodepulse/admiral/submarines/internal/models"
 	"github.com/nodepulse/admiral/submarines/internal/valkey"
+	"github.com/nodepulse/admiral/submarines/internal/validation"
 )
 
 const (
@@ -22,14 +23,16 @@ const (
 )
 
 type MetricsHandler struct {
-	db     *database.DB
-	valkey *valkey.Client
+	db        *database.DB
+	valkey    *valkey.Client
+	validator *validation.ServerIDValidator
 }
 
-func NewMetricsHandler(db *database.DB, valkeyClient *valkey.Client) *MetricsHandler {
+func NewMetricsHandler(db *database.DB, valkeyClient *valkey.Client, validator *validation.ServerIDValidator) *MetricsHandler {
 	return &MetricsHandler{
-		db:     db,
-		valkey: valkeyClient,
+		db:        db,
+		valkey:    valkeyClient,
+		validator: validator,
 	}
 }
 
@@ -75,9 +78,22 @@ func (h *MetricsHandler) IngestMetrics(c *gin.Context) {
 	successCount := 0
 
 	for _, report := range reports {
-		// Validate server ID
+		// Validate server ID format
 		if _, err := uuid.Parse(report.ServerID); err != nil {
 			continue // Skip invalid reports but process the rest
+		}
+
+		// Validate server_id exists in database (with Valkey caching)
+		// This runs REGARDLESS of mTLS state - it's an independent security layer
+		exists, err := h.validator.ValidateServerID(ctx, report.ServerID)
+		if err != nil {
+			log.Printf("ERROR: Server ID validation failed for %s: %v", report.ServerID, err)
+			continue // Skip this report on validation error
+		}
+
+		if !exists {
+			log.Printf("WARN: Rejected metrics from unknown server_id: %s", report.ServerID)
+			continue // Skip metrics from unknown servers
 		}
 
 		// Serialize the metric report to JSON

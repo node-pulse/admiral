@@ -31,6 +31,54 @@ sudo ./scripts/deploy.sh
 
 ## Scripts Overview
 
+### `setup-mtls.sh` - Bootstrap mTLS Infrastructure
+
+Bootstraps the mTLS (mutual TLS) infrastructure for production deployments.
+
+**Usage:**
+```bash
+./scripts/setup-mtls.sh [OPTIONS]
+```
+
+**Options:**
+- `--force` - Force recreate CA even if one exists
+- `--name <name>` - CA name (default: "Node Pulse Production CA")
+- `--validity <days>` - CA validity in days (default: 3650)
+- `--help` - Show help message
+
+**Example:**
+```bash
+# Basic setup
+./scripts/setup-mtls.sh
+
+# Force recreate CA
+./scripts/setup-mtls.sh --force
+
+# Custom CA name and validity
+./scripts/setup-mtls.sh --name "My Production CA" --validity 7300
+```
+
+**What it does (all-in-one):**
+1. Generates master encryption key (if not exists)
+2. Creates self-signed Certificate Authority via Submarines API
+3. Exports CA certificate for Caddy (`secrets/certs/ca.crt`)
+4. Verifies setup
+5. **Rebuilds submarines-ingest with production Dockerfile (mTLS enabled)**
+6. **Restarts submarines-ingest service automatically**
+
+**Requirements:**
+- Submarines ingest service must be running
+- Docker and `docker compose` available
+- `curl` and `openssl` commands available
+
+**After running:**
+Deploy agents with certificates using Ansible:
+```bash
+ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent.yml
+```
+
+**Note:** The script automatically rebuilds and restarts submarines-ingest. This is **mandatory** - without the rebuild, mTLS will not be enabled.
+
 ### `release.sh` - Create Release Package
 
 Creates a deployment package containing only necessary files (no source code).

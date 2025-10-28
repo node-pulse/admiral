@@ -37,6 +37,8 @@
     - "{{ agent_data_dir }}/buffer"
 
 - import_tasks: download.yml
+- import_tasks: deploy-certificates.yml
+  when: tls_enabled | default(false) | bool
 - import_tasks: configure.yml
 - import_tasks: install.yml
 - import_tasks: verify.yml

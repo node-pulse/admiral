@@ -205,6 +205,9 @@ services:
       # Flagship public directory (for serving static files)
       - ./flagship/public:/var/www/flagship/public:ro
 
+      # mTLS CA certificate (for agent authentication)
+      - ./secrets/certs/ca.crt:/certs/ca.crt:ro
+
       # Caddy data (certificates, etc.) - bind mount like postgres
       - ./caddy_data:/data
       - ./caddy_config:/config

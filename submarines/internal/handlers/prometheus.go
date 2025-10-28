@@ -11,17 +11,20 @@ import (
 	"github.com/nodepulse/admiral/submarines/internal/database"
 	"github.com/nodepulse/admiral/submarines/internal/parsers"
 	"github.com/nodepulse/admiral/submarines/internal/valkey"
+	"github.com/nodepulse/admiral/submarines/internal/validation"
 )
 
 type PrometheusHandler struct {
-	db     *database.DB
-	valkey *valkey.Client
+	db        *database.DB
+	valkey    *valkey.Client
+	validator *validation.ServerIDValidator
 }
 
-func NewPrometheusHandler(db *database.DB, valkeyClient *valkey.Client) *PrometheusHandler {
+func NewPrometheusHandler(db *database.DB, valkeyClient *valkey.Client, validator *validation.ServerIDValidator) *PrometheusHandler {
 	return &PrometheusHandler{
-		db:     db,
-		valkey: valkeyClient,
+		db:        db,
+		valkey:    valkeyClient,
+		validator: validator,
 	}
 }
 
@@ -53,6 +56,24 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": fmt.Sprintf("invalid server_id format: %v", err),
+		})
+		return
+	}
+
+	// Validate server_id exists in database (with Valkey caching)
+	// This runs REGARDLESS of mTLS state - it's an independent security layer
+	exists, err := h.validator.ValidateServerID(c.Request.Context(), serverID.String())
+	if err != nil {
+		log.Printf("ERROR: Server ID validation failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server validation failed"})
+		return
+	}
+
+	if !exists {
+		log.Printf("WARN: Rejected metrics from unknown server_id: %s", serverID.String())
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "unknown server_id",
+			"detail": "server not found in database",
 		})
 		return
 	}

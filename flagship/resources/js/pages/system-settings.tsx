@@ -6,6 +6,14 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -18,6 +26,7 @@ import {
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router } from '@inertiajs/react';
+import { AlertCircle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -28,11 +37,18 @@ interface Setting {
     tier: 'free' | 'pro' | 'growth';
 }
 
-interface Props {
-    settings: Setting[];
+interface MtlsStatus {
+    enabled: boolean;
+    status: string;
+    reachable: boolean;
 }
 
-export default function SystemSettings({ settings }: Props) {
+interface Props {
+    settings: Setting[];
+    mtls: MtlsStatus;
+}
+
+export default function SystemSettings({ settings, mtls }: Props) {
     const [updating, setUpdating] = useState<string | null>(null);
     const [editingValues, setEditingValues] = useState<Record<string, any>>({});
 
@@ -259,6 +275,139 @@ export default function SystemSettings({ settings }: Props) {
                         only)
                     </p>
                 </div>
+
+                {/* Security Settings - mTLS Status */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Security</CardTitle>
+                        <CardDescription>
+                            Mutual TLS (mTLS) authentication status for agent
+                            connections
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between rounded-lg border p-4">
+                            <div className="flex items-center gap-4">
+                                <div>
+                                    {mtls.reachable ? (
+                                        mtls.enabled ? (
+                                            <CheckCircle2 className="h-8 w-8 text-green-500" />
+                                        ) : (
+                                            <AlertCircle className="h-8 w-8 text-yellow-500" />
+                                        )
+                                    ) : (
+                                        <XCircle className="h-8 w-8 text-red-500" />
+                                    )}
+                                </div>
+                                <div>
+                                    <div className="font-medium">
+                                        mTLS Authentication
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                        Status: {mtls.status}
+                                    </div>
+                                    {!mtls.reachable && (
+                                        <div className="mt-1 text-xs text-red-500">
+                                            Warning: Unable to reach submarines
+                                            ingest service
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                        <Info className="mr-2 h-4 w-4" />
+                                        How to Change
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle>
+                                            Changing mTLS Configuration
+                                        </DialogTitle>
+                                        <DialogDescription>
+                                            mTLS is a build-time decision and
+                                            requires rebuilding the Docker
+                                            images
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <h4 className="mb-2 font-semibold">
+                                                To Enable mTLS (Production):
+                                            </h4>
+                                            <ol className="list-inside list-decimal space-y-2 text-sm">
+                                                <li>
+                                                    Run the mTLS setup script
+                                                    (generates CA, rebuilds, and
+                                                    restarts):
+                                                    <pre className="mt-2 rounded bg-muted p-2 font-mono text-xs">
+                                                        ./scripts/setup-mtls.sh
+                                                    </pre>
+                                                    <div className="mt-1 text-xs text-muted-foreground">
+                                                        The script will
+                                                        automatically rebuild
+                                                        submarines with mTLS
+                                                        enabled and restart
+                                                        services.
+                                                    </div>
+                                                </li>
+                                                <li>
+                                                    Deploy agent certificates
+                                                    using Ansible:
+                                                    <pre className="mt-2 rounded bg-muted p-2 font-mono text-xs">
+                                                        ansible-playbook
+                                                        flagship/ansible/playbooks/nodepulse/deploy-agent.yml
+                                                    </pre>
+                                                </li>
+                                                <li>
+                                                    Verify mTLS status in this
+                                                    page (reload to see updated
+                                                    status)
+                                                </li>
+                                            </ol>
+                                        </div>
+                                        <div>
+                                            <h4 className="mb-2 font-semibold">
+                                                To Disable mTLS (Development):
+                                            </h4>
+                                            <ol className="list-inside list-decimal space-y-2 text-sm">
+                                                <li>
+                                                    Rebuild submarines with
+                                                    development Dockerfile:
+                                                    <pre className="mt-2 rounded bg-muted p-2 font-mono text-xs">
+                                                        docker compose -f
+                                                        compose.development.yml
+                                                        build submarines-ingest
+                                                    </pre>
+                                                </li>
+                                                <li>
+                                                    Restart the services:
+                                                    <pre className="mt-2 rounded bg-muted p-2 font-mono text-xs">
+                                                        docker compose up -d
+                                                    </pre>
+                                                </li>
+                                            </ol>
+                                        </div>
+                                        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm dark:border-yellow-800 dark:bg-yellow-950">
+                                            <p className="font-semibold text-yellow-800 dark:text-yellow-200">
+                                                Note:
+                                            </p>
+                                            <p className="text-yellow-700 dark:text-yellow-300">
+                                                Production builds always enforce
+                                                mTLS in strict mode (no
+                                                exceptions). Development builds
+                                                validate server_id but do not
+                                                require client certificates.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Authentication Settings */}
                 {groups.authentication.length > 0 && (

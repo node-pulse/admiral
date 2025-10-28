@@ -352,6 +352,38 @@ func buildInventory(serverIDs []string) (string, []string, error) {
 
 	var tempKeyFiles []string
 
+	// Fetch active CA certificate (shared by all agents)
+	caCertPEM, err := fetchActiveCA()
+	if err != nil {
+		logger.Printf("[WARNING] Failed to fetch active CA certificate: %v (mTLS will be unavailable)", err)
+	}
+
+	// Write CA cert to temp file (shared by all hosts)
+	var caCertFile string
+	if caCertPEM != "" {
+		caCertTempFile, err := os.CreateTemp("", "mtls_ca_*.crt")
+		if err != nil {
+			return "", tempKeyFiles, fmt.Errorf("failed to create temp CA cert file: %w", err)
+		}
+
+		if _, err := caCertTempFile.WriteString(caCertPEM); err != nil {
+			caCertTempFile.Close()
+			os.Remove(caCertTempFile.Name())
+			return "", tempKeyFiles, fmt.Errorf("failed to write CA cert file: %w", err)
+		}
+
+		if err := caCertTempFile.Chmod(0644); err != nil {
+			caCertTempFile.Close()
+			os.Remove(caCertTempFile.Name())
+			return "", tempKeyFiles, fmt.Errorf("failed to set CA cert file permissions: %w", err)
+		}
+
+		caCertTempFile.Close()
+		caCertFile = caCertTempFile.Name()
+		tempKeyFiles = append(tempKeyFiles, caCertFile)
+		logger.Printf("[INVENTORY] Created temp CA certificate file: %s", caCertFile)
+	}
+
 	// Build YAML inventory
 	var sb strings.Builder
 	sb.WriteString("all:\n")
@@ -397,6 +429,65 @@ func buildInventory(serverIDs []string) (string, []string, error) {
 
 			sb.WriteString(fmt.Sprintf("      ansible_ssh_private_key_file: %s\n", keyFile.Name()))
 			logger.Printf("[INVENTORY] Created temp SSH key file for %s: %s", server.Hostname, keyFile.Name())
+		}
+
+		// Fetch and decrypt mTLS client certificate for this server
+		clientCertPEM, clientKeyPEM, err := fetchClientCertificate(server.AgentServerID)
+		if err != nil {
+			logger.Printf("[WARNING] Failed to fetch client certificate for %s (server_id: %s): %v", server.Hostname, server.AgentServerID, err)
+		} else if clientCertPEM != "" && clientKeyPEM != "" {
+			// Write client certificate to temp file
+			certFile, err := os.CreateTemp("", "mtls_client_*.crt")
+			if err != nil {
+				return "", tempKeyFiles, fmt.Errorf("failed to create temp client cert file: %w", err)
+			}
+
+			if _, err := certFile.WriteString(clientCertPEM); err != nil {
+				certFile.Close()
+				os.Remove(certFile.Name())
+				return "", tempKeyFiles, fmt.Errorf("failed to write client cert file: %w", err)
+			}
+
+			if err := certFile.Chmod(0644); err != nil {
+				certFile.Close()
+				os.Remove(certFile.Name())
+				return "", tempKeyFiles, fmt.Errorf("failed to set client cert file permissions: %w", err)
+			}
+
+			certFile.Close()
+			certFilePath := certFile.Name()
+			tempKeyFiles = append(tempKeyFiles, certFilePath)
+
+			// Write client private key to temp file
+			keyFile, err := os.CreateTemp("", "mtls_client_*.key")
+			if err != nil {
+				return "", tempKeyFiles, fmt.Errorf("failed to create temp client key file: %w", err)
+			}
+
+			if _, err := keyFile.WriteString(clientKeyPEM); err != nil {
+				keyFile.Close()
+				os.Remove(keyFile.Name())
+				return "", tempKeyFiles, fmt.Errorf("failed to write client key file: %w", err)
+			}
+
+			// Set secure permissions (0600 for private key)
+			if err := keyFile.Chmod(0600); err != nil {
+				keyFile.Close()
+				os.Remove(keyFile.Name())
+				return "", tempKeyFiles, fmt.Errorf("failed to set client key file permissions: %w", err)
+			}
+
+			keyFile.Close()
+			keyFilePath := keyFile.Name()
+			tempKeyFiles = append(tempKeyFiles, keyFilePath)
+
+			// Pass certificate file paths to Ansible as host vars
+			sb.WriteString(fmt.Sprintf("      tls_client_cert_path: %s\n", certFilePath))
+			sb.WriteString(fmt.Sprintf("      tls_client_key_path: %s\n", keyFilePath))
+			sb.WriteString(fmt.Sprintf("      tls_ca_cert_path: %s\n", caCertFile))
+			sb.WriteString(fmt.Sprintf("      tls_enabled: true\n"))
+
+			logger.Printf("[INVENTORY] Created temp mTLS cert files for %s: cert=%s key=%s", server.Hostname, certFilePath, keyFilePath)
 		}
 	}
 
@@ -452,6 +543,53 @@ func fetchServers(serverIDs []string) ([]ServerInfo, error) {
 	}
 
 	return servers, nil
+}
+
+// fetchActiveCA retrieves the active CA certificate from the database
+func fetchActiveCA() (string, error) {
+	var caCertPEM string
+	err := db.QueryRow(`
+		SELECT certificate_pem
+		FROM admiral.certificate_authorities
+		WHERE is_active = true
+		LIMIT 1
+	`).Scan(&caCertPEM)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch active CA: %w", err)
+	}
+
+	return caCertPEM, nil
+}
+
+// fetchClientCertificate retrieves and decrypts the client certificate for a server
+func fetchClientCertificate(serverID string) (certPEM, keyPEM string, err error) {
+	var encryptedCertPEM, encryptedKeyPEM string
+
+	// Get active certificate for server
+	queryErr := db.QueryRow(`
+		SELECT certificate_pem, private_key_encrypted
+		FROM admiral.server_certificates
+		WHERE server_id = $1 AND status = 'active'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, serverID).Scan(&encryptedCertPEM, &encryptedKeyPEM)
+
+	if queryErr != nil {
+		return "", "", fmt.Errorf("failed to fetch certificate: %w", queryErr)
+	}
+
+	// Certificate PEM is not encrypted, return as-is
+	certPEM = encryptedCertPEM
+
+	// Decrypt private key
+	decryptedKeyPEM, decryptErr := sshws.DecryptPrivateKey(encryptedKeyPEM, cfg.MasterKey)
+	if decryptErr != nil {
+		return "", "", fmt.Errorf("failed to decrypt private key: %w", decryptErr)
+	}
+
+	keyPEM = decryptedKeyPEM
+	return certPEM, keyPEM, nil
 }
 
 func updateDeploymentStatus(deploymentID, status string, output, errorOutput *string, totalServers int) error {

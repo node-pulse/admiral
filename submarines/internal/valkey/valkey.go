@@ -13,6 +13,11 @@ type Client struct {
 	client valkey.Client
 }
 
+// GetClient returns the underlying Valkey client
+func (c *Client) GetClient() valkey.Client {
+	return c.client
+}
+
 func New(cfg *config.Config) (*Client, error) {
 	client, err := valkey.NewClient(valkey.ClientOption{
 		InitAddress: []string{cfg.GetValkeyAddress()},

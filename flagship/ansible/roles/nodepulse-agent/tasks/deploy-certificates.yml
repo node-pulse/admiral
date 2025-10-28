@@ -1,0 +1,99 @@
+---
+# ============================================================
+# mTLS Certificate Deployment Tasks
+# ============================================================
+#
+# This task file deploys mTLS client certificates to the agent.
+#
+# Required variables (passed from deployer):
+#   - tls_enabled: Whether to deploy certificates (true/false)
+#   - tls_client_cert_path: Path to temp client certificate file
+#   - tls_client_key_path: Path to temp client private key file
+#   - tls_ca_cert_path: Path to temp CA certificate file
+#
+# Directory structure created:
+#   /etc/nodepulse/certs/
+#   ├── ca.crt (644)
+#   ├── client.crt (644)
+#   └── client.key (600)
+#
+# ============================================================
+
+- name: Create certificate directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/nodepulse/certs
+    state: directory
+    owner: nodepulse
+    group: nodepulse
+    mode: '0750'
+  when: tls_enabled | default(false) | bool
+
+- name: Deploy client certificate
+  become: true
+  ansible.builtin.copy:
+    src: "{{ tls_client_cert_path }}"
+    dest: /etc/nodepulse/certs/client.crt
+    owner: nodepulse
+    group: nodepulse
+    mode: '0644'
+    force: yes
+  when:
+    - tls_enabled | default(false) | bool
+    - tls_client_cert_path is defined
+  notify:
+    - restart nodepulse agent
+
+- name: Deploy client private key
+  become: true
+  ansible.builtin.copy:
+    src: "{{ tls_client_key_path }}"
+    dest: /etc/nodepulse/certs/client.key
+    owner: nodepulse
+    group: nodepulse
+    mode: '0600'  # Private key must be read-only by owner
+    force: yes
+  when:
+    - tls_enabled | default(false) | bool
+    - tls_client_key_path is defined
+  notify:
+    - restart nodepulse agent
+
+- name: Deploy CA certificate
+  become: true
+  ansible.builtin.copy:
+    src: "{{ tls_ca_cert_path }}"
+    dest: /etc/nodepulse/certs/ca.crt
+    owner: nodepulse
+    group: nodepulse
+    mode: '0644'
+    force: yes
+  when:
+    - tls_enabled | default(false) | bool
+    - tls_ca_cert_path is defined
+  notify:
+    - restart nodepulse agent
+
+- name: Verify certificate files exist
+  become: true
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: cert_files
+  loop:
+    - /etc/nodepulse/certs/client.crt
+    - /etc/nodepulse/certs/client.key
+    - /etc/nodepulse/certs/ca.crt
+  when: tls_enabled | default(false) | bool
+
+- name: Verify certificate file permissions
+  become: true
+  ansible.builtin.stat:
+    path: /etc/nodepulse/certs/client.key
+  register: client_key_stat
+  failed_when: client_key_stat.stat.mode != '0600'
+  when: tls_enabled | default(false) | bool
+
+- name: Log certificate deployment status
+  ansible.builtin.debug:
+    msg: "mTLS certificates deployed successfully for {{ inventory_hostname }}"
+  when: tls_enabled | default(false) | bool

@@ -3,6 +3,14 @@
 
 server:
   endpoint: "{{ ingest_endpoint }}"
+{% if tls_enabled | default(false) | bool %}
+  tls:
+    enabled: true
+    cert_file: /etc/nodepulse/certs/client.crt
+    key_file: /etc/nodepulse/certs/client.key
+    ca_file: /etc/nodepulse/certs/ca.crt
+    insecure_skip_verify: false
+{% endif %}
 
 agent:
   server_id: "{{ agent_server_id_final }}"

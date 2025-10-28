@@ -1,4 +1,91 @@
-# TODO List - Ansible Deployment System
+# TODO List - Node Pulse Admiral
+
+## High Priority Tasks
+
+### 1. Server ID Validation Layer (Security Enhancement)
+
+**Status:** ⏳ Planned
+**Priority:** High
+**Component:** Submarines Ingest
+**Added:** 2025-10-28
+
+Implement cache-first server ID validation that works independently of mTLS.
+
+#### Requirements
+
+**1. mTLS Toggle Configuration**
+- [ ] mTLS is OFF by default (`MTLS_ENABLED=false`)
+- [ ] Can be enabled via environment variable
+- [ ] Can be toggled via admin UI (System Settings page)
+- [ ] Setting persists in database (`settings` table)
+
+**2. Server ID Validation (Always Active)**
+- [ ] Validate `server_id` on EVERY metrics ingestion request
+- [ ] Works independently of mTLS state (additional security layer)
+- [ ] Cache-first approach using Valkey/Redis
+- [ ] Negative caching to prevent DoS attacks
+
+**3. Implementation Tasks**
+- [ ] Create `submarines/internal/validation/server_id.go`
+- [ ] Add `ValidateServerID()` function with Valkey integration
+- [ ] Implement cache strategy:
+  - Valid servers: `server:valid:{id}` → `"true"` (TTL: 3600s)
+  - Invalid servers: `server:valid:{id}` → `"false"` (TTL: 3600s) - Same as valid to prevent DB hammering
+- [ ] Integrate into Prometheus handler (`internal/handlers/prometheus.go`)
+- [ ] Integrate into JSON handler (`internal/handlers/metrics.go`)
+- [ ] Add configuration to `config/config.go`:
+  ```go
+  ServerIDCacheTTL     int  // Default: 3600 (applies to both valid and invalid)
+  ```
+- [ ] Add to `.env.example`:
+  ```bash
+  SERVER_ID_CACHE_TTL=3600     # Server ID cache TTL for both valid and invalid (seconds)
+  ```
+
+**4. Admin UI Integration**
+- [ ] Add mTLS Settings page to Flagship admin panel
+- [ ] Show toggle switch for mTLS enabled/disabled
+- [ ] Display CA information when mTLS is enabled
+- [ ] Show certificate statistics (active, expiring, revoked)
+- [ ] Require admin authentication to access/modify
+
+**5. Testing**
+- [ ] Unit tests for `ValidateServerID()` function
+- [ ] Integration test with Valkey cache
+- [ ] Test negative caching behavior
+- [ ] Test fallback when Valkey is unavailable
+- [ ] Verify performance improvement (cache vs DB)
+
+#### Technical Details
+
+**Validation Flow:**
+```
+1. Extract server_id from request
+2. Check Valkey: GET server:valid:{server_id}
+3. If cache hit → return cached result
+4. If cache miss → query PostgreSQL
+5. Cache result (valid OR invalid) with TTL
+6. Return validation result
+```
+
+**Integration with mTLS:**
+
+| mTLS State | Server ID Check | Certificate Check | Result |
+|------------|-----------------|-------------------|---------|
+| OFF | ✅ Always | ❌ Skipped | Accept if server_id valid |
+| ON (optional) | ✅ Always | ⚠️ If present | Accept if server_id valid |
+| ON (required) | ✅ Always | ✅ Required | Accept if BOTH valid |
+
+**Benefits:**
+- Defense in depth (two independent security layers)
+- 99% reduction in database queries via caching
+- DoS protection via negative caching (1-hour TTL prevents repeated DB queries)
+- Works with or without mTLS
+- Uniform TTL (3600s) simplifies cache management
+
+**Reference:** See `docs/mtls-guide.md` → "Server ID Validation (Independent Layer)"
+
+---
 
 ## Progress Summary (2025-10-28)
 

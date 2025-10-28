@@ -1,5 +1,15 @@
 #!/bin/bash
-# NodePulse Admiral - Interactive Deployment Script
+# NodePulse Admiral - Production Deployment Script
+#
+# ⚠️  PRODUCTION ONLY - This script is for production deployments
+# ⚠️  For development, use: docker compose -f compose.development.yml up -d
+#
+# This script:
+# - Configures production environment variables
+# - Deploys all services using compose.yml (production build)
+# - ENFORCES mTLS setup (mandatory for production)
+# - Creates initial admin user
+#
 # This script is idempotent and can be run multiple times safely
 
 set -e
@@ -207,6 +217,16 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     # Security
     prompt_config "JWT_SECRET" "$(generate_secret)" "JWT secret key (auto-generated)" "true"
+
+    echo ""
+
+    # Certificate Configuration
+    echo -e "${CYAN}Certificate Configuration:${NC}"
+    prompt_config "CERT_VALIDITY_DAYS" "180" "Certificate validity period (days)"
+
+    # Note: mTLS is build-time decision, not runtime toggle
+    # Production Dockerfiles always build with mTLS enabled
+    # Development Dockerfiles always build without mTLS
 
     echo ""
 
@@ -926,12 +946,70 @@ echo "  ⚠️  Database password: ${CONFIG[POSTGRES_PASSWORD]:0:4}****"
 echo "  ⚠️  File permissions set to 600 (owner read/write only)"
 echo ""
 
+# =============================================================================
+# Production mTLS Setup (MANDATORY)
+# =============================================================================
+echo ""
+echo -e "${BLUE}================================================${NC}"
+echo -e "${BLUE}Production Security Setup - mTLS${NC}"
+echo -e "${BLUE}================================================${NC}"
+echo ""
+
+# Check if CA already exists
+CA_EXISTS=false
+SUBMARINES_URL="http://submarines-ingest:8080"
+
+if curl -sf "${SUBMARINES_URL}/internal/ca/active" 2>/dev/null | grep -q '"is_active":true'; then
+    CA_EXISTS=true
+    echo -e "${GREEN}✓ mTLS CA already configured${NC}"
+    echo "  Skipping mTLS setup (CA already exists)"
+    echo ""
+    echo "  To renew/rotate the CA, run:"
+    echo "    ./scripts/setup-mtls.sh --force"
+    echo ""
+else
+    echo -e "${YELLOW}⚠️  IMPORTANT: Production deployments REQUIRE mTLS${NC}"
+    echo ""
+    echo "mTLS (mutual TLS) provides cryptographic authentication"
+    echo "for all agents connecting to the ingest service."
+    echo ""
+    echo "This is a build-time architectural decision:"
+    echo "  • Development builds: No mTLS (for testing)"
+    echo "  • Production builds: mTLS enforced (always strict)"
+    echo ""
+    echo -e "${CYAN}Setting up mTLS now...${NC}"
+    echo ""
+
+    if [ -f "$PROJECT_ROOT/scripts/setup-mtls.sh" ]; then
+        bash "$PROJECT_ROOT/scripts/setup-mtls.sh"
+
+        if [ $? -eq 0 ]; then
+            echo ""
+            echo -e "${GREEN}✓ mTLS setup complete${NC}"
+            echo ""
+        else
+            echo ""
+            echo -e "${RED}✗ mTLS setup failed${NC}"
+            echo ""
+            echo -e "${YELLOW}You must run setup-mtls.sh manually before deploying agents:${NC}"
+            echo "  ./scripts/setup-mtls.sh"
+            echo ""
+            exit 1
+        fi
+    else
+        echo -e "${RED}✗ setup-mtls.sh not found${NC}"
+        echo "  Expected location: $PROJECT_ROOT/scripts/setup-mtls.sh"
+        echo ""
+        exit 1
+    fi
+fi
+
+echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo "  1. Configure your agents to send metrics to: http://<your-ip>:8080/metrics"
+echo "  1. Configure your agents to send metrics with mTLS certificates"
 echo "  2. Access the Flagship dashboard at http://localhost"
-echo "  3. For production: Update domain DNS to point to this server"
-echo "  4. For production: Use caddy/Caddyfile.prod for automatic HTTPS"
-echo "  5. Review logs for any startup issues"
+echo "  3. Update domain DNS to point to this server"
+echo "  4. Review logs for any startup issues"
 echo ""
 
 echo -e "${GREEN}Happy Monitoring! 🚀${NC}"

@@ -1,3 +1,6 @@
+//go:build !prod
+// +build !prod
+
 package main
 
 import (
@@ -9,6 +12,7 @@ import (
 	"github.com/nodepulse/admiral/submarines/internal/database"
 	"github.com/nodepulse/admiral/submarines/internal/handlers"
 	"github.com/nodepulse/admiral/submarines/internal/valkey"
+	"github.com/nodepulse/admiral/submarines/internal/validation"
 )
 
 func main() {
@@ -49,23 +53,40 @@ func main() {
 		c.JSON(200, gin.H{
 			"status":  "ok",
 			"service": "node-pulse-ingest",
+			"mtls":    "disabled", // Development mode
 		})
 	})
 
-	// Initialize handlers
-	metricsHandler := handlers.NewMetricsHandler(db, valkeyClient)
-	prometheusHandler := handlers.NewPrometheusHandler(db, valkeyClient)
+	// Initialize server ID validator (with Valkey caching)
+	// This validator runs REGARDLESS of mTLS state - it's an independent security layer
+	serverIDValidator := validation.NewServerIDValidator(db.DB, valkeyClient.GetClient(), cfg.ServerIDCacheTTL)
 
-	// Ingest routes (for agents only)
+	// Initialize handlers (with server ID validation)
+	metricsHandler := handlers.NewMetricsHandler(db, valkeyClient, serverIDValidator)
+	prometheusHandler := handlers.NewPrometheusHandler(db, valkeyClient, serverIDValidator)
+	certificateHandler := handlers.NewCertificateHandler(db.DB, cfg)
+
+	// Ingest routes (for agents only, NO mTLS in development)
 	router.POST("/metrics", metricsHandler.IngestMetrics)                        // Legacy JSON format
 	router.POST("/metrics/prometheus", prometheusHandler.IngestPrometheusMetrics) // Prometheus text format
 	router.GET("/metrics/prometheus/health", prometheusHandler.HealthCheck)       // Prometheus endpoint health
-	// Future: NPI v1 endpoint
-	// router.POST("/v1/ingest", metricsHandler.IngestNPI)
+
+	// Internal API routes (for Flagship/deployer only, not exposed publicly)
+	internal := router.Group("/internal")
+	{
+		// Certificate management
+		internal.POST("/certificates/generate", certificateHandler.GenerateCertificate)
+		internal.POST("/certificates/revoke", certificateHandler.RevokeCertificate)
+		internal.GET("/certificates/:server_id", certificateHandler.GetCertificate)
+		internal.GET("/certificates/expiring", certificateHandler.ListExpiringCertificates)
+
+		// CA management
+		internal.POST("/ca/create", certificateHandler.CreateCA)
+	}
 
 	// Start server
 	addr := ":" + cfg.Port
-	log.Printf("Starting ingest service on %s", addr)
+	log.Printf("Starting ingest service on %s (mTLS: DISABLED - Development Mode)", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
