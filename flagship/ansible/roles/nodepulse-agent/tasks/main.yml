@@ -4,9 +4,15 @@
     name: common
     tasks_from: prerequisite
 
+- name: Check if OS-specific variables file exists
+  stat:
+    path: "{{ role_path }}/vars/{{ ansible_os_family }}.yml"
+  register: os_vars_file
+  delegate_to: localhost
+
 - name: Include OS-specific variables
   include_vars: "{{ ansible_os_family }}.yml"
-  ignore_errors: yes
+  when: os_vars_file.stat.exists
 
 - name: Create nodepulse user
   user:
