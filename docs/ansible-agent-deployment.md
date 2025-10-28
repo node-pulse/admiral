@@ -753,7 +753,7 @@ php artisan ansible:inventory --status=active
     agent_data_dir: "/var/lib/nodepulse"
     agent_log_dir: "/var/log/nodepulse"
     # Dashboard endpoint - passed from Laravel job via extra vars
-    dashboard_endpoint: "{{ dashboard_endpoint }}"
+    ingest_endpoint: "{{ ingest_endpoint }}"
     agent_interval: "{{ agent_interval | default('5s') }}"
     agent_timeout: "{{ agent_timeout | default('3s') }}"
 
@@ -764,7 +764,7 @@ php artisan ansible:inventory --status=active
           Deploying Node Pulse Agent to {{ inventory_hostname }}
           Server ID: {{ server_uuid }}
           Architecture: {{ architecture }}
-          Dashboard: {{ dashboard_endpoint }}
+          Ingest Endpoint: {{ ingest_endpoint }}
 
     - name: Ensure server is reachable
       wait_for_connection:
@@ -947,7 +947,7 @@ php artisan ansible:inventory --status=active
 # Deployed by Ansible on {{ ansible_date_time.iso8601 }}
 
 server:
-  endpoint: "{{ dashboard_endpoint }}"
+  endpoint: "{{ ingest_endpoint }}"
   timeout: {{ agent_timeout }}
   # Use custom CA cert if needed
   # ca_cert: "/etc/ssl/certs/ca-certificates.crt"
@@ -1142,7 +1142,7 @@ agent_data_dir: "/var/lib/nodepulse"
 agent_log_dir: "/var/log/nodepulse"
 
 # Dashboard configuration
-dashboard_endpoint: "https://dashboard.example.com/metrics"
+ingest_endpoint: "https://dashboard.example.com/metrics"
 
 # Agent behavior
 agent_interval: "5s"
@@ -1244,7 +1244,7 @@ log_max_age_days: 7
     agent_config_dir: "/etc/nodepulse"
     agent_data_dir: "/var/lib/nodepulse"
     agent_log_dir: "/var/log/nodepulse"
-    dashboard_endpoint: "{{ dashboard_endpoint }}"
+    ingest_endpoint: "{{ ingest_endpoint }}"
     agent_interval: "{{ agent_interval | default('5s') }}"
     agent_timeout: "{{ agent_timeout | default('3s') }}"
     # Increase retries for failed servers
@@ -2399,7 +2399,7 @@ export default function CreateDeployment() {
     playbook: "deploy-agent.yml",
     server_ids: [] as string[],
     variables: {
-      dashboard_endpoint: "",
+      ingest_endpoint: "",
       agent_interval: "5s",
       agent_timeout: "3s",
     },
@@ -2574,18 +2574,18 @@ export default function CreateDeployment() {
                 </div>
 
                 <div>
-                  <Label htmlFor="dashboard_endpoint">
+                  <Label htmlFor="ingest_endpoint">
                     Dashboard Endpoint *
                   </Label>
                   <Input
-                    id="dashboard_endpoint"
-                    value={formData.variables.dashboard_endpoint}
+                    id="ingest_endpoint"
+                    value={formData.variables.ingest_endpoint}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
                         variables: {
                           ...prev.variables,
-                          dashboard_endpoint: e.target.value,
+                          ingest_endpoint: e.target.value,
                         },
                       }))
                     }
@@ -2727,9 +2727,9 @@ export default function CreateDeployment() {
                       {formData.server_ids.length} servers
                     </dd>
 
-                    <dt className="text-muted-foreground">Dashboard:</dt>
+                    <dt className="text-muted-foreground">Ingest Endpoint:</dt>
                     <dd className="font-mono text-xs">
-                      {formData.variables.dashboard_endpoint}
+                      {formData.variables.ingest_endpoint}
                     </dd>
                   </dl>
                 </div>
@@ -3170,7 +3170,7 @@ curl -X POST http://localhost/api/deployments \
     "playbook": "deploy-agent.yml",
     "server_ids": ["uuid1", "uuid2", "uuid3"],
     "variables": {
-      "dashboard_endpoint": "https://dashboard.example.com/metrics",
+      "ingest_endpoint": "https://dashboard.example.com/metrics",
       "agent_interval": "5s",
       "agent_timeout": "3s",
       "agent_version": "latest"

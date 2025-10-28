@@ -44,6 +44,16 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+// Define required fields for each playbook
+const playbookFields: Record<string, { ingestEndpoint?: boolean }> = {
+    'nodepulse/deploy-agent.yml': {
+        ingestEndpoint: true,
+    },
+    'nodepulse/retry-failed.yml': {
+        ingestEndpoint: true,
+    },
+};
+
 interface ServerData {
     id: string;
     hostname: string;
@@ -81,7 +91,7 @@ export default function CreateDeployment() {
     const [deploymentName, setDeploymentName] = useState('');
     const [deploymentDescription, setDeploymentDescription] = useState('');
     const [playbook, setPlaybook] = useState<string>('nodepulse/deploy-agent.yml');
-    const [agentVersion, setAgentVersion] = useState('latest');
+    const [ingestEndpoint, setIngestEndpoint] = useState('');
 
     useEffect(() => {
         fetchServers();
@@ -167,7 +177,7 @@ export default function CreateDeployment() {
                     playbook: playbook,
                     server_ids: Array.from(selectedServers),
                     variables: {
-                        agent_version: agentVersion,
+                        ...(ingestEndpoint && { ingest_endpoint: ingestEndpoint }),
                     },
                 }),
             });
@@ -280,23 +290,25 @@ export default function CreateDeployment() {
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="agent_version">
-                                    Agent Version
-                                </Label>
-                                <Input
-                                    id="agent_version"
-                                    placeholder="latest"
-                                    value={agentVersion}
-                                    onChange={(e) =>
-                                        setAgentVersion(e.target.value)
-                                    }
-                                />
-                                <p className="text-sm text-muted-foreground">
-                                    Enter a specific version (e.g., v1.2.3) or
-                                    "latest"
-                                </p>
-                            </div>
+                            {/* Playbook-specific fields */}
+                            {playbookFields[playbook]?.ingestEndpoint && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="ingest_endpoint">
+                                        Ingest Endpoint (Optional)
+                                    </Label>
+                                    <Input
+                                        id="ingest_endpoint"
+                                        placeholder="http://ingest.localhost/metrics/prometheus"
+                                        value={ingestEndpoint}
+                                        onChange={(e) =>
+                                            setIngestEndpoint(e.target.value)
+                                        }
+                                    />
+                                    <p className="text-sm text-muted-foreground">
+                                        Leave blank to use default ingest endpoint
+                                    </p>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 

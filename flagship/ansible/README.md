@@ -76,7 +76,7 @@ Set these in your `.env` file:
 AGENT_DOWNLOAD_BASE_URL=https://pub-xxxxx.r2.dev
 
 # Dashboard endpoint for agents to report to
-DASHBOARD_ENDPOINT=https://your-dashboard.com/metrics
+INGEST_ENDPOINT=https://your-dashboard.com/metrics
 ```
 
 ### Agent Version

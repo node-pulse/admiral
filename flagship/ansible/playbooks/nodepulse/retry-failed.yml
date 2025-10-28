@@ -18,8 +18,8 @@
     agent_data_dir: "/var/lib/nodepulse"
     agent_log_dir: "/var/log/nodepulse"
 
-    # Dashboard endpoint - passed from Laravel job via extra vars
-    dashboard_endpoint: "{{ dashboard_endpoint }}"
+    # Ingest endpoint - passed from Laravel job via extra vars
+    ingest_endpoint: "{{ ingest_endpoint }}"
 
     # Agent behavior (defaults)
     agent_interval: "{{ agent_interval | default('15s') }}"
@@ -38,7 +38,7 @@
           Max Retries: {{ max_retries }}
 
   roles:
-    - nodepulse-agent
+    - role: ../../roles/nodepulse-agent
 
   tasks:
     - name: Verify final status

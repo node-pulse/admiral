@@ -10,7 +10,7 @@
 **During Ansible deployment, ONLY TWO configurations are needed:**
 
 ```yaml
-dashboard_endpoint: "https://your-dashboard.nodepulse.io"
+ingest_endpoint: "https://your-dashboard.nodepulse.io"
 server_id: "550e8400-e29b-41d4-a716-446655440000"  # Assigned by dashboard
 ```
 
@@ -80,7 +80,7 @@ sudo iptables-save | sudo tee /etc/iptables/rules.v4
 
 ```yaml
 server:
-  endpoint: "{{ dashboard_endpoint }}/metrics/prometheus"  # Configurable (from dashboard)
+  endpoint: "{{ ingest_endpoint }}/metrics/prometheus"  # Configurable (from dashboard)
   timeout: 5s                                              # Default (not configurable)
 
 agent:
@@ -112,10 +112,10 @@ logging:
 
 **TWO fields are configurable during deployment:**
 
-**1. Variable:** `dashboard_endpoint`
+**1. Variable:** `ingest_endpoint`
 - **Required:** Yes
 - **Example:** `"https://dashboard.nodepulse.io"`
-- **Used in:** `server.endpoint` → `{{ dashboard_endpoint }}/metrics/prometheus`
+- **Used in:** `server.endpoint` → `{{ ingest_endpoint }}/metrics/prometheus`
 
 **2. Variable:** `server_id`
 - **Required:** Yes
@@ -132,7 +132,7 @@ logging:
 ```yaml
 vars:
   # CONFIGURABLE VARIABLES (passed from Laravel job)
-  dashboard_endpoint: "{{ dashboard_endpoint }}"  # Dashboard URL
+  ingest_endpoint: "{{ ingest_endpoint }}"  # Dashboard URL
   server_id: "{{ server_id }}"                    # Server UUID from dashboard
 
   # REMOVED VARIABLES (use defaults):
@@ -152,7 +152,7 @@ vars:
 # Deployed by Ansible on {{ ansible_date_time.iso8601 }}
 
 server:
-  endpoint: "{{ dashboard_endpoint }}/metrics/prometheus"
+  endpoint: "{{ ingest_endpoint }}/metrics/prometheus"
   timeout: 5s
 
 agent:
@@ -181,7 +181,7 @@ logging:
 ```
 
 **Key changes:**
-- ✅ Only `dashboard_endpoint` and `server_id` are passed from playbook
+- ✅ Only `ingest_endpoint` and `server_id` are passed from playbook
 - ✅ All other values are hardcoded defaults
 - ✅ No more `agent_interval`, `agent_timeout`, `log_level` variables
 - ✅ Simpler, less error-prone deployment
@@ -197,7 +197,7 @@ logging:
 
 ```yaml
 # KEEP (required configurable fields):
-dashboard_endpoint: "https://dashboard.example.com"
+ingest_endpoint: "https://dashboard.example.com"
 server_id: "550e8400-e29b-41d4-a716-446655440000"  # From dashboard
 
 # REMOVE (use hardcoded defaults instead):
@@ -219,7 +219,7 @@ server_id: "550e8400-e29b-41d4-a716-446655440000"  # From dashboard
 ```yaml
 vars:
   # KEEP - only required variable
-  dashboard_endpoint: "{{ dashboard_endpoint }}"  # Passed from Laravel
+  ingest_endpoint: "{{ ingest_endpoint }}"  # Passed from Laravel
 
   # REMOVE:
   # ❌ agent_interval: "{{ agent_interval | default('5s') }}"
@@ -463,7 +463,7 @@ sudo pulse service start
 **Before implementation, please confirm:**
 
 ### Configuration Simplification
-- [ ] ✅ ONLY `dashboard_endpoint` and `server_id` are configurable during Ansible deployment
+- [ ] ✅ ONLY `ingest_endpoint` and `server_id` are configurable during Ansible deployment
 - [ ] ✅ `server_id` is assigned by dashboard when server is added
 - [ ] ✅ All other settings (interval, timeout, buffer, logging) use hardcoded defaults
 - [ ] ✅ Remove `agent_interval`, `agent_timeout`, `log_level` from Ansible variables
@@ -474,7 +474,7 @@ sudo pulse service start
 - [ ] ✅ Remove all custom metrics collectors (cpu.go, memory.go, network.go, etc.)
 - [ ] ✅ Agent becomes simple Prometheus scraper + forwarder
 - [ ] ✅ Scrape node_exporter on `localhost:9100`
-- [ ] ✅ Forward to `{{ dashboard_endpoint }}/metrics/prometheus`
+- [ ] ✅ Forward to `{{ ingest_endpoint }}/metrics/prometheus`
 
 ### Security
 - [ ] ✅ Block external access to port 9100 (UFW/iptables)
@@ -483,7 +483,7 @@ sudo pulse service start
 
 ### Ansible Template
 - [ ] ✅ `nodepulse.yml.j2` uses new v2.0 structure
-- [ ] ✅ `server.endpoint` = `{{ dashboard_endpoint }}/metrics/prometheus`
+- [ ] ✅ `server.endpoint` = `{{ ingest_endpoint }}/metrics/prometheus`
 - [ ] ✅ `agent.server_id` = `{{ server_id }}` (from dashboard)
 - [ ] ✅ All other values hardcoded (15s interval, 5s timeout, etc.)
 - [ ] ✅ No more `metrics:` section in template
@@ -496,7 +496,7 @@ sudo pulse service start
 
 ## ❓ Questions for Approval
 
-1. **Confirm:** Only `dashboard_endpoint` and `server_id` are configurable? ✅
+1. **Confirm:** Only `ingest_endpoint` and `server_id` are configurable? ✅
 2. **Confirm:** `server_id` is assigned by dashboard when adding server? ✅
 3. **Confirm:** Remove all other Ansible variables (interval, timeout, etc.)? ✅
 4. **Confirm:** Remove TUI completely (no `pulse watch`)? ✅

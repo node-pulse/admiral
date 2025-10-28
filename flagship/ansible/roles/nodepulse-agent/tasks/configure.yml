@@ -1,7 +1,7 @@
 ---
-- name: Generate server UUID if not exists
+- name: Use agent_server_id from inventory
   set_fact:
-    generated_uuid: "{{ server_uuid | default(99999999 | random | to_uuid) }}"
+    agent_server_id_final: "{{ agent_server_id }}"
 
 - name: Deploy agent configuration
   template:

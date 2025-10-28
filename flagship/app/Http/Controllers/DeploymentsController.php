@@ -170,9 +170,12 @@ class DeploymentsController extends Controller
         ]);
 
         // Prepare extra vars for Ansible
+        // Use ingest domain for metrics endpoint (user can override via variables)
+        $defaultEndpoint = 'http://' . config('submarines.ingest_domain') . '/metrics/prometheus';
+
         $extraVars = array_merge($validated['variables'] ?? [], [
-            'dashboard_endpoint' => config('app.url') . '/metrics',
-            'agent_version' => $validated['variables']['agent_version'] ?? 'latest',
+            'ingest_endpoint' => $validated['variables']['ingest_endpoint'] ?? $defaultEndpoint,
+            'agent_version' => 'latest', // Always use latest version
         ]);
 
         // Publish to Valkey stream for Submarines deployer to consume

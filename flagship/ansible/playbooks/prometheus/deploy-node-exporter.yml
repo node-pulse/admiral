@@ -24,7 +24,7 @@
     #   - "--collector.processes"
 
   roles:
-    - role: node-exporter
+    - role: ../../roles/node-exporter
 
   post_tasks:
     - name: Display deployment summary

@@ -17,8 +17,8 @@ agent_config_dir: "/etc/nodepulse"
 agent_data_dir: "/var/lib/nodepulse"
 agent_log_dir: "/var/log/nodepulse"
 
-# Dashboard configuration
-dashboard_endpoint: "https://dashboard.example.com/metrics"
+# Ingest endpoint configuration
+ingest_endpoint: "https://ingest.example.com/metrics/prometheus"
 
 # Agent behavior
 agent_interval: "5s"

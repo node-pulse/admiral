@@ -167,7 +167,7 @@ Add to `.env`:
 AGENT_DOWNLOAD_BASE_URL=https://pub-xxxxx.r2.dev
 
 # Dashboard endpoint for agents
-DASHBOARD_ENDPOINT=https://your-dashboard.com/metrics
+INGEST_ENDPOINT=https://your-dashboard.com/metrics
 
 # Queue configuration (already set in queue.php)
 QUEUE_CONNECTION=database
@@ -283,7 +283,7 @@ export ANSIBLE_SERVER_IDS=uuid1,uuid2,uuid3
 
 # Run playbook
 ansible-playbook playbooks/deploy-agent.yml \
-  --extra-vars '{"dashboard_endpoint":"https://your-dashboard.com/metrics"}'
+  --extra-vars '{"ingest_endpoint":"https://your-dashboard.com/metrics"}'
 ```
 
 ---

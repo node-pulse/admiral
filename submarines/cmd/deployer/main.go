@@ -309,6 +309,7 @@ func buildInventory(serverIDs []string) (string, []string, error) {
 		sb.WriteString(fmt.Sprintf("      ansible_host: %s\n", server.SSHHost))
 		sb.WriteString(fmt.Sprintf("      ansible_port: %d\n", server.SSHPort))
 		sb.WriteString(fmt.Sprintf("      ansible_user: %s\n", server.SSHUsername))
+		sb.WriteString(fmt.Sprintf("      agent_server_id: %s\n", server.AgentServerID))
 
 		// Decrypt and write SSH key if available
 		if server.EncryptedKeyData != "" {
@@ -357,6 +358,7 @@ type ServerInfo struct {
 	SSHUsername      string
 	SSHKeyPath       string // Will be set to temp file path after decryption
 	EncryptedKeyData string // Encrypted private key from database
+	AgentServerID    string // The server_id value used by the agent
 }
 
 func fetchServers(serverIDs []string) ([]ServerInfo, error) {
@@ -366,7 +368,8 @@ func fetchServers(serverIDs []string) ([]ServerInfo, error) {
 			s.ssh_host,
 			s.ssh_port,
 			s.ssh_username,
-			pk.private_key_content
+			pk.private_key_content,
+			s.server_id
 		FROM admiral.servers s
 		LEFT JOIN admiral.server_private_keys spk ON s.id = spk.server_id AND spk.is_primary = true
 		LEFT JOIN admiral.private_keys pk ON spk.private_key_id = pk.id
@@ -384,7 +387,7 @@ func fetchServers(serverIDs []string) ([]ServerInfo, error) {
 	for rows.Next() {
 		var s ServerInfo
 		var encryptedKey *string // Nullable
-		if err := rows.Scan(&s.Hostname, &s.SSHHost, &s.SSHPort, &s.SSHUsername, &encryptedKey); err != nil {
+		if err := rows.Scan(&s.Hostname, &s.SSHHost, &s.SSHPort, &s.SSHUsername, &encryptedKey, &s.AgentServerID); err != nil {
 			return nil, fmt.Errorf("failed to scan server: %w", err)
 		}
 		if encryptedKey != nil {
