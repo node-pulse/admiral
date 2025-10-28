@@ -201,14 +201,21 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 	// Parse Ansible JSON output to get per-host results
 	if output != "" {
 		if parseErr := parseAnsibleResults(deploymentID, output, hostnameToServerID); parseErr != nil {
-			logger.Printf("[WARNING] Failed to parse Ansible results: %v", parseErr)
-			// If we failed to parse results AND deployment failed, mark remaining servers as failed
-			if err != nil {
-				logger.Printf("[INFO] Marking servers without results as failed due to parse error")
-				if markErr := markRemainingDeploymentServersFailed(deploymentID); markErr != nil {
-					logger.Printf("[WARNING] Failed to mark remaining deployment_servers as failed: %v", markErr)
-				}
+			logger.Printf("[ERROR] Failed to parse Ansible results: %v", parseErr)
+			// Log first 1000 characters of output for debugging
+			maxLen := min(1000, len(output))
+			logger.Printf("[DEBUG] Ansible output (first %d chars): %s", maxLen, output[:maxLen])
+			// If we failed to parse results, mark remaining servers as failed
+			logger.Printf("[INFO] Marking servers without parsed results as failed")
+			if markErr := markRemainingDeploymentServersFailed(deploymentID); markErr != nil {
+				logger.Printf("[WARNING] Failed to mark remaining deployment_servers as failed: %v", markErr)
 			}
+		}
+	} else {
+		// No output at all - this is unusual
+		logger.Printf("[WARNING] No Ansible output received, marking all servers as failed")
+		if markErr := markRemainingDeploymentServersFailed(deploymentID); markErr != nil {
+			logger.Printf("[WARNING] Failed to mark deployment_servers as failed: %v", markErr)
 		}
 	}
 
@@ -307,6 +314,8 @@ func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string
 	// Execute ansible-playbook with context for cancellation support
 	cmd := exec.CommandContext(ctx, "ansible-playbook", args...)
 	// Use JSON callback for machine-readable output
+	// Note: profile_tasks/timer callbacks may mix timing output with JSON,
+	// but we extract the JSON content in parseAnsibleResults()
 	cmd.Env = append(os.Environ(),
 		"ANSIBLE_CONFIG=/app/flagship/ansible/ansible.cfg",
 		"ANSIBLE_STDOUT_CALLBACK=json",
@@ -504,14 +513,30 @@ type AnsibleJSONOutput struct {
 	Stats map[string]AnsiblePlayRecap `json:"stats"`
 }
 
-func parseAnsibleResults(deploymentID string, jsonOutput string, hostnameToServerID map[string]string) error {
+func parseAnsibleResults(deploymentID string, rawOutput string, hostnameToServerID map[string]string) error {
+	// Extract JSON from mixed output (profile_tasks/timer callbacks add timing info)
+	// Find the first '{' and last '}' to extract the JSON object
+	firstBrace := strings.Index(rawOutput, "{")
+	lastBrace := strings.LastIndex(rawOutput, "}")
+
+	if firstBrace == -1 || lastBrace == -1 || firstBrace >= lastBrace {
+		return fmt.Errorf("no valid JSON object found in Ansible output (first brace: %d, last brace: %d)", firstBrace, lastBrace)
+	}
+
+	jsonOutput := rawOutput[firstBrace:lastBrace+1]
+
 	var result AnsibleJSONOutput
 	if err := json.Unmarshal([]byte(jsonOutput), &result); err != nil {
 		return fmt.Errorf("failed to unmarshal Ansible JSON: %w", err)
 	}
 
+	if len(result.Stats) == 0 {
+		return fmt.Errorf("ansible JSON output missing 'stats' field or empty")
+	}
+
 	logger.Printf("[ANSIBLE] Parsing results for %d hosts", len(result.Stats))
 
+	updatedCount := 0
 	for hostname, stats := range result.Stats {
 		// Determine status based on stats
 		var status string
@@ -541,9 +566,15 @@ func parseAnsibleResults(deploymentID string, jsonOutput string, hostnameToServe
 			logger.Printf("[ERROR] Failed to update deployment_server for %s: %v", hostname, err)
 		} else {
 			logger.Printf("[DB] Updated deployment_server: %s -> %s (changed: %v)", hostname, status, changed)
+			updatedCount++
 		}
 	}
 
+	if updatedCount == 0 {
+		return fmt.Errorf("no deployment_servers were updated (parsed %d hosts, updated 0)", len(result.Stats))
+	}
+
+	logger.Printf("[ANSIBLE] Successfully updated %d deployment_servers", updatedCount)
 	return nil
 }
 
