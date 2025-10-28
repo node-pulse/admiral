@@ -5,8 +5,8 @@ import (
 	"io"
 	"time"
 
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
-	"github.com/prometheus/common/model"
 )
 
 // PrometheusMetric represents a single parsed Prometheus metric sample
@@ -55,7 +55,7 @@ func ParsePrometheusText(reader io.Reader) ([]*PrometheusMetric, error) {
 
 			// Handle different metric types
 			switch mf.GetType() {
-			case model.MetricTypeCounter:
+			case dto.MetricType_COUNTER:
 				metrics = append(metrics, &PrometheusMetric{
 					Name:      metricName,
 					Type:      metricType,
@@ -66,7 +66,7 @@ func ParsePrometheusText(reader io.Reader) ([]*PrometheusMetric, error) {
 					Unit:      unit,
 				})
 
-			case model.MetricTypeGauge:
+			case dto.MetricType_GAUGE:
 				metrics = append(metrics, &PrometheusMetric{
 					Name:      metricName,
 					Type:      metricType,
@@ -77,7 +77,7 @@ func ParsePrometheusText(reader io.Reader) ([]*PrometheusMetric, error) {
 					Unit:      unit,
 				})
 
-			case model.MetricTypeHistogram:
+			case dto.MetricType_HISTOGRAM:
 				// Parse histogram buckets
 				h := m.GetHistogram()
 
@@ -129,7 +129,7 @@ func ParsePrometheusText(reader io.Reader) ([]*PrometheusMetric, error) {
 					Unit:        unit,
 				})
 
-			case model.MetricTypeSummary:
+			case dto.MetricType_SUMMARY:
 				// Parse summary quantiles
 				s := m.GetSummary()
 
@@ -185,15 +185,15 @@ func ParsePrometheusText(reader io.Reader) ([]*PrometheusMetric, error) {
 }
 
 // getMetricType converts Prometheus metric type to string
-func getMetricType(mt model.MetricType) string {
+func getMetricType(mt dto.MetricType) string {
 	switch mt {
-	case model.MetricTypeCounter:
+	case dto.MetricType_COUNTER:
 		return "counter"
-	case model.MetricTypeGauge:
+	case dto.MetricType_GAUGE:
 		return "gauge"
-	case model.MetricTypeHistogram:
+	case dto.MetricType_HISTOGRAM:
 		return "histogram"
-	case model.MetricTypeSummary:
+	case dto.MetricType_SUMMARY:
 		return "summary"
 	default:
 		return "untyped"
@@ -201,7 +201,7 @@ func getMetricType(mt model.MetricType) string {
 }
 
 // getTimestamp extracts timestamp from metric, defaults to current time
-func getTimestamp(m *model.Metric) time.Time {
+func getTimestamp(m *dto.Metric) time.Time {
 	if m.TimestampMs != nil {
 		return time.UnixMilli(*m.TimestampMs)
 	}

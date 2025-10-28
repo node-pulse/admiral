@@ -172,3 +172,13 @@ type StreamMessage struct {
 	ID     string
 	Fields map[string]string
 }
+
+// PublishToStream is a convenience wrapper for XAdd
+func (c *Client) PublishToStream(stream string, values map[string]string) (string, error) {
+	return c.XAdd(context.Background(), stream, values)
+}
+
+// StreamLength is a convenience wrapper for XLen
+func (c *Client) StreamLength(stream string) (int64, error) {
+	return c.XLen(context.Background(), stream)
+}
