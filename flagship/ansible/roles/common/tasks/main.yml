@@ -1,0 +1,10 @@
+---
+# Common tasks that can be shared across all Node Pulse roles
+#
+# Usage in other roles:
+#   - import_role:
+#       name: common
+#       tasks_from: prerequisite
+
+- name: Run prerequisite checks
+  import_tasks: prerequisite.yml

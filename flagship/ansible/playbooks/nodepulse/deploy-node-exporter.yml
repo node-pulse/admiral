@@ -1,0 +1,46 @@
+---
+# Playbook: Deploy Prometheus Node Exporter to servers
+#
+# Usage:
+#   ansible-playbook -i inventory playbooks/nodepulse/deploy-node-exporter.yml
+#
+# With specific version:
+#   ansible-playbook -i inventory playbooks/nodepulse/deploy-node-exporter.yml -e "node_exporter_version=1.8.2"
+#
+# Limit to specific servers:
+#   ansible-playbook -i inventory playbooks/nodepulse/deploy-node-exporter.yml --limit "server1,server2"
+
+- name: Deploy Node Exporter
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # Override defaults if needed
+    # node_exporter_version: "1.8.2"
+    # node_exporter_listen_address: "127.0.0.1"
+    # node_exporter_extra_flags:
+    #   - "--collector.systemd"
+    #   - "--collector.processes"
+
+  roles:
+    - role: node-exporter
+
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ========================================
+          ✅ Node Exporter Deployment Complete
+          ========================================
+
+          Server: {{ ansible_hostname }}
+          Version: {{ node_exporter_version }}
+          Endpoint: http://{{ node_exporter_listen_address }}:{{ node_exporter_listen_port }}/metrics
+
+          Next steps:
+          1. Configure Node Pulse Agent to scrape this endpoint
+          2. Verify metrics in dashboard
+
+          Test locally:
+            curl http://{{ node_exporter_listen_address }}:{{ node_exporter_listen_port }}/metrics

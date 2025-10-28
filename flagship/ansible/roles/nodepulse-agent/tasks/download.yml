@@ -1,11 +1,24 @@
 ---
 - name: Detect CPU architecture
   set_fact:
-    agent_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else 'unknown' }}"
+    agent_arch: >-
+      {{
+        'amd64' if ansible_architecture == 'x86_64'
+        else 'arm64' if ansible_architecture == 'aarch64'
+        else 'unknown'
+      }}
 
 - name: Fail if unsupported architecture
   fail:
-    msg: "Unsupported architecture: {{ ansible_architecture }}"
+    msg: |
+      ❌ UNSUPPORTED ARCHITECTURE: {{ ansible_architecture }}
+
+      Node Pulse Agent only supports 64-bit systems:
+        ✓ x86_64 (64-bit Intel/AMD)
+        ✓ aarch64 (64-bit ARM - AWS Graviton, etc.)
+
+      32-bit systems (i386, i686, armv7l) are NOT supported.
+      Please upgrade to a 64-bit operating system.
   when: agent_arch == 'unknown'
 
 - name: Determine binary URL

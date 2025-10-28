@@ -23,8 +23,6 @@
       debug:
         msg: |
           Deploying Node Pulse Agent to {{ inventory_hostname }}
-          Server ID: {{ server_uuid }}
-          Architecture: {{ architecture }}
           Dashboard: {{ dashboard_endpoint }}
 
     - name: Ensure server is reachable

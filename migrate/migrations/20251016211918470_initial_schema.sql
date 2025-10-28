@@ -55,45 +55,63 @@ CREATE TABLE IF NOT EXISTS admiral.servers (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Metrics table (time-series data)
-CREATE TABLE IF NOT EXISTS admiral.metrics (
+-- ============================================================
+-- Prometheus-First Metrics Schema
+-- Designed to natively support Prometheus metric format with labels
+-- ============================================================
+
+-- Metric samples table (Prometheus-style time-series)
+-- This is the core table storing all metric samples with labels
+-- Supports all 4 Prometheus metric types: counter, gauge, histogram, summary
+CREATE TABLE IF NOT EXISTS admiral.metric_samples (
     id BIGSERIAL PRIMARY KEY,
-    server_id UUID NOT NULL,
+    server_id UUID NOT NULL REFERENCES admiral.servers(id) ON DELETE CASCADE,
+
+    -- Metric identification
+    metric_name TEXT NOT NULL, -- e.g., "node_cpu_seconds_total", "node_memory_MemTotal_bytes"
+    metric_type TEXT NOT NULL, -- counter, gauge, histogram, summary
+
+    -- Labels (Prometheus labels as JSONB for flexibility)
+    -- e.g., {"cpu": "0", "mode": "idle"} or {"device": "sda", "mountpoint": "/"}
+    -- For histograms: {"le": "0.5"} where le = "less than or equal"
+    -- For summaries: {"quantile": "0.99"}
+    labels JSONB DEFAULT '{}'::jsonb,
+
+    -- Value and timestamp
+    value DOUBLE PRECISION NOT NULL,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 
-    -- CPU metrics
-    cpu_usage_percent NUMERIC(5,2),
+    -- Histogram/Summary aggregations (for _sum and _count suffixed metrics)
+    -- These are NULL for regular counter/gauge metrics
+    -- For histograms/summaries: stores the cumulative count and sum
+    sample_count BIGINT, -- Total number of observations (for _count metrics)
+    sample_sum DOUBLE PRECISION, -- Sum of all observed values (for _sum metrics)
 
-    -- Memory metrics
-    memory_used_mb BIGINT,
-    memory_total_mb BIGINT,
-    memory_usage_percent NUMERIC(5,2),
+    -- Exemplars (optional, for histogram buckets)
+    -- Links metrics to traces/logs
+    -- e.g., {"trace_id": "abc123", "span_id": "def456"}
+    exemplar JSONB,
+    exemplar_value DOUBLE PRECISION, -- The exemplar's observed value
+    exemplar_timestamp TIMESTAMP WITH TIME ZONE, -- When the exemplar was observed
 
-    -- Disk metrics
-    disk_used_gb DOUBLE PRECISION,
-    disk_total_gb DOUBLE PRECISION,
-    disk_usage_percent DOUBLE PRECISION,
-    disk_mount_point TEXT,
-
-    -- Network metrics (delta since last collection)
-    network_upload_bytes BIGINT,
-    network_download_bytes BIGINT,
-
-    -- Uptime
-    uptime_days NUMERIC(10,2),
-
-    -- Processes data
-    processes JSONB,
-
-    -- IP addresses
-    ipv4 TEXT,
-    ipv6 TEXT,
-
-    -- Raw data for future extensibility
-    raw_data JSONB,
+    -- Metadata
+    help_text TEXT, -- Metric description from # HELP
+    unit TEXT, -- Metric unit (bytes, seconds, etc.)
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create composite index for efficient time-series queries
+CREATE INDEX IF NOT EXISTS idx_metric_samples_lookup
+    ON admiral.metric_samples(server_id, metric_name, timestamp DESC);
+
+-- Create index for label queries (GIN index for JSONB)
+CREATE INDEX IF NOT EXISTS idx_metric_samples_labels
+    ON admiral.metric_samples USING GIN(labels);
+
+-- Create index for metric name queries
+CREATE INDEX IF NOT EXISTS idx_metric_samples_metric_name
+    ON admiral.metric_samples(metric_name);
 
 -- Alerts table
 CREATE TABLE IF NOT EXISTS admiral.alerts (
@@ -153,9 +171,13 @@ CREATE TABLE IF NOT EXISTS admiral.alert_rules (
 CREATE INDEX IF NOT EXISTS idx_servers_server_id ON admiral.servers(server_id);
 CREATE INDEX IF NOT EXISTS idx_servers_status ON admiral.servers(status);
 CREATE INDEX IF NOT EXISTS idx_servers_last_seen ON admiral.servers(last_seen_at);
-CREATE INDEX IF NOT EXISTS idx_metrics_server_id ON admiral.metrics(server_id);
-CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON admiral.metrics(timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_metrics_server_timestamp ON admiral.metrics(server_id, timestamp DESC);
+
+-- Prometheus metric_samples indexes (already created above near table definition)
+-- idx_metric_samples_lookup: (server_id, metric_name, timestamp DESC)
+-- idx_metric_samples_labels: GIN(labels)
+-- idx_metric_samples_metric_name: (metric_name)
+
+-- Alert indexes
 CREATE INDEX IF NOT EXISTS idx_alerts_server_id ON admiral.alerts(server_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_status ON admiral.alerts(status);
 CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON admiral.alerts(created_at DESC);
@@ -164,7 +186,6 @@ CREATE INDEX IF NOT EXISTS idx_alert_rules_enabled ON admiral.alert_rules(enable
 -- GIN indexes for JSONB columns
 CREATE INDEX IF NOT EXISTS idx_servers_tags ON admiral.servers USING GIN(tags);
 CREATE INDEX IF NOT EXISTS idx_servers_metadata ON admiral.servers USING GIN(metadata);
-CREATE INDEX IF NOT EXISTS idx_metrics_processes ON admiral.metrics USING GIN(processes);
 
 -- ============================================================
 -- SECTION 4: Functions and Triggers

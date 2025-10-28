@@ -56,9 +56,12 @@ func main() {
 
 	// Initialize handlers
 	metricsHandler := handlers.NewMetricsHandler(db, valkeyClient)
+	prometheusHandler := handlers.NewPrometheusHandler(db, valkeyClient)
 
 	// Ingest routes (for agents only)
-	router.POST("/metrics", metricsHandler.IngestMetrics)
+	router.POST("/metrics", metricsHandler.IngestMetrics)                        // Legacy JSON format
+	router.POST("/metrics/prometheus", prometheusHandler.IngestPrometheusMetrics) // Prometheus text format
+	router.GET("/metrics/prometheus/health", prometheusHandler.HealthCheck)       // Prometheus endpoint health
 	// Future: NPI v1 endpoint
 	// router.POST("/v1/ingest", metricsHandler.IngestNPI)
 

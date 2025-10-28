@@ -1,0 +1,44 @@
+---
+# Main tasks for node-exporter role
+
+# Verify system prerequisites (using common role)
+- import_role:
+    name: common
+    tasks_from: prerequisite
+
+- name: Include OS-specific variables
+  include_vars: "{{ ansible_os_family }}.yml"
+  ignore_errors: yes
+
+- name: Create node_exporter system group
+  group:
+    name: "{{ node_exporter_group }}"
+    system: yes
+    state: present
+
+- name: Create node_exporter system user
+  user:
+    name: "{{ node_exporter_user }}"
+    group: "{{ node_exporter_group }}"
+    system: yes
+    create_home: no
+    shell: /usr/sbin/nologin
+    comment: "Node Exporter Service User"
+    state: present
+
+- name: Create required directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ node_exporter_user }}"
+    group: "{{ node_exporter_group }}"
+    mode: "0755"
+  loop:
+    - "{{ node_exporter_install_dir }}"
+    - "{{ node_exporter_config_dir }}"
+    - "{{ node_exporter_textfile_dir }}"
+
+- import_tasks: download.yml
+- import_tasks: install.yml
+- import_tasks: configure.yml
+- import_tasks: verify.yml

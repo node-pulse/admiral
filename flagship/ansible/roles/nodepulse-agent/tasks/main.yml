@@ -1,4 +1,9 @@
 ---
+# Verify system prerequisites first (from common role)
+- import_role:
+    name: common
+    tasks_from: prerequisite
+
 - name: Include OS-specific variables
   include_vars: "{{ ansible_os_family }}.yml"
   ignore_errors: yes

@@ -1,0 +1,64 @@
+---
+# Node Exporter Role Defaults
+
+# Version
+node_exporter_version: "1.8.2"
+
+# Download configuration
+node_exporter_download_base_url: "https://github.com/prometheus/node_exporter/releases/download"
+node_exporter_download_url: "{{ node_exporter_download_base_url }}/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-{{ node_exporter_arch }}.tar.gz"
+
+# Architecture (auto-detected)
+node_exporter_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+# Installation paths
+node_exporter_install_dir: "/opt/node_exporter"
+node_exporter_bin_path: "/usr/local/bin/node_exporter"
+node_exporter_config_dir: "/etc/node_exporter"
+
+# Service configuration
+node_exporter_user: "node_exporter"
+node_exporter_group: "node_exporter"
+
+# Network configuration
+node_exporter_listen_address: "127.0.0.1"  # localhost only (security - scrape via Node Pulse Agent)
+node_exporter_listen_port: 9100
+
+# Collectors configuration
+# Enabled by default collectors (these are already enabled, listed for documentation)
+node_exporter_enabled_collectors:
+  - cpu
+  - cpufreq
+  - diskstats
+  - filesystem
+  - loadavg
+  - meminfo
+  - netdev
+  - netstat
+  - stat
+  - time
+  - uname
+  - vmstat
+  - hwmon
+  - thermal_zone
+
+# Disabled by default collectors (enable if needed)
+node_exporter_disabled_collectors: []
+# Uncomment to enable:
+# - processes
+# - interrupts
+# - ethtool
+# - perf
+
+# Collector-specific options
+node_exporter_collector_filesystem_ignored_fs_types: "tmpfs,devtmpfs,devfs,iso9660,overlay,aufs,squashfs"
+node_exporter_collector_filesystem_ignored_mount_points: "^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)"
+
+# Textfile collector directory (for custom metrics)
+node_exporter_textfile_dir: "/var/lib/node_exporter/textfile_collector"
+
+# Command line flags (additional custom flags)
+node_exporter_extra_flags: []
+# Example:
+# - "--collector.systemd"
+# - "--collector.systemd.unit-include=docker.service"

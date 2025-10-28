@@ -1,0 +1,39 @@
+[Unit]
+Description=Prometheus Node Exporter
+Documentation=https://github.com/prometheus/node_exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ node_exporter_user }}
+Group={{ node_exporter_group }}
+ExecStart={{ node_exporter_bin_path }} \
+    --web.listen-address={{ node_exporter_listen_address }}:{{ node_exporter_listen_port }} \
+{% if node_exporter_collector_filesystem_ignored_fs_types %}
+    --collector.filesystem.fs-types-exclude="{{ node_exporter_collector_filesystem_ignored_fs_types }}" \
+{% endif %}
+{% if node_exporter_collector_filesystem_ignored_mount_points %}
+    --collector.filesystem.mount-points-exclude="{{ node_exporter_collector_filesystem_ignored_mount_points }}" \
+{% endif %}
+    --collector.textfile.directory={{ node_exporter_textfile_dir }} \
+{% for flag in node_exporter_extra_flags %}
+    {{ flag }} \
+{% endfor %}
+    --log.level=info
+
+SyslogIdentifier=node_exporter
+Restart=always
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths={{ node_exporter_textfile_dir }}
+
+[Install]
+WantedBy=multi-user.target
