@@ -7,6 +7,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 )
 
 // PrometheusMetric represents a single parsed Prometheus metric sample
@@ -33,7 +34,9 @@ type PrometheusMetric struct {
 
 // ParsePrometheusText parses Prometheus text format metrics
 func ParsePrometheusText(reader io.Reader) ([]*PrometheusMetric, error) {
-	var parser expfmt.TextParser
+	// Use UTF8Validation scheme (modern Prometheus standard)
+	// LegacyValidation can be used for older Prometheus metric names
+	parser := expfmt.NewTextParser(model.UTF8Validation)
 	metricFamilies, err := parser.TextToMetricFamilies(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Prometheus text format: %w", err)

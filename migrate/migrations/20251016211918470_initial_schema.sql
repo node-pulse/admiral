@@ -63,9 +63,10 @@ CREATE TABLE IF NOT EXISTS admiral.servers (
 -- Metric samples table (Prometheus-style time-series)
 -- This is the core table storing all metric samples with labels
 -- Supports all 4 Prometheus metric types: counter, gauge, histogram, summary
+-- NOTE: No foreign key on server_id - allows metrics retention even after server deletion
 CREATE TABLE IF NOT EXISTS admiral.metric_samples (
     id BIGSERIAL PRIMARY KEY,
-    server_id UUID NOT NULL REFERENCES admiral.servers(id) ON DELETE CASCADE,
+    server_id TEXT NOT NULL, -- Agent's server_id (matches servers.server_id), no foreign key for performance
 
     -- Metric identification
     metric_name TEXT NOT NULL, -- e.g., "node_cpu_seconds_total", "node_memory_MemTotal_bytes"

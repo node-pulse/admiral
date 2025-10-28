@@ -10,12 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/nodepulse/admiral/submarines/internal/cleaner"
 	"github.com/nodepulse/admiral/submarines/internal/config"
 	"github.com/nodepulse/admiral/submarines/internal/database"
 	"github.com/nodepulse/admiral/submarines/internal/handlers"
-	"github.com/nodepulse/admiral/submarines/internal/models"
+	"github.com/nodepulse/admiral/submarines/internal/parsers"
 	"github.com/nodepulse/admiral/submarines/internal/valkey"
 )
 
@@ -134,17 +133,19 @@ func processMessage(db *database.DB, msg valkey.StreamMessage) error {
 		return nil // Skip malformed messages
 	}
 
-	// Deserialize metric report
-	var report models.MetricReport
-	if err := json.Unmarshal([]byte(payloadJSON), &report); err != nil {
+	// All messages are Prometheus format
+	return processPrometheusMessage(db, payloadJSON)
+}
+
+func processPrometheusMessage(db *database.DB, payloadJSON string) error {
+	// Deserialize Prometheus metrics payload
+	var payload handlers.PrometheusMetricsPayload
+	if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
 		return err
 	}
 
-	// Parse server ID
-	serverID, err := uuid.Parse(report.ServerID)
-	if err != nil {
-		return err
-	}
+	// Get server ID from payload (this is the server_id text field)
+	serverID := payload.ServerID
 
 	// Start transaction
 	tx, err := db.Begin()
@@ -153,8 +154,8 @@ func processMessage(db *database.DB, msg valkey.StreamMessage) error {
 	}
 	defer tx.Rollback()
 
-	// Insert metrics only
-	if err := insertMetrics(tx, serverID, &report); err != nil {
+	// Insert all Prometheus metrics as samples using the server_id directly
+	if err := insertPrometheusMetrics(tx, serverID, payload.Metrics); err != nil {
 		return err
 	}
 
@@ -162,85 +163,79 @@ func processMessage(db *database.DB, msg valkey.StreamMessage) error {
 	return tx.Commit()
 }
 
-func insertMetrics(tx *sql.Tx, serverID uuid.UUID, report *models.MetricReport) error {
+func insertPrometheusMetrics(tx *sql.Tx, serverID string, metrics []*parsers.PrometheusMetric) error {
 	query := `
-		INSERT INTO admiral.metrics (
+		INSERT INTO admiral.metric_samples (
 			server_id,
+			metric_name,
+			metric_type,
+			labels,
+			value,
 			timestamp,
-			cpu_usage_percent,
-			memory_used_mb,
-			memory_total_mb,
-			memory_usage_percent,
-			disk_used_gb,
-			disk_total_gb,
-			disk_usage_percent,
-			disk_mount_point,
-			network_upload_bytes,
-			network_download_bytes,
-			uptime_days,
-			processes,
-			ipv4,
-			ipv6
+			sample_count,
+			sample_sum,
+			exemplar,
+			exemplar_value,
+			exemplar_timestamp,
+			help_text,
+			unit
 		) VALUES (
-			$1,
-			$2,
-			$3,
-			$4,
-			$5,
-			$6,
-			$7,
-			$8,
-			$9,
-			$10,
-			$11,
-			$12,
-			$13,
-			$14,
-			$15,
-			$16
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 		)
 	`
 
-	var cpuUsage *float64
-	var memUsed, memTotal *int64
-	var memUsagePercent *float64
-	var diskUsedGB, diskTotalGB, diskUsagePercent *float64
-	var diskMountPoint *string
-	var netUpload, netDownload *int64
-	var uptimeDays *float64
-	var processesJSON []byte
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
 
-	if report.CPU != nil {
-		cpuUsage = report.CPU.UsagePercent
-	}
-	if report.Memory != nil {
-		memUsed = report.Memory.UsedMB
-		memTotal = report.Memory.TotalMB
-		memUsagePercent = report.Memory.UsagePercent
-	}
-	if report.Disk != nil {
-		diskUsedGB = report.Disk.UsedGB
-		diskTotalGB = report.Disk.TotalGB
-		diskUsagePercent = report.Disk.UsagePercent
-		diskMountPoint = report.Disk.MountPoint
-	}
-	if report.Network != nil {
-		netUpload = report.Network.UploadBytes
-		netDownload = report.Network.DownloadBytes
-	}
-	if report.Uptime != nil {
-		uptimeDays = report.Uptime.Days
-	}
-	if report.Processes != nil {
-		var err error
-		processesJSON, err = json.Marshal(report.Processes)
+	for _, metric := range metrics {
+		// Convert labels map to JSON string
+		var labelsJSON string
+		if len(metric.Labels) > 0 {
+			labelBytes, err := json.Marshal(metric.Labels)
+			if err != nil {
+				return err
+			}
+			labelsJSON = string(labelBytes)
+		} else {
+			labelsJSON = "{}"
+		}
+
+		// Convert exemplar map to JSON string if present
+		var exemplarJSON *string
+		if len(metric.Exemplar) > 0 {
+			exemplarBytes, err := json.Marshal(metric.Exemplar)
+			if err != nil {
+				return err
+			}
+			exemplarStr := string(exemplarBytes)
+			exemplarJSON = &exemplarStr
+		}
+
+		// Execute insert
+		_, err = stmt.Exec(
+			serverID,
+			metric.Name,
+			metric.Type,
+			labelsJSON,
+			metric.Value,
+			metric.Timestamp,
+			metric.SampleCount,
+			metric.SampleSum,
+			exemplarJSON,
+			metric.ExemplarValue,
+			metric.ExemplarTimestamp,
+			metric.HelpText,
+			metric.Unit,
+		)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err := tx.Exec(query, serverID, report.Timestamp, cpuUsage, memUsed, memTotal, memUsagePercent, diskUsedGB, diskTotalGB, diskUsagePercent, diskMountPoint, netUpload, netDownload, uptimeDays, processesJSON, report.IPv4, report.IPv6)
-	return err
+	return nil
 }
 
 func runCleanup(ctx context.Context, c *cleaner.Cleaner) {
