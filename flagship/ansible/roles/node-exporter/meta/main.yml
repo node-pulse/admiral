@@ -21,4 +21,4 @@ galaxy_info:
         - '9'
 
 dependencies:
-  - role: ../common
+  - role: common

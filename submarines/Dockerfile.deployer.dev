@@ -6,6 +6,9 @@ RUN apk add --no-cache git ansible openssh-client
 # Install Air
 RUN go install github.com/air-verse/air@latest
 
+# Create Ansible log directory
+RUN mkdir -p /var/log/ansible
+
 WORKDIR /app
 
 # Copy go mod files

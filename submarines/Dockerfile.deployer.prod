@@ -40,9 +40,10 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /build/deployer /app/deployer
 
-# Create directories for SSH keys and Ansible playbooks
+# Create directories for SSH keys, Ansible playbooks, and logs
 RUN mkdir -p /root/.ssh && \
-    chmod 700 /root/.ssh
+    chmod 700 /root/.ssh && \
+    mkdir -p /var/log/ansible
 
 # Set ownership
 RUN chown -R deployer:deployer /app

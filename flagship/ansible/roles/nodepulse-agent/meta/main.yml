@@ -21,4 +21,4 @@ galaxy_info:
 # Role dependencies
 # The nodepulse-agent requires node_exporter to scrape Prometheus metrics
 dependencies:
-  - role: ../node-exporter
+  - role: node-exporter

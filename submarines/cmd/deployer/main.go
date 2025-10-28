@@ -266,7 +266,7 @@ func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string
 
 	// Execute ansible-playbook with context for cancellation support
 	cmd := exec.CommandContext(ctx, "ansible-playbook", args...)
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "ANSIBLE_CONFIG=/app/flagship/ansible/ansible.cfg")
 
 	var stdoutBuf, stderrBuf strings.Builder
 	cmd.Stdout = &stdoutBuf
