@@ -35,13 +35,9 @@ type Config struct {
 	LogLevel         string
 }
 
-// LoadOptions configures how the configuration should be loaded
-type LoadOptions struct {
-	RequireMasterKey bool
-	// Future options can be added here
-}
+ 
 
-func Load(opts LoadOptions) *Config {
+func Load() *Config {
 	return &Config{
 		// Database
 		DBHost:     getEnv("DB_HOST", "postgres"),
@@ -64,7 +60,7 @@ func Load(opts LoadOptions) *Config {
 		JWTSecret: getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 
 		// Encryption
-		MasterKey: loadMasterKey(opts.RequireMasterKey),
+		MasterKey: loadMasterKey(),
 
 		// Cleaner-specific
 		DryRun:           getEnv("DRY_RUN", "false") == "true",
@@ -92,31 +88,15 @@ func getEnv(key, defaultValue string) string {
 
 // loadMasterKey loads the master encryption key from file
 // If required=true, exits on error. If required=false, returns empty string on error.
-func loadMasterKey(required bool) string {
+func loadMasterKey() string {
 	masterKeyPath := getEnv("MASTER_KEY_PATH", "/secrets/master.key")
 
 	data, err := os.ReadFile(masterKeyPath)
 	if err != nil {
-		if required {
-			fmt.Fprintf(os.Stderr, "ERROR: Master encryption key not found at %s\n", masterKeyPath)
-			fmt.Fprintf(os.Stderr, "Please ensure:\n")
-			fmt.Fprintf(os.Stderr, "  1. The secrets directory is mounted: ./secrets:/secrets:ro\n")
-			fmt.Fprintf(os.Stderr, "  2. The master.key file exists in the secrets directory\n")
-			fmt.Fprintf(os.Stderr, "  3. Run deploy.sh to generate the key if needed\n")
-			fmt.Fprintf(os.Stderr, "Error details: %v\n", err)
-			os.Exit(1)
-		}
 		return ""
 	}
 
 	key := strings.TrimSpace(string(data))
-	if key == "" {
-		if required {
-			fmt.Fprintf(os.Stderr, "ERROR: Master encryption key file is empty at %s\n", masterKeyPath)
-			os.Exit(1)
-		}
-		return ""
-	}
 
 	return key
 }

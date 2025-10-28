@@ -47,9 +47,7 @@ func main() {
 	logger.Println("Starting NodePulse Deployment Worker...")
 
 	// Load configuration (master key required for decrypting SSH private keys)
-	cfg = config.Load(config.LoadOptions{
-		RequireMasterKey: true,
-	})
+	cfg = config.Load()
 
 	// Connect to PostgreSQL
 	var err error
