@@ -52,7 +52,7 @@
 ## 1. Production Configuration
 
 - [x] Add submarines-deployer service to compose.development.yml ✅ DONE
-- [ ] Add submarines-deployer service to compose.yml (production config)
+- [x] Add submarines-deployer service to compose.yml (production config) ✅ DONE
 
 ## 2. Custom Playbook Upload Feature
 
@@ -283,22 +283,32 @@ Based on `docs/prometheus-integration-plan.md`, the following items are still in
 
 ## Next Immediate Steps (Priority Order)
 
+### Week of 2025-10-28 Progress ✅
+
+- [x] ✅ **Deployment System Fixed** - Server status tracking now working correctly
+- [x] ✅ **upgrade-agent.yml** - Created and tested successfully
+- [x] ✅ **Prometheus Pipeline** - End-to-end metrics flow working (node_exporter → agent → submarines → database)
+
+### Upcoming Priorities
+
 1. **🎯 HIGHEST PRIORITY: Dashboard Integration**
 
    - Update Flagship to display metrics from `metric_samples` table
+   - Implement charts/visualizations for CPU, memory, disk, network metrics
    - Users can see their Prometheus metrics in the UI
-   - This completes the end-to-end flow
+   - This completes the end-to-end user experience
 
-2. **Testing & Validation**
+2. **Playbook Testing & Hardening**
 
-   - End-to-end testing of the complete pipeline
-   - Performance benchmarks
-   - Error handling verification
+   - Test remaining playbooks (deploy-agent, rollback-agent, retry-failed)
+   - Add comprehensive error handling
+   - Document playbook requirements
 
 3. **Security Hardening**
 
    - Implement mTLS for agent-to-dashboard communication
    - Add authentication/authorization
+   - Rate limiting
 
 4. **Documentation**
    - Complete Prometheus integration documentation
