@@ -88,10 +88,12 @@ Use the bash script for all mTLS operations. This handles everything automatical
   ✓ Certificate: ./secrets/certs/ca.crt
 
 Next Steps:
-  1. Deploy agents with certificates:
-     ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent.yml
+  1. Generate certificates for your servers in Flagship UI
 
-  2. Monitor mTLS status in admin UI:
+  2. Deploy agents with mTLS (production):
+     ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent-mtls.yml
+
+  3. Monitor mTLS status in admin UI:
      System Settings > Security > mTLS Authentication
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -199,17 +201,45 @@ The script rebuilds submarines-ingest which may take 2-5 minutes depending on yo
 
 ## Next Steps After Setup
 
-The script handles everything automatically. Just proceed to:
+The script handles CA setup automatically. Choose your deployment strategy:
 
-1. **Generate agent certificates** via Flagship UI or API
-   ```bash
-   curl -X POST http://localhost/api/servers/{server}/certificate
-   ```
+### Three Deployment Playbooks
 
-2. **Deploy certificates to agents** using Ansible
+1. **Development Agent Deployment** (no mTLS)
    ```bash
-   ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent.yml
+   ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent-dev.yml
    ```
+   - Use for development/testing environments
+   - No mTLS certificates required
+   - Agents connect without encryption
+
+2. **Certificate Installation/Update Only**
+   ```bash
+   ansible-playbook flagship/ansible/playbooks/nodepulse/install-mtls-certs.yml
+   ```
+   - Install or update mTLS certificates on existing agents
+   - Does not install/upgrade the agent binary
+   - Restarts agent service if certificates changed
+   - Useful for certificate rotation
+
+3. **Production Agent Deployment** (with mTLS)
+   ```bash
+   ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent-mtls.yml
+   ```
+   - **For production deployments only**
+   - Installs agent + deploys mTLS certificates
+   - **Fails if certificates are not found** (safety check)
+   - Ensures mTLS is always configured in production
+
+### Generating Certificates
+
+Before using playbooks #2 or #3, generate certificates via:
+
+- **Flagship UI**: System Settings > Servers > Generate Certificate
+- **API**:
+  ```bash
+  curl -X POST http://localhost/api/servers/{server}/certificate
+  ```
 
 ## Security Notes
 

@@ -1,0 +1,104 @@
+---
+- name: Install/Update mTLS Certificates
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # Installation paths
+    agent_config_dir: "/etc/nodepulse"
+    agent_certs_dir: "{{ agent_config_dir }}/certs"
+
+  pre_tasks:
+    - name: Display certificate installation information
+      debug:
+        msg: |
+          Installing/Updating mTLS certificates on {{ inventory_hostname }}
+          Server ID: {{ agent_server_id }}
+
+    - name: Ensure server is reachable
+      wait_for_connection:
+        timeout: 30
+      register: connection_test
+      ignore_errors: yes
+
+    - name: Fail if server is unreachable
+      fail:
+        msg: "Server {{ inventory_hostname }} is unreachable"
+      when: connection_test is failed
+
+    - name: Verify mTLS certificates are provided
+      fail:
+        msg: "mTLS certificates are required but not provided (tls_enabled={{ tls_enabled | default(false) }})"
+      when: not (tls_enabled | default(false) | bool)
+
+  tasks:
+    - name: Create certificate directory
+      file:
+        path: "{{ agent_certs_dir }}"
+        state: directory
+        owner: nodepulse
+        group: nodepulse
+        mode: "0700"
+
+    - name: Deploy CA certificate
+      copy:
+        content: "{{ ca_cert }}"
+        dest: "{{ agent_certs_dir }}/ca.crt"
+        owner: nodepulse
+        group: nodepulse
+        mode: "0644"
+      register: ca_cert_deployed
+
+    - name: Deploy client certificate
+      copy:
+        content: "{{ client_cert }}"
+        dest: "{{ agent_certs_dir }}/client.crt"
+        owner: nodepulse
+        group: nodepulse
+        mode: "0644"
+      register: client_cert_deployed
+
+    - name: Deploy client private key
+      copy:
+        content: "{{ client_key }}"
+        dest: "{{ agent_certs_dir }}/client.key"
+        owner: nodepulse
+        group: nodepulse
+        mode: "0600"
+      register: client_key_deployed
+
+    - name: Verify certificates are readable
+      stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ agent_certs_dir }}/ca.crt"
+        - "{{ agent_certs_dir }}/client.crt"
+        - "{{ agent_certs_dir }}/client.key"
+      register: cert_files
+
+    - name: Fail if any certificate is missing
+      fail:
+        msg: "Certificate file {{ item.item }} is missing or unreadable"
+      when: not item.stat.exists
+      loop: "{{ cert_files.results }}"
+
+    - name: Restart nodepulse agent if certificates changed
+      systemd:
+        name: nodepulse
+        state: restarted
+      when: ca_cert_deployed.changed or client_cert_deployed.changed or client_key_deployed.changed
+      register: restart_result
+      ignore_errors: yes
+
+  post_tasks:
+    - name: Display certificate installation summary
+      debug:
+        msg: |
+          ✓ mTLS certificates installed on {{ inventory_hostname }}
+          ✓ CA certificate: {{ agent_certs_dir }}/ca.crt
+          ✓ Client certificate: {{ agent_certs_dir }}/client.crt
+          ✓ Client private key: {{ agent_certs_dir }}/client.key
+          {% if restart_result is defined and restart_result.changed %}
+          ✓ Agent service restarted
+          {% endif %}

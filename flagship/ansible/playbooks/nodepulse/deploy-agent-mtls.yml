@@ -1,0 +1,90 @@
+---
+- name: Deploy Node Pulse Agent with mTLS (Production)
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # Agent version (GitHub release tag)
+    agent_version: "{{ agent_version | default('latest') }}"
+
+    # GitHub repository configuration
+    agent_github_owner: "node-pulse"
+    agent_github_repo: "agent"
+
+    # Installation paths
+    agent_install_dir: "/opt/nodepulse"
+    agent_config_dir: "/etc/nodepulse"
+    agent_data_dir: "/var/lib/nodepulse"
+    agent_log_dir: "/var/log/nodepulse"
+
+    # Ingest endpoint - passed from Laravel job via extra vars
+    ingest_endpoint: "{{ ingest_endpoint }}"
+
+    # Agent behavior (defaults)
+    agent_interval: "{{ agent_interval | default('15s') }}"
+    agent_timeout: "{{ agent_timeout | default('5s') }}"
+
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg: |
+          Deploying Node Pulse Agent with mTLS to {{ inventory_hostname }}
+          Ingest Endpoint: {{ ingest_endpoint }}
+          ⚠️  Production mode: mTLS is MANDATORY
+
+    - name: Ensure server is reachable
+      wait_for_connection:
+        timeout: 30
+      register: connection_test
+      ignore_errors: yes
+
+    - name: Fail if server is unreachable
+      fail:
+        msg: "Server {{ inventory_hostname }} is unreachable"
+      when: connection_test is failed
+
+    - name: Verify mTLS is enabled
+      fail:
+        msg: |
+          ⚠️  PRODUCTION REQUIREMENT FAILED
+          mTLS is MANDATORY for production deployments but tls_enabled={{ tls_enabled | default(false) }}
+
+          This means:
+          - No certificates were found in the database for server {{ agent_server_id }}
+          - The CA has not been set up (run: ./scripts/setup-mtls.sh)
+          - Or certificates have not been generated for this server
+
+          To fix:
+          1. Ensure CA is set up: ./scripts/setup-mtls.sh
+          2. Generate certificates in Flagship UI or via API
+          3. Re-run this deployment
+      when: not (tls_enabled | default(false) | bool)
+
+    - name: Verify certificate variables are provided
+      fail:
+        msg: "Certificate variable {{ item }} is missing but required for mTLS"
+      when: vars[item] is not defined or vars[item] | length == 0
+      loop:
+        - ca_cert
+        - client_cert
+        - client_key
+
+  roles:
+    - role: ../../roles/nodepulse-agent
+
+  post_tasks:
+    - name: Verify agent is running
+      systemd:
+        name: nodepulse
+        state: started
+        enabled: yes
+      register: agent_status
+
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ✓ Agent deployed successfully to {{ inventory_hostname }}
+          ✓ Service is {{ agent_status.status.ActiveState }}
+          ✓ Enabled at boot: {{ agent_status.status.UnitFileState }}
+          ✓ mTLS certificates installed and configured

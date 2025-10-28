@@ -255,8 +255,11 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 }
 
 func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string, variablesJSON string) (string, string, error) {
+	// Check if this is a production playbook that requires mTLS
+	requireMTLS := strings.Contains(playbook, "deploy-agent-mtls.yml")
+
 	// Build inventory from server IDs (also creates temp SSH key files)
-	inventory, tempKeyFiles, err := buildInventory(serverIDs)
+	inventory, tempKeyFiles, err := buildInventory(serverIDs, requireMTLS)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to build inventory: %w", err)
 	}
@@ -341,7 +344,7 @@ func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string
 	return stdout, stderr, nil
 }
 
-func buildInventory(serverIDs []string) (string, []string, error) {
+func buildInventory(serverIDs []string, requireMTLS bool) (string, []string, error) {
 	// Fetch server details from database
 	servers, err := fetchServers(serverIDs)
 	if err != nil {
@@ -355,6 +358,9 @@ func buildInventory(serverIDs []string) (string, []string, error) {
 	// Fetch active CA certificate (shared by all agents)
 	caCertPEM, err := fetchActiveCA()
 	if err != nil {
+		if requireMTLS {
+			return "", nil, fmt.Errorf("production deployment requires mTLS but no active CA found: %w", err)
+		}
 		logger.Printf("[WARNING] Failed to fetch active CA certificate: %v (mTLS will be unavailable)", err)
 	}
 
@@ -434,8 +440,18 @@ func buildInventory(serverIDs []string) (string, []string, error) {
 		// Fetch and decrypt mTLS client certificate for this server
 		clientCertPEM, clientKeyPEM, err := fetchClientCertificate(server.AgentServerID)
 		if err != nil {
+			if requireMTLS {
+				return "", tempKeyFiles, fmt.Errorf("production deployment requires mTLS but failed to fetch certificate for %s (server_id: %s): %w", server.Hostname, server.AgentServerID, err)
+			}
 			logger.Printf("[WARNING] Failed to fetch client certificate for %s (server_id: %s): %v", server.Hostname, server.AgentServerID, err)
-		} else if clientCertPEM != "" && clientKeyPEM != "" {
+		}
+
+		if clientCertPEM == "" || clientKeyPEM == "" {
+			if requireMTLS {
+				return "", tempKeyFiles, fmt.Errorf("production deployment requires mTLS but no certificate found for %s (server_id: %s)", server.Hostname, server.AgentServerID)
+			}
+			logger.Printf("[WARNING] No client certificate found for %s (server_id: %s)", server.Hostname, server.AgentServerID)
+		} else {
 			// Write client certificate to temp file
 			certFile, err := os.CreateTemp("", "mtls_client_*.crt")
 			if err != nil {
@@ -485,7 +501,7 @@ func buildInventory(serverIDs []string) (string, []string, error) {
 			sb.WriteString(fmt.Sprintf("      tls_client_cert_path: %s\n", certFilePath))
 			sb.WriteString(fmt.Sprintf("      tls_client_key_path: %s\n", keyFilePath))
 			sb.WriteString(fmt.Sprintf("      tls_ca_cert_path: %s\n", caCertFile))
-			sb.WriteString(fmt.Sprintf("      tls_enabled: true\n"))
+			sb.WriteString("      tls_enabled: true\n")
 
 			logger.Printf("[INVENTORY] Created temp mTLS cert files for %s: cert=%s key=%s", server.Hostname, certFilePath, keyFilePath)
 		}
