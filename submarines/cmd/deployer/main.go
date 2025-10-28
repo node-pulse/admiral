@@ -191,7 +191,8 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 	}
 	hostnameToServerID := make(map[string]string)
 	for _, s := range servers {
-		hostnameToServerID[s.Hostname] = s.AgentServerID
+		// Map hostname -> UUID (servers.id) for deployment_servers foreign key
+		hostnameToServerID[s.Hostname] = s.ID
 	}
 
 	// Run Ansible playbook
@@ -201,11 +202,13 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 	if output != "" {
 		if parseErr := parseAnsibleResults(deploymentID, output, hostnameToServerID); parseErr != nil {
 			logger.Printf("[WARNING] Failed to parse Ansible results: %v", parseErr)
-		}
-
-		// Update aggregate counts in deployments table
-		if updateErr := updateDeploymentAggregates(deploymentID); updateErr != nil {
-			logger.Printf("[WARNING] Failed to update deployment aggregates: %v", updateErr)
+			// If we failed to parse results AND deployment failed, mark remaining servers as failed
+			if err != nil {
+				logger.Printf("[INFO] Marking servers without results as failed due to parse error")
+				if markErr := markRemainingDeploymentServersFailed(deploymentID); markErr != nil {
+					logger.Printf("[WARNING] Failed to mark remaining deployment_servers as failed: %v", markErr)
+				}
+			}
 		}
 	}
 
@@ -215,7 +218,24 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 		if updateErr := updateDeploymentStatus(deploymentID, "failed", &output, &errorOutput, 0); updateErr != nil {
 			logger.Printf("[ERROR] Failed to update status to failed: %v", updateErr)
 		}
+
+		// Mark servers that are still pending/running as failed
+		// This catches cases where Ansible failed before producing any output
+		if markErr := markRemainingDeploymentServersFailed(deploymentID); markErr != nil {
+			logger.Printf("[WARNING] Failed to mark remaining deployment_servers as failed: %v", markErr)
+		}
+
+		// Update aggregate counts in deployments table
+		if updateErr := updateDeploymentAggregates(deploymentID); updateErr != nil {
+			logger.Printf("[WARNING] Failed to update deployment aggregates: %v", updateErr)
+		}
+
 		return fmt.Errorf("ansible playbook failed: %w", err)
+	}
+
+	// Deployment succeeded - update aggregates
+	if updateErr := updateDeploymentAggregates(deploymentID); updateErr != nil {
+		logger.Printf("[WARNING] Failed to update deployment aggregates: %v", updateErr)
 	}
 
 	// Deployment succeeded
@@ -376,18 +396,20 @@ func buildInventory(serverIDs []string) (string, []string, error) {
 }
 
 type ServerInfo struct {
+	ID               string // UUID primary key from servers table
 	Hostname         string
 	SSHHost          string
 	SSHPort          int
 	SSHUsername      string
 	SSHKeyPath       string // Will be set to temp file path after decryption
 	EncryptedKeyData string // Encrypted private key from database
-	AgentServerID    string // The server_id value used by the agent
+	AgentServerID    string // The server_id value used by the agent (text field)
 }
 
 func fetchServers(serverIDs []string) ([]ServerInfo, error) {
 	query := `
 		SELECT
+			s.id,
 			COALESCE(NULLIF(s.hostname, ''), s.name) as hostname,
 			s.ssh_host,
 			s.ssh_port,
@@ -411,7 +433,7 @@ func fetchServers(serverIDs []string) ([]ServerInfo, error) {
 	for rows.Next() {
 		var s ServerInfo
 		var encryptedKey *string // Nullable
-		if err := rows.Scan(&s.Hostname, &s.SSHHost, &s.SSHPort, &s.SSHUsername, &encryptedKey, &s.AgentServerID); err != nil {
+		if err := rows.Scan(&s.ID, &s.Hostname, &s.SSHHost, &s.SSHPort, &s.SSHUsername, &encryptedKey, &s.AgentServerID); err != nil {
 			return nil, fmt.Errorf("failed to scan server: %w", err)
 		}
 		if encryptedKey != nil {
@@ -537,6 +559,33 @@ func updateDeploymentServer(deploymentID, serverID, status string, changed bool)
 	_, err := db.Exec(query, status, changed, now, deploymentID, serverID)
 	if err != nil {
 		return fmt.Errorf("failed to update deployment_server: %w", err)
+	}
+
+	return nil
+}
+
+func markRemainingDeploymentServersFailed(deploymentID string) error {
+	now := time.Now()
+
+	// Only update servers that are still in 'pending' or 'running' status
+	// Don't override servers that already have 'success', 'failed', or 'skipped' from parseAnsibleResults
+	// This ensures:
+	// - If Ansible succeeded on some hosts and failed on others, only mark the remaining ones
+	// - If Ansible failed early (before running on any hosts), mark all as failed
+	query := `
+		UPDATE admiral.deployment_servers
+		SET status = 'failed', completed_at = $1, updated_at = $1
+		WHERE deployment_id = $2 AND status IN ('pending', 'running')
+	`
+
+	result, err := db.Exec(query, now, deploymentID)
+	if err != nil {
+		return fmt.Errorf("failed to mark remaining deployment_servers as failed: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected > 0 {
+		logger.Printf("[DB] Marked %d remaining deployment_servers as failed for deployment %s", rowsAffected, deploymentID)
 	}
 
 	return nil

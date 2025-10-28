@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AnsiblePlaybooksController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeploymentsController;
 use Illuminate\Support\Facades\Route;
@@ -9,6 +10,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/stats', [DashboardController::class, 'stats']);
         Route::get('/servers', [DashboardController::class, 'servers']);
         Route::get('/metrics', [DashboardController::class, 'metrics']);
+        Route::get('/ansibleplaybooks', [AnsiblePlaybooksController::class, 'index']);
     });
 });
 

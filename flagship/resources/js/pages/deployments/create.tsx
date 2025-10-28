@@ -111,19 +111,20 @@ export default function CreateDeployment() {
         new Set(),
     );
     const [searchTerm, setSearchTerm] = useState('');
+    const [playbooks, setPlaybooks] = useState<any[]>([]);
+    const [loadingPlaybooks, setLoadingPlaybooks] = useState(true);
 
     // Form state
     const [deploymentName, setDeploymentName] = useState('');
     const [deploymentDescription, setDeploymentDescription] = useState('');
-    const [playbook, setPlaybook] = useState<string>(
-        'nodepulse/deploy-agent.yml',
-    );
+    const [playbook, setPlaybook] = useState<string>('');
     const [extraVariables, setExtraVariables] = useState<
         Record<string, string>
     >({});
 
     useEffect(() => {
         fetchServers();
+        fetchPlaybooks();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchServers = async () => {
@@ -147,6 +148,35 @@ export default function CreateDeployment() {
             toast.error('Failed to load servers');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchPlaybooks = async () => {
+        setLoadingPlaybooks(true);
+        try {
+            const response = await fetch('/api/dashboard/ansibleplaybooks', {
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    Accept: 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch playbooks');
+            }
+
+            const data = await response.json();
+            setPlaybooks(data.playbooks || []);
+
+            // Set default playbook to first one if available
+            if (data.playbooks && data.playbooks.length > 0 && !playbook) {
+                setPlaybook(data.playbooks[0].path);
+            }
+        } catch (error) {
+            console.error('Error fetching playbooks:', error);
+            toast.error('Failed to load playbooks');
+        } finally {
+            setLoadingPlaybooks(false);
         }
     };
 
@@ -241,7 +271,7 @@ export default function CreateDeployment() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
+                        <h1 className="text-2xl font-bold tracking-tight">
                             Create Deployment
                         </h1>
                         <p className="mt-1 text-muted-foreground">
@@ -284,25 +314,42 @@ export default function CreateDeployment() {
                                     <Select
                                         value={playbook}
                                         onValueChange={setPlaybook}
+                                        disabled={loadingPlaybooks}
                                     >
                                         <SelectTrigger id="playbook">
-                                            <SelectValue />
+                                            <SelectValue
+                                                placeholder={
+                                                    loadingPlaybooks
+                                                        ? 'Loading playbooks...'
+                                                        : 'Select a playbook'
+                                                }
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="nodepulse/deploy-agent.yml">
-                                                Deploy Agent (New Installation)
-                                            </SelectItem>
-                                            <SelectItem value="nodepulse/rollback-agent.yml">
-                                                Rollback Agent
-                                            </SelectItem>
-                                            <SelectItem value="nodepulse/uninstall-agent.yml">
-                                                Uninstall Agent
-                                            </SelectItem>
-                                            <SelectItem value="nodepulse/retry-failed.yml">
-                                                Retry Failed Servers
-                                            </SelectItem>
+                                            {playbooks.map((pb) => (
+                                                <SelectItem
+                                                    key={pb.path}
+                                                    value={pb.path}
+                                                >
+                                                    {pb.name}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
+                                    {playbook &&
+                                        playbooks.find(
+                                            (pb) => pb.path === playbook,
+                                        )?.description && (
+                                            <p className="text-sm text-muted-foreground">
+                                                {
+                                                    playbooks.find(
+                                                        (pb) =>
+                                                            pb.path ===
+                                                            playbook,
+                                                    )?.description
+                                                }
+                                            </p>
+                                        )}
                                 </div>
                             </div>
 

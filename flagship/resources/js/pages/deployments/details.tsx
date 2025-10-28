@@ -28,7 +28,7 @@ interface ServerDeploymentData {
     id: string;
     hostname: string;
     name: string | null;
-    status: 'pending' | 'running' | 'success' | 'failed' | 'skipped';
+    status: 'pending' | 'running' | 'success' | 'failed' | 'skipped' | 'completed';
     changed: boolean;
     started_at: string | null;
     completed_at: string | null;
@@ -209,14 +209,16 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
     const getStatusBadge = (status: DeploymentData['status']) => {
         const variants: Record<
             DeploymentData['status'],
-            { variant: any; icon: any; label: string }
+            { variant: any; icon: any; label: string; className?: string }
         > = {
             pending: { variant: 'secondary', icon: Clock, label: 'Pending' },
             running: { variant: 'default', icon: Loader2, label: 'Running' },
             completed: {
-                variant: 'default',
+                variant: 'outline',
                 icon: CheckCircle2,
                 label: 'Completed',
+                className:
+                    'border-green-600 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
             },
             failed: { variant: 'destructive', icon: XCircle, label: 'Failed' },
             cancelled: {
@@ -226,10 +228,13 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
             },
         };
 
-        const { variant, icon: Icon, label } = variants[status];
+        const { variant, icon: Icon, label, className } = variants[status];
 
         return (
-            <Badge variant={variant} className="flex w-fit items-center gap-1">
+            <Badge
+                variant={variant}
+                className={`flex w-fit items-center gap-1 ${className || ''}`}
+            >
                 <Icon
                     className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`}
                 />
@@ -241,23 +246,42 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
     const getServerStatusBadge = (status: ServerDeploymentData['status']) => {
         const variants: Record<
             ServerDeploymentData['status'],
-            { variant: any; icon: any; label: string }
+            { variant: any; icon: any; label: string; className?: string }
         > = {
             pending: { variant: 'secondary', icon: Clock, label: 'Pending' },
             running: { variant: 'default', icon: Loader2, label: 'Running' },
             success: {
-                variant: 'default',
+                variant: 'outline',
                 icon: CheckCircle2,
                 label: 'Success',
+                className:
+                    'border-green-600 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
+            },
+            completed: {
+                variant: 'outline',
+                icon: CheckCircle2,
+                label: 'Completed',
+                className:
+                    'border-green-600 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
             },
             failed: { variant: 'destructive', icon: XCircle, label: 'Failed' },
             skipped: { variant: 'secondary', icon: XCircle, label: 'Skipped' },
         };
 
-        const { variant, icon: Icon, label } = variants[status];
+        // Fallback for unknown statuses
+        const config = variants[status] || {
+            variant: 'secondary',
+            icon: Clock,
+            label: status || 'Unknown',
+        };
+
+        const { variant, icon: Icon, label, className } = config;
 
         return (
-            <Badge variant={variant} className="flex w-fit items-center gap-1">
+            <Badge
+                variant={variant}
+                className={`flex w-fit items-center gap-1 ${className || ''}`}
+            >
                 <Icon
                     className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`}
                 />

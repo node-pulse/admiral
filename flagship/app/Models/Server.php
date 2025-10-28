@@ -47,9 +47,9 @@ class Server extends Model
         'updated_at' => 'datetime',
     ];
 
-    public function metrics(): HasMany
+    public function metricSamples(): HasMany
     {
-        return $this->hasMany(Metric::class);
+        return $this->hasMany(MetricSample::class, 'server_id', 'server_id');
     }
 
     public function alerts(): HasMany

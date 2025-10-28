@@ -113,20 +113,22 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
             return [];
         }
 
-        // Create a map of all timestamps
+        // Agents now send aligned timestamps (truncated to interval boundaries)
+        // No bucketing needed - use exact timestamps from backend
         const timestampMap = new Map<string, Record<string, number | string>>();
 
         metricsData.forEach((serverMetric) => {
             serverMetric.data_points.forEach((point) => {
-                if (!timestampMap.has(point.timestamp)) {
-                    timestampMap.set(point.timestamp, {
-                        timestamp: new Date(
-                            point.timestamp,
-                        ).toLocaleTimeString(),
+                const timestamp = point.timestamp;
+
+                if (!timestampMap.has(timestamp)) {
+                    timestampMap.set(timestamp, {
+                        timestamp: new Date(timestamp).toLocaleTimeString(),
+                        rawTime: timestamp,
                     });
                 }
 
-                const dataPoint = timestampMap.get(point.timestamp);
+                const dataPoint = timestampMap.get(timestamp);
                 if (!dataPoint) return;
 
                 // Add metric value for this server
@@ -159,7 +161,10 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
             });
         });
 
-        return Array.from(timestampMap.values()).reverse();
+        // Sort by timestamp (oldest to newest for proper line chart display)
+        return Array.from(timestampMap.entries())
+            .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+            .map(([_, value]) => value);
     };
 
     const chartData = transformDataForChart();
