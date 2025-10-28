@@ -186,8 +186,30 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 		// Continue anyway - this is not fatal
 	}
 
+	// Build server ID to hostname mapping for result tracking
+	servers, err := fetchServers(serverIDs)
+	if err != nil {
+		logger.Printf("[WARNING] Failed to fetch servers for hostname mapping: %v", err)
+	}
+	hostnameToServerID := make(map[string]string)
+	for _, s := range servers {
+		hostnameToServerID[s.Hostname] = s.AgentServerID
+	}
+
 	// Run Ansible playbook
 	output, errorOutput, err := runAnsiblePlaybook(ctx, playbook, serverIDs, variablesJSON)
+
+	// Parse Ansible JSON output to get per-host results
+	if output != "" {
+		if parseErr := parseAnsibleResults(deploymentID, output, hostnameToServerID); parseErr != nil {
+			logger.Printf("[WARNING] Failed to parse Ansible results: %v", parseErr)
+		}
+
+		// Update aggregate counts in deployments table
+		if updateErr := updateDeploymentAggregates(deploymentID); updateErr != nil {
+			logger.Printf("[WARNING] Failed to update deployment aggregates: %v", updateErr)
+		}
+	}
 
 	if err != nil {
 		// Deployment failed
@@ -266,7 +288,11 @@ func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string
 
 	// Execute ansible-playbook with context for cancellation support
 	cmd := exec.CommandContext(ctx, "ansible-playbook", args...)
-	cmd.Env = append(os.Environ(), "ANSIBLE_CONFIG=/app/flagship/ansible/ansible.cfg")
+	// Use JSON callback for machine-readable output
+	cmd.Env = append(os.Environ(),
+		"ANSIBLE_CONFIG=/app/flagship/ansible/ansible.cfg",
+		"ANSIBLE_STDOUT_CALLBACK=json",
+	)
 
 	var stdoutBuf, stderrBuf strings.Builder
 	cmd.Stdout = &stdoutBuf
@@ -439,6 +465,112 @@ func updateDeploymentStatus(deploymentID, status string, output, errorOutput *st
 	}
 
 	logger.Printf("[DB] Updated deployment %s to status: %s", deploymentID, status)
+	return nil
+}
+
+// AnsiblePlayRecap represents the stats for a single host from Ansible JSON output
+type AnsiblePlayRecap struct {
+	Ok          int `json:"ok"`
+	Changed     int `json:"changed"`
+	Unreachable int `json:"unreachable"`
+	Failed      int `json:"failures"`
+	Skipped     int `json:"skipped"`
+	Rescued     int `json:"rescued"`
+	Ignored     int `json:"ignored"`
+}
+
+// AnsibleJSONOutput represents the JSON output structure from Ansible
+type AnsibleJSONOutput struct {
+	Stats map[string]AnsiblePlayRecap `json:"stats"`
+}
+
+func parseAnsibleResults(deploymentID string, jsonOutput string, hostnameToServerID map[string]string) error {
+	var result AnsibleJSONOutput
+	if err := json.Unmarshal([]byte(jsonOutput), &result); err != nil {
+		return fmt.Errorf("failed to unmarshal Ansible JSON: %w", err)
+	}
+
+	logger.Printf("[ANSIBLE] Parsing results for %d hosts", len(result.Stats))
+
+	for hostname, stats := range result.Stats {
+		// Determine status based on stats
+		var status string
+		var changed bool
+
+		if stats.Unreachable > 0 {
+			status = "failed"
+		} else if stats.Failed > 0 {
+			status = "failed"
+		} else if stats.Skipped > 0 && stats.Ok == 0 {
+			status = "skipped"
+		} else {
+			status = "success"
+		}
+
+		changed = stats.Changed > 0
+
+		// Get server ID from hostname mapping
+		serverID, ok := hostnameToServerID[hostname]
+		if !ok {
+			logger.Printf("[WARNING] Hostname %s not found in server mapping", hostname)
+			continue
+		}
+
+		// Update deployment_servers record
+		if err := updateDeploymentServer(deploymentID, serverID, status, changed); err != nil {
+			logger.Printf("[ERROR] Failed to update deployment_server for %s: %v", hostname, err)
+		} else {
+			logger.Printf("[DB] Updated deployment_server: %s -> %s (changed: %v)", hostname, status, changed)
+		}
+	}
+
+	return nil
+}
+
+func updateDeploymentServer(deploymentID, serverID, status string, changed bool) error {
+	now := time.Now()
+
+	query := `
+		UPDATE admiral.deployment_servers
+		SET status = $1, changed = $2, completed_at = $3, updated_at = $3
+		WHERE deployment_id = $4 AND server_id = $5
+	`
+
+	_, err := db.Exec(query, status, changed, now, deploymentID, serverID)
+	if err != nil {
+		return fmt.Errorf("failed to update deployment_server: %w", err)
+	}
+
+	return nil
+}
+
+func updateDeploymentAggregates(deploymentID string) error {
+	// Calculate aggregate counts from deployment_servers table
+	query := `
+		UPDATE admiral.deployments
+		SET
+			successful_servers = (
+				SELECT COUNT(*) FROM admiral.deployment_servers
+				WHERE deployment_id = $1 AND status = 'success'
+			),
+			failed_servers = (
+				SELECT COUNT(*) FROM admiral.deployment_servers
+				WHERE deployment_id = $1 AND status = 'failed'
+			),
+			skipped_servers = (
+				SELECT COUNT(*) FROM admiral.deployment_servers
+				WHERE deployment_id = $1 AND status = 'skipped'
+			),
+			updated_at = NOW()
+		WHERE id = $1
+	`
+
+	_, err := db.Exec(query, deploymentID)
+	if err != nil {
+		return fmt.Errorf("failed to update deployment aggregates: %w", err)
+	}
+
+	logger.Printf("[DB] Updated aggregate counts for deployment %s", deploymentID)
 	return nil
 }
 

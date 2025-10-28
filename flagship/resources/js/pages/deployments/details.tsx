@@ -318,10 +318,10 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={deployment.name} />
 
-            <div className="AdmiralDeploymentsShow flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+            <div className="AdmiralDeploymentsDetails flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-center">
                         <div className="flex items-center gap-3">
                             <h1 className="text-3xl font-bold tracking-tight">
                                 {deployment.name}
@@ -334,7 +334,7 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                             </p>
                         )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                         {deployment.status === 'running' && (
                             <Button
                                 variant="destructive"
