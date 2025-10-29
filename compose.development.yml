@@ -54,8 +54,8 @@ services:
   # Flagship Migration - Run database migrations (idempotent)
   flagship-migrate:
     build:
-      context: .
-      dockerfile: ./migrate/Dockerfile
+      context: ./migrate
+      dockerfile: Dockerfile
     container_name: node-pulse-flagship-migrate
     env_file:
       - .env
