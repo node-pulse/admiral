@@ -158,18 +158,18 @@ export function SSHTerminal({
         };
     }, []);
 
-    // Refit terminal when password prompt is hidden (more space available)
+    // Refit terminal when connection is established (password prompt closes, more space available)
     useEffect(() => {
-        if (!showPasswordPrompt && fitAddonRef.current && xtermRef.current) {
+        if (serverConnected && fitAddonRef.current && xtermRef.current) {
             setTimeout(() => {
                 try {
                     fitAddonRef.current?.fit();
                 } catch (e) {
-                    console.error('Failed to refit terminal after prompt close:', e);
+                    console.error('Failed to refit terminal after connection:', e);
                 }
             }, 100);
         }
-    }, [showPasswordPrompt]);
+    }, [serverConnected]);
 
     const connect = () => {
         if (!xtermRef.current) {
