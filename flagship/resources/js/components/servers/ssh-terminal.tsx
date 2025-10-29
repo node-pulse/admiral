@@ -158,6 +158,19 @@ export function SSHTerminal({
         };
     }, []);
 
+    // Refit terminal when password prompt is hidden (more space available)
+    useEffect(() => {
+        if (!showPasswordPrompt && fitAddonRef.current && xtermRef.current) {
+            setTimeout(() => {
+                try {
+                    fitAddonRef.current?.fit();
+                } catch (e) {
+                    console.error('Failed to refit terminal after prompt close:', e);
+                }
+            }, 100);
+        }
+    }, [showPasswordPrompt]);
+
     const connect = () => {
         if (!xtermRef.current) {
             console.error('[SSH Terminal] No terminal instance available');
@@ -224,7 +237,16 @@ export function SSHTerminal({
                         setConnecting(false);
                         setConnectionStatus('connected');
                         onConnectionChange?.(true);
-                        terminal.focus(); // Focus terminal after successful auth
+
+                        // Fit terminal after connection and password prompt closes
+                        setTimeout(() => {
+                            try {
+                                fitAddonRef.current?.fit();
+                                terminal.focus(); // Focus terminal after successful auth
+                            } catch (e) {
+                                console.error('Failed to fit terminal after auth:', e);
+                            }
+                        }, 100);
 
                         try {
                             ws.send(JSON.stringify({ type: 'ping' }));
@@ -410,7 +432,7 @@ export function SSHTerminal({
     };
 
     return (
-        <div className="flex h-full flex-col gap-2">
+        <div className="SSHTerminalArea flex h-full flex-col gap-2">
             {/* Connection Status Indicator */}
             <div className="ConnectionStatusIndicator flex shrink-0 items-center justify-between rounded-lg border bg-muted/30 p-3">
                 <div className="flex items-center gap-3">
