@@ -1,6 +1,6 @@
 # Database Migrations
 
-This directory contains PostgreSQL database migrations for the NodePulse Admiral project using [node-pg-migrate](https://github.com/salsita/node-pg-migrate).
+This directory contains PostgreSQL database migrations for the Node Pulse Admiral project using [node-pg-migrate](https://github.com/salsita/node-pg-migrate).
 
 ## Overview
 
