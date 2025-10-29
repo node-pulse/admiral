@@ -63,11 +63,9 @@ release:
   # Draft mode (set to false to auto-publish)
   draft: false
 
-  # Replace existing release
-  replace: false
-
-  # Release mode
-  mode: replace
+  # Don't replace existing releases (fail if release already exists)
+  # mode: replace would overwrite existing releases
+  # Omitting mode means it will fail if release exists
 
   # Header template
   header: |
