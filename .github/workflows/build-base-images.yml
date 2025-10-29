@@ -38,8 +38,6 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=sha
-          labels: |
-            org.opencontainers.image.visibility=public
 
       - name: Build and push base image
         uses: docker/build-push-action@v6.18
@@ -51,6 +49,7 @@ jobs:
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          visibility: public
 
   # Tag as :latest only if build succeeded
   tag-latest:
