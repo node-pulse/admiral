@@ -18,7 +18,7 @@ archives:
 
 # Generate checksums
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
   algorithm: sha256
 
 # Create changelog from git commits
@@ -27,25 +27,25 @@ changelog:
   use: github
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^ci:'
-      - '^chore:'
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
       - typo
   groups:
-    - title: 'Features'
-      regexp: '^feat:'
+    - title: "Features"
+      regexp: "^feat:"
       order: 0
-    - title: 'Bug Fixes'
-      regexp: '^fix:'
+    - title: "Bug Fixes"
+      regexp: "^fix:"
       order: 1
-    - title: 'Security'
-      regexp: '^security:'
+    - title: "Security"
+      regexp: "^security:"
       order: 2
-    - title: 'Performance'
-      regexp: '^perf:'
+    - title: "Performance"
+      regexp: "^perf:"
       order: 3
-    - title: 'Other Changes'
+    - title: "Other Changes"
       order: 999
 
 # Release settings
@@ -65,7 +65,7 @@ release:
 
   # Don't replace existing releases (fail if release already exists)
   # mode: replace would overwrite existing releases
-  # Omitting mode means it will fail if release exists
+  mode: replace
 
   # Header template
   header: |
