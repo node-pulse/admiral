@@ -70,8 +70,8 @@ RUN composer install \
 # Copy package files for npm
 COPY --chown=laravel:laravel package*.json ./
 
-# Install Node dependencies
-RUN npm install
+# Install Node dependencies (Alpine Linux amd64)
+RUN npm ci
 
 # Copy the rest of the application
 COPY --chown=laravel:laravel . .

@@ -53,6 +53,7 @@ services:
 
   # Flagship Migration - Run database migrations (idempotent)
   flagship-migrate:
+    platform: linux/amd64
     build:
       context: ./migrate
       dockerfile: Dockerfile
@@ -72,6 +73,7 @@ services:
 
   # Go-Gin Submarines Ingest - Agent Metrics Ingestion (HTTP -> Valkey Stream)
   submarines-ingest:
+    platform: linux/amd64
     build:
       context: ./submarines
       dockerfile: Dockerfile.ingest.dev
@@ -96,6 +98,7 @@ services:
 
   # Go Submarines Digest - Background processor (Valkey Stream -> PostgreSQL)
   submarines-digest:
+    platform: linux/amd64
     build:
       context: ./submarines
       dockerfile: Dockerfile.digest.dev
@@ -117,6 +120,7 @@ services:
 
   # Go Submarines Deployer - Ansible deployment worker (Valkey Stream -> Ansible)
   submarines-deployer:
+    platform: linux/amd64
     build:
       context: ./submarines
       dockerfile: Dockerfile.deployer.dev
@@ -142,6 +146,7 @@ services:
 
   # Go Submarines Status - Public status pages and badges (read-only)
   submarines-status:
+    platform: linux/amd64
     build:
       context: ./submarines
       dockerfile: Dockerfile.status.dev
@@ -162,6 +167,7 @@ services:
 
   # Go Submarines SSH WebSocket - Interactive terminal access
   submarines-sshws:
+    platform: linux/amd64
     build:
       context: ./submarines
       dockerfile: Dockerfile.sshws.dev
@@ -186,6 +192,7 @@ services:
 
   # Laravel Flagship - Admin Dashboard
   flagship:
+    platform: linux/amd64
     build:
       context: ./flagship
       dockerfile: Dockerfile.dev # Development build with hot reload

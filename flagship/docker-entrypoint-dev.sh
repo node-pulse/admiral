@@ -6,6 +6,13 @@ set -e
 
 echo "🚀 Starting Flagship Development Server..."
 
+# Install npm dependencies if node_modules doesn't exist
+# Uses npm ci for Alpine Linux (amd64) compatibility
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing npm dependencies..."
+    npm ci
+fi
+
 # Start Vite dev server in background
 echo "📦 Starting Vite dev server on port 5173..."
 npm run dev &
