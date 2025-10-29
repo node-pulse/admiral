@@ -35,6 +35,7 @@ interface Setting {
     value: any;
     description: string | null;
     tier: 'free' | 'pro' | 'growth';
+    category?: string;
 }
 
 interface MtlsStatus {
@@ -51,6 +52,7 @@ interface Props {
 export default function SystemSettings({ settings, mtls }: Props) {
     const [updating, setUpdating] = useState<string | null>(null);
     const [editingValues, setEditingValues] = useState<Record<string, any>>({});
+    const [searchQuery, setSearchQuery] = useState('');
 
     const handleToggle = (key: string) => {
         setUpdating(key);
@@ -110,41 +112,67 @@ export default function SystemSettings({ settings, mtls }: Props) {
         }
     };
 
-    const groupSettingsByCategory = () => {
-        const groups: Record<string, Setting[]> = {
-            authentication: [],
-            data_retention: [],
-            alerting: [],
-            pro_features: [],
-            system: [],
-        };
-
-        settings.forEach((setting) => {
-            if (
-                setting.key.includes('registration') ||
-                setting.key.includes('auth')
-            ) {
-                groups.authentication.push(setting);
-            } else if (setting.key.includes('retention')) {
-                groups.data_retention.push(setting);
-            } else if (setting.key.includes('alert')) {
-                groups.alerting.push(setting);
-            } else if (setting.tier === 'pro' || setting.tier === 'growth') {
-                groups.pro_features.push(setting);
-            } else {
-                groups.system.push(setting);
-            }
-        });
-
-        return groups;
+    const getCategoryForSetting = (setting: Setting): string => {
+        if (
+            setting.key.includes('registration') ||
+            setting.key.includes('auth')
+        ) {
+            return 'Authentication';
+        } else if (setting.key.includes('retention')) {
+            return 'Data Retention';
+        } else if (setting.key.includes('alert')) {
+            return 'Alerting';
+        } else if (setting.tier === 'pro' || setting.tier === 'growth') {
+            return 'Pro Features';
+        } else {
+            return 'System';
+        }
     };
 
-    const groups = groupSettingsByCategory();
+    const getCategoryBadgeClass = (category: string): string => {
+        switch (category) {
+            case 'Authentication':
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
+            case 'Data Retention':
+                return 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300';
+            case 'Alerting':
+                return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300';
+            case 'Pro Features':
+                return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+            case 'System':
+                return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
+            default:
+                return 'bg-muted text-muted-foreground';
+        }
+    };
+
+    const enrichedSettings = settings
+        .map((setting) => ({
+            ...setting,
+            category: getCategoryForSetting(setting),
+        }))
+        .filter(
+            (setting) =>
+                setting.key !== 'tier' &&
+                setting.tier !== 'pro' &&
+                setting.tier !== 'growth',
+        );
+
+    const filteredSettings = enrichedSettings.filter((setting) => {
+        if (!searchQuery) return true;
+
+        const query = searchQuery.toLowerCase();
+        const keyMatch = setting.key.toLowerCase().includes(query);
+        const descriptionMatch =
+            setting.description?.toLowerCase().includes(query) || false;
+        const categoryMatch =
+            setting.category?.toLowerCase().includes(query) || false;
+        const valueMatch = String(setting.value).toLowerCase().includes(query);
+
+        return keyMatch || descriptionMatch || categoryMatch || valueMatch;
+    });
 
     const renderSetting = (setting: Setting) => {
-        if (setting.key === 'tier') return null;
-        if (setting.tier === 'pro' || setting.tier === 'growth') return null;
-
         const isBoolean = typeof setting.value === 'boolean';
         const isNumber = typeof setting.value === 'number' && !isBoolean;
         const isDisabled = updating === setting.key;
@@ -156,9 +184,18 @@ export default function SystemSettings({ settings, mtls }: Props) {
         return (
             <TableRow key={setting.key}>
                 <TableCell className="font-medium">
-                    {setting.key
-                        .replace(/_/g, ' ')
-                        .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    <div className="inline-flex items-center gap-2">
+                        <span
+                            className={`rounded px-2 py-0.5 text-xs font-medium ${getCategoryBadgeClass(setting.category || '')}`}
+                        >
+                            {setting.category}
+                        </span>
+                        <span>
+                            {setting.key
+                                .replace(/_/g, ' ')
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </span>
+                    </div>
                 </TableCell>
                 <TableCell className="max-w-md">
                     {setting.description && (
@@ -321,7 +358,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
                                         How to Change
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
+                                <DialogContent className="max-w-4xl!">
                                     <DialogHeader>
                                         <DialogTitle>
                                             Changing mTLS Configuration
@@ -409,138 +446,74 @@ export default function SystemSettings({ settings, mtls }: Props) {
                     </CardContent>
                 </Card>
 
-                {/* Authentication Settings */}
-                {groups.authentication.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Authentication & Registration</CardTitle>
-                            <CardDescription>
-                                Control user authentication and registration
-                                settings
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Setting</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead>Current Value</TableHead>
-                                        <TableHead className="text-right">
-                                            Actions
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {groups.authentication.map(renderSetting)}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                )}
+                {/* All Settings in One Table */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>All Settings</CardTitle>
+                        <CardDescription>
+                            System-wide configuration and preferences. Settings
+                            are organized by category for easier management.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Search Input */}
+                        <div className="flex items-center gap-2">
+                            <Input
+                                type="text"
+                                placeholder="Search settings by name, description, category, or value..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="max-w-md"
+                            />
+                            {searchQuery && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSearchQuery('')}
+                                >
+                                    Clear
+                                </Button>
+                            )}
+                        </div>
 
-                {/* Data Retention Settings */}
-                {groups.data_retention.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Data Retention</CardTitle>
-                            <CardDescription>
-                                Configure how long metrics data is stored
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Setting</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead>Current Value</TableHead>
-                                        <TableHead className="text-right">
-                                            Actions
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {groups.data_retention.map(renderSetting)}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                )}
+                        {/* Results count */}
+                        {searchQuery && (
+                            <p className="text-sm text-muted-foreground">
+                                Found {filteredSettings.length} setting
+                                {filteredSettings.length !== 1 ? 's' : ''}
+                            </p>
+                        )}
 
-                {/* Alerting Settings */}
-                {groups.alerting.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Alerting</CardTitle>
-                            <CardDescription>
-                                Configure alerting and notification settings
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
+                        {/* Settings Table */}
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Setting</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead>Current Value</TableHead>
+                                    <TableHead className="text-right">
+                                        Actions
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredSettings.length > 0 ? (
+                                    filteredSettings.map(renderSetting)
+                                ) : (
                                     <TableRow>
-                                        <TableHead>Setting</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead>Current Value</TableHead>
-                                        <TableHead className="text-right">
-                                            Actions
-                                        </TableHead>
+                                        <TableCell
+                                            colSpan={4}
+                                            className="text-center text-muted-foreground"
+                                        >
+                                            No settings found matching "
+                                            {searchQuery}"
+                                        </TableCell>
                                     </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {groups.alerting.map(renderSetting)}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Pro Features */}
-                {/* {groups.pro_features.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Pro Features</CardTitle>
-                            <CardDescription>
-                                Advanced features available in Pro and
-                                Growth tiers
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="divide-y">
-                            {groups.pro_features.map(renderSetting)}
-                        </CardContent>
-                    </Card>
-                )} */}
-
-                {/* System Settings */}
-                {groups.system.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>System</CardTitle>
-                            <CardDescription>
-                                System-level configuration
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Setting</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead>Current Value</TableHead>
-                                        <TableHead className="text-right">
-                                            Actions
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {groups.system.map(renderSetting)}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                )}
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );
