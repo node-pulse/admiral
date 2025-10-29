@@ -1,6 +1,6 @@
 # Node Pulse Admiral
 
-A comprehensive agent fleet management dashboard for monitoring Node Pulse agents across your infrastructure.
+**Production-ready agent fleet management system** for monitoring Linux servers with secure mTLS authentication, real-time metrics collection, and zero-configuration deployment.
 
 ## Why Push-Based Architecture?
 
@@ -51,44 +51,98 @@ This project uses Docker Compose to orchestrate multiple services:
 
 ## Prerequisites
 
-- Docker and Docker Compose (Docker Desktop or standalone)
-- Git
+- Linux server (Ubuntu 22.04+ recommended)
+- Docker Engine 24.0+
+- Docker Compose v2.20+
+- Root/sudo access
+- Minimum 2GB RAM, 2 CPU cores
 
 ## Quick Start
 
-1. **Clone the repository** (if not already done):
+### Production Deployment (Recommended)
+
+**Download and deploy the latest release:**
+
+```bash
+# Download latest release
+curl -LO https://github.com/node-pulse/admiral/releases/latest/download/node-pulse-latest.tar.gz
+
+# Verify checksum (optional but recommended)
+curl -LO https://github.com/node-pulse/admiral/releases/latest/download/node-pulse-latest.tar.gz.sha256
+sha256sum -c node-pulse-latest.tar.gz.sha256
+
+# Extract
+tar xzf node-pulse-latest.tar.gz
+
+# Enter the extracted directory (e.g., node-pulse-1.0.0/)
+cd node-pulse-*
+
+# Run interactive deployment
+sudo ./deploy.sh
+```
+
+The deployment script will:
+- Guide you through configuration
+- Set up mTLS certificates automatically
+- Pull pre-built Docker images
+- Create initial admin user
+- Start all services
+
+**Or use the Makefile:**
+
+```bash
+# Quick deployment
+make deploy
+
+# Or step-by-step
+make env-check    # Validate configuration
+make pull         # Pull latest images
+make mtls-setup   # Bootstrap mTLS
+make up           # Start services
+```
+
+### Development / Manual Setup
+
+**For development or manual setup from source:**
+
+1. **Clone the repository**:
 
    ```bash
-   git clone <repository-url>
-   cd node-pulse-stack/dashboard
+   git clone https://github.com/node-pulse/admiral.git
+   cd admiral
    ```
 
-2. **Copy the environment file**:
+2. **Copy environment file**:
 
    ```bash
    cp .env.example .env
+   # Edit .env with your settings
    ```
 
-3. **Update the `.env` file** with your configuration:
-
-   - Change `POSTGRES_PASSWORD` to a secure password
-   - Change `VALKEY_PASSWORD` to a secure password
-   - Update `JWT_SECRET` with a strong random value
-
-4. **Start all services**:
+3. **Start services** (development mode, no mTLS):
 
    ```bash
-   docker compose up -d
+   docker compose -f compose.development.yml up -d
    ```
 
-5. **Check service status**:
+   **Or** (production mode, with mTLS):
 
    ```bash
+   sudo ./scripts/deploy.sh
+   ```
+
+4. **Check service status**:
+
+   ```bash
+   make status
+   # or
    docker compose ps
    ```
 
-6. **View logs**:
+5. **View logs**:
    ```bash
+   make logs
+   # or
    docker compose logs -f
    ```
 

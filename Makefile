@@ -1,8 +1,19 @@
-.PHONY: help push dev-up dev-down dev-logs dev-restart dev-rebuild dev-clean prod-up prod-down prod-logs prod-restart prod-rebuild prod-clean db-backup subs-logs subs-restart ingest-logs digest-logs status-logs flagship-logs caddy-logs valkey-cli
+.PHONY: help deploy install pull update mtls-setup mtls-renew health env-check version push dev-up dev-down dev-logs dev-restart dev-rebuild dev-clean prod-up prod-down prod-logs prod-restart prod-rebuild prod-clean db-backup subs-logs subs-restart ingest-logs digest-logs status-logs flagship-logs caddy-logs valkey-cli
 
 # Default target - show help
 help:
 	@echo "Node Pulse Admiral - Available Make Targets"
+	@echo ""
+	@echo "Production Deployment:"
+	@echo "  make deploy        - Run full production deployment (runs deploy.sh)"
+	@echo "  make install       - Alias for 'deploy'"
+	@echo "  make pull          - Pull latest Docker images from registry"
+	@echo "  make update        - Pull images and restart services"
+	@echo "  make mtls-setup    - Bootstrap mTLS certificates"
+	@echo "  make mtls-renew    - Renew mTLS CA certificate"
+	@echo "  make health        - Check health of all services"
+	@echo "  make env-check     - Validate .env configuration"
+	@echo "  make version       - Show version information"
 	@echo ""
 	@echo "Git Operations:"
 	@echo "  make push          - Push to origin/main and push all tags"
@@ -43,6 +54,71 @@ help:
 # Git operations
 push:
 	git push origin main && git push origin --tags
+
+# Production deployment targets
+deploy:
+	@echo "Starting production deployment..."
+	@sudo ./scripts/deploy.sh
+
+install: deploy
+
+pull:
+	@echo "Pulling latest Docker images..."
+	@docker compose pull
+	@echo "✓ Images pulled"
+
+update: pull prod-restart
+	@echo "✓ Update complete"
+
+mtls-setup:
+	@echo "Setting up mTLS..."
+	@./scripts/setup-mtls.sh
+
+mtls-renew:
+	@echo "Renewing mTLS CA..."
+	@./scripts/setup-mtls.sh --force
+
+health:
+	@echo "Health Check:"
+	@echo ""
+	@echo "Ingest Service:"
+	@curl -sf http://localhost:8080/health | jq || echo "✗ Not responding"
+	@echo ""
+	@echo "Status Service:"
+	@curl -sf http://localhost:8081/health | jq || echo "✗ Not responding"
+	@echo ""
+	@echo "Caddy Proxy:"
+	@curl -sf http://localhost/health || echo "✗ Not responding"
+
+env-check:
+	@echo "Checking .env configuration..."
+	@if [ ! -f .env ]; then \
+		echo "✗ .env file not found"; \
+		echo "  Run: cp .env.example .env"; \
+		exit 1; \
+	fi
+	@echo "✓ .env file exists"
+	@echo ""
+	@echo "Required variables:"
+	@for var in POSTGRES_PASSWORD VALKEY_PASSWORD JWT_SECRET APP_KEY; do \
+		if grep -q "^$$var=" .env; then \
+			echo "  ✓ $$var"; \
+		else \
+			echo "  ✗ $$var (missing)"; \
+		fi; \
+	done
+
+version:
+	@echo "Node Pulse Admiral"
+	@echo ""
+	@if [ -f VERSION ]; then \
+		echo "Version: $$(cat VERSION)"; \
+	else \
+		echo "Version: development"; \
+	fi
+	@echo ""
+	@echo "Service Images:"
+	@docker compose config | grep 'image:' | sed 's/^[ ]*/  /'
 
 # Development environment
 dev-up:

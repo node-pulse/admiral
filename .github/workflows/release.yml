@@ -1,0 +1,283 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/node-pulse
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # Build all Docker images in parallel
+  build-images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Migration service
+          - name: migrate
+            context: ./migrate
+            dockerfile: ./migrate/Dockerfile
+            image_suffix: migrate
+
+          # Submarines services (production builds only)
+          - name: submarines-ingest
+            context: ./submarines
+            dockerfile: ./submarines/Dockerfile.ingest.prod
+            image_suffix: submarines-ingest
+
+          - name: submarines-digest
+            context: ./submarines
+            dockerfile: ./submarines/Dockerfile.digest.prod
+            image_suffix: submarines-digest
+
+          - name: submarines-deployer
+            context: ./submarines
+            dockerfile: ./submarines/Dockerfile.deployer.prod
+            image_suffix: submarines-deployer
+
+          - name: submarines-status
+            context: ./submarines
+            dockerfile: ./submarines/Dockerfile.status.prod
+            image_suffix: submarines-status
+
+          - name: submarines-sshws
+            context: ./submarines
+            dockerfile: ./submarines/Dockerfile.sshws.prod
+            image_suffix: submarines-sshws
+
+          # Flagship (Laravel)
+          - name: flagship
+            context: ./flagship
+            dockerfile: ./flagship/Dockerfile.prod
+            image_suffix: flagship
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image_suffix }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # Create GitHub release with deployment artifacts
+  create-release:
+    needs: build-images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Prepare release artifacts
+        run: |
+          # Create release directory
+          mkdir -p release/node-pulse-${{ steps.version.outputs.VERSION }}
+
+          # Copy essential deployment files
+          cp compose.yml release/node-pulse-${{ steps.version.outputs.VERSION }}/
+          cp .env.example release/node-pulse-${{ steps.version.outputs.VERSION }}/
+          cp scripts/deploy.sh release/node-pulse-${{ steps.version.outputs.VERSION }}/
+          cp scripts/setup-mtls.sh release/node-pulse-${{ steps.version.outputs.VERSION }}/
+
+          # Copy Caddy configuration (rename prod to Caddyfile for production use)
+          mkdir -p release/node-pulse-${{ steps.version.outputs.VERSION }}/caddy
+          cp caddy/Caddyfile.prod release/node-pulse-${{ steps.version.outputs.VERSION }}/caddy/Caddyfile
+
+          # Copy Ansible playbooks
+          cp -r flagship/ansible release/node-pulse-${{ steps.version.outputs.VERSION }}/ansible
+
+          # Copy documentation
+          cp README.md release/node-pulse-${{ steps.version.outputs.VERSION }}/
+          cp LICENSE release/node-pulse-${{ steps.version.outputs.VERSION }}/ || true
+
+          # Create deployment instructions
+          cat > release/node-pulse-${{ steps.version.outputs.VERSION }}/DEPLOYMENT.md << 'EOF'
+          # Node Pulse Admiral - Deployment Instructions
+
+          ## Version: ${{ steps.version.outputs.VERSION }}
+
+          ## Quick Start
+
+          **Download and deploy:**
+
+          ```bash
+          # Download latest release
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
+
+          # Verify checksum (optional but recommended)
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+          sha256sum -c node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+
+          # Extract
+          tar xzf node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
+
+          # Enter directory
+          cd node-pulse-${{ steps.version.outputs.VERSION }}
+
+          # Run deployment
+          sudo ./deploy.sh
+          ```
+
+          The deployment script will:
+          - Guide you through all configuration options interactively
+          - Set up environment variables automatically
+          - Bootstrap mTLS certificates for production security
+          - Pull pre-built Docker images from GitHub Container Registry
+          - Create initial admin user with your chosen credentials
+          - Start all services
+
+          **Access your dashboard:**
+          - Open `http://your-server-ip` in your browser
+          - Login with the admin credentials you created during deployment
+
+          ## What's Included
+
+          - `compose.yml` - Docker Compose configuration (pulls pre-built images)
+          - `deploy.sh` - Interactive deployment script
+          - `setup-mtls.sh` - mTLS certificate bootstrap script
+          - `.env.example` - Environment variables template
+          - `caddy/` - Reverse proxy configuration
+          - `ansible/` - Agent deployment playbooks
+          - `DEPLOYMENT.md` - This file
+
+          ## Docker Images
+
+          All images are pre-built and published to GitHub Container Registry:
+
+          - `ghcr.io/${{ github.repository_owner }}/node-pulse-migrate:${{ steps.version.outputs.VERSION }}`
+          - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-ingest:${{ steps.version.outputs.VERSION }}`
+          - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-digest:${{ steps.version.outputs.VERSION }}`
+          - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-deployer:${{ steps.version.outputs.VERSION }}`
+          - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-status:${{ steps.version.outputs.VERSION }}`
+          - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-sshws:${{ steps.version.outputs.VERSION }}`
+          - `ghcr.io/${{ github.repository_owner }}/node-pulse-flagship:${{ steps.version.outputs.VERSION }}`
+
+          ## Requirements
+
+          - Linux server (Ubuntu 22.04+ recommended)
+          - Docker Engine 24.0+
+          - Docker Compose v2.20+
+          - Root/sudo access
+          - Minimum 2GB RAM, 2 CPU cores
+
+          ## Documentation
+
+          - [mTLS Setup Guide](docs/mtls-setup-guide.md) - Available in full repository
+          - [Deployment Playbooks](ansible/playbooks/nodepulse/README.md) - Available in full repository
+
+          ## Support
+
+          - Issues: https://github.com/${{ github.repository }}/issues
+          - Documentation: https://github.com/${{ github.repository }}
+          EOF
+
+          # Create tarball
+          cd release
+          tar czf node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz node-pulse-${{ steps.version.outputs.VERSION }}/
+
+          # Create checksums
+          sha256sum node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz > node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean --skip=validate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release tarball
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
+            release/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+          body: |
+            ## Node Pulse Admiral v${{ steps.version.outputs.VERSION }}
+
+            ### 🚀 Quick Deployment
+
+            ```bash
+            # Download and extract
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
+            tar xzf node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
+            cd node-pulse-${{ steps.version.outputs.VERSION }}
+
+            # Deploy (interactive - no manual .env editing needed)
+            sudo ./deploy.sh
+            ```
+
+            ### 📦 What's New
+
+            See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+            ### 🐳 Docker Images
+
+            All services are pre-built and available at:
+            - `ghcr.io/${{ github.repository_owner }}/node-pulse-*:${{ steps.version.outputs.VERSION }}`
+            - `ghcr.io/${{ github.repository_owner }}/node-pulse-*:latest`
+
+            ### 📖 Documentation
+
+            - [Deployment Instructions](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/DEPLOYMENT.md)
+            - [mTLS Setup Guide](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/mtls-setup-guide.md)
+
+            ### ✅ Verification
+
+            ```bash
+            # Verify checksum
+            sha256sum -c node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

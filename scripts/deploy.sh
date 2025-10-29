@@ -830,6 +830,30 @@ cd "$PROJECT_ROOT"
 docker compose pull
 
 # =============================================================================
+# Validate required files
+# =============================================================================
+echo ""
+echo -e "${BLUE}================================================${NC}"
+echo -e "${BLUE}Validating deployment files${NC}"
+echo -e "${BLUE}================================================${NC}"
+echo ""
+
+# Check compose.yml
+if [ ! -f "$PROJECT_ROOT/compose.yml" ]; then
+    echo -e "${RED}Error: compose.yml not found${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ compose.yml found${NC}"
+
+# Check Caddyfile
+if [ ! -f "$PROJECT_ROOT/caddy/Caddyfile" ]; then
+    echo -e "${RED}Error: caddy/Caddyfile not found${NC}"
+    echo -e "${YELLOW}Note: The release should include caddy/Caddyfile (production config)${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ caddy/Caddyfile found${NC}"
+
+# =============================================================================
 # Start services
 # =============================================================================
 echo ""

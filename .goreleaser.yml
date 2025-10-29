@@ -1,0 +1,125 @@
+# GoReleaser configuration for Node Pulse Admiral
+# This creates GitHub releases with deployment artifacts
+
+version: 2
+
+project_name: node-pulse-admiral
+
+# We don't build Go binaries here (they're in Docker images)
+# Tarball is created manually in GitHub Actions workflow
+builds:
+  - skip: true
+
+# Skip archives - we create the tarball manually in the workflow
+archives:
+  - id: deployment-package
+    format: binary
+
+# Generate checksums
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+# Create changelog from git commits
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - typo
+  groups:
+    - title: 'Features'
+      regexp: '^feat:'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^fix:'
+      order: 1
+    - title: 'Security'
+      regexp: '^security:'
+      order: 2
+    - title: 'Performance'
+      regexp: '^perf:'
+      order: 3
+    - title: 'Other Changes'
+      order: 999
+
+# Release settings
+release:
+  github:
+    owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
+    name: "{{ .ProjectName }}"
+
+  # Release name and header
+  name_template: "v{{ .Version }}"
+
+  # Prerelease detection
+  prerelease: auto
+
+  # Draft mode (set to false to auto-publish)
+  draft: false
+
+  # Replace existing release
+  replace: false
+
+  # Release mode
+  mode: replace
+
+  # Header template
+  header: |
+    ## Node Pulse Admiral {{ .Tag }}
+
+    **Release Date**: {{ .Date }}
+
+    ### 🚀 Quick Start
+
+    ```bash
+    # Download
+    wget https://github.com/{{ .Env.GITHUB_REPOSITORY }}/releases/download/{{ .Tag }}/node-pulse-{{ .Version }}.tar.gz
+
+    # Extract
+    tar xzf node-pulse-{{ .Version }}.tar.gz
+    cd node-pulse-{{ .Version }}
+
+    # Deploy
+    cp .env.example .env
+    # Edit .env with your configuration
+    sudo ./deploy.sh
+    ```
+
+    ### 🐳 Docker Images
+
+    Pre-built images are available at GitHub Container Registry:
+
+    ```
+    ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-migrate:{{ .Version }}
+    ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-ingest:{{ .Version }}
+    ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-digest:{{ .Version }}
+    ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-deployer:{{ .Version }}
+    ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-status:{{ .Version }}
+    ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-sshws:{{ .Version }}
+    ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-flagship:{{ .Version }}
+    ```
+
+    All images are also tagged as `:latest` for convenience.
+
+  # Footer with changelog
+  footer: |
+    ---
+
+    ### 📖 Documentation
+
+    - [Deployment Guide](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/{{ .Tag }}/README.md)
+    - [mTLS Setup](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/{{ .Tag }}/docs/mtls-setup-guide.md)
+    - [Ansible Playbooks](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/{{ .Tag }}/flagship/ansible/playbooks/nodepulse/README.md)
+
+    ### 🐛 Issues & Support
+
+    Found a bug or need help? [Open an issue](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/issues)
+
+# Announce releases (optional - disabled by default)
+# announce:
+#   skip: true
