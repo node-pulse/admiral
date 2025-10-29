@@ -5,7 +5,7 @@
 # ⚠️  For development, use: docker compose -f compose.development.yml up -d
 #
 # This script:
-# - Configures production environment variables
+# - Configures production environment variables (APP_ENV=production, hardcoded)
 # - Deploys all services using compose.yml (production build)
 # - ENFORCES mTLS setup (mandatory for production)
 # - Creates initial admin user
@@ -245,7 +245,8 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     # App settings
     prompt_config "APP_NAME" "NodePulse Flagship" "Application name"
-    prompt_config "APP_ENV" "production" "Application environment (local/production)"
+    # APP_ENV is hardcoded to "production" - this is a production-only deployment script
+    CONFIG["APP_ENV"]="production"
     prompt_config "APP_DEBUG" "false" "Enable debug mode (true/false)"
     prompt_config "APP_KEY" "$(generate_laravel_key)" "Laravel encryption key (auto-generated)" "true"
     prompt_config "APP_URL" "http://localhost:3000" "Application URL"
@@ -542,7 +543,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
         echo -e "${GREEN}Flagship (Laravel):${NC}"
         echo "  App Name:   ${CONFIG[APP_NAME]}"
-        echo "  App Env:    ${CONFIG[APP_ENV]}"
+        echo "  App Env:    ${CONFIG[APP_ENV]} (hardcoded, production-only)"
         echo "  App Debug:  ${CONFIG[APP_DEBUG]}"
         echo "  App URL:    ${CONFIG[APP_URL]}"
         echo "  App Key:    ${CONFIG[APP_KEY]:0:12}****"
@@ -654,7 +655,7 @@ DIGEST_ID=${CONFIG[DIGEST_ID]}
 
 # App settings
 APP_NAME="${CONFIG[APP_NAME]}"
-APP_ENV=${CONFIG[APP_ENV]}
+APP_ENV=production  # Hardcoded - this is a production-only deployment script
 APP_DEBUG=${CONFIG[APP_DEBUG]}
 APP_KEY=${CONFIG[APP_KEY]}
 APP_URL=${CONFIG[APP_URL]}
