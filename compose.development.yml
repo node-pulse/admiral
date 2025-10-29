@@ -135,7 +135,7 @@ services:
         condition: service_healthy
     volumes:
       - ./submarines:/app
-      - ./flagship/ansible:/app/flagship/ansible:ro  # Mount Ansible playbooks
+      - ./ansible:/app/ansible:ro  # Mount Ansible playbooks
       - ./secrets:/secrets:ro  # Mount master key for SSH key decryption
     networks:
       - node-pulse-admiral
@@ -207,6 +207,7 @@ services:
         condition: service_started
     volumes:
       - ./flagship:/var/www/html # Mount entire app for hot reload
+      - ./ansible:/var/www/html/ansible:ro # Mount Ansible playbooks
       - ./logs/flagship:/var/www/html/storage/logs
       - ./secrets:/secrets:ro
       - ./flagship/docker-entrypoint-dev.sh:/usr/local/bin/docker-entrypoint-dev.sh:ro

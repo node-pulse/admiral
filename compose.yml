@@ -107,7 +107,7 @@ services:
       flagship-migrate:
         condition: service_completed_successfully
     volumes:
-      - ./flagship/ansible:/app/flagship/ansible:ro  # Mount Ansible playbooks (read-only)
+      - ./ansible:/app/ansible:ro  # Mount Ansible playbooks (read-only)
       - ./secrets:/secrets:ro  # Mount master key for SSH key decryption (read-only)
     networks:
       - node-pulse-admiral
@@ -167,10 +167,8 @@ services:
       submarines-ingest:
         condition: service_started
     volumes:
-      - ./flagship:/var/www/html # Mount entire app for Caddy to serve static files
       - ./logs/flagship:/var/www/html/storage/logs # Mount logs for persistence
       - ./secrets:/secrets:ro # Mount shared secrets directory (read-only)
-      - ./ansible:/var/www/html/ansible # Mount Ansible playbooks
     networks:
       - node-pulse-admiral
     healthcheck:
@@ -202,13 +200,10 @@ services:
       # Caddyfile configuration
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
 
-      # Flagship public directory (for serving static files)
-      - ./flagship/public:/var/www/flagship/public:ro
-
       # mTLS CA certificate (for agent authentication)
       - ./secrets/certs/ca.crt:/certs/ca.crt:ro
 
-      # Caddy data (certificates, etc.) - bind mount like postgres
+      # Caddy data (certificates, etc.) - bind mount for persistence
       - ./caddy_data:/data
       - ./caddy_config:/config
 

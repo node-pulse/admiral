@@ -289,7 +289,7 @@ func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string
 
 	// Playbook path - support both flat and subdirectory structure
 	// Playbook format: "nodepulse/deploy-agent.yml" or "custom/my-playbook.yml"
-	playbookPath := filepath.Join("/app/flagship/ansible/playbooks", playbook)
+	playbookPath := filepath.Join("/app/ansible/playbooks", playbook)
 
 	// Parse variables
 	var variables map[string]any
@@ -320,7 +320,7 @@ func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string
 	// Note: profile_tasks/timer callbacks may mix timing output with JSON,
 	// but we extract the JSON content in parseAnsibleResults()
 	cmd.Env = append(os.Environ(),
-		"ANSIBLE_CONFIG=/app/flagship/ansible/ansible.cfg",
+		"ANSIBLE_CONFIG=/app/ansible/ansible.cfg",
 		"ANSIBLE_STDOUT_CALLBACK=json",
 	)
 

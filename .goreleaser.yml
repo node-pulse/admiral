@@ -11,6 +11,7 @@ builds:
   - skip: true
 
 # Skip archives - we create the tarball manually in the workflow
+# Note: Ansible playbooks are now baked into Docker images, not shipped separately
 archives:
   - id: deployment-package
     format: binary

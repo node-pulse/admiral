@@ -133,8 +133,8 @@ jobs:
           mkdir -p release/node-pulse-${{ steps.version.outputs.VERSION }}/caddy
           cp caddy/Caddyfile.prod release/node-pulse-${{ steps.version.outputs.VERSION }}/caddy/Caddyfile
 
-          # Copy Ansible playbooks
-          cp -r flagship/ansible release/node-pulse-${{ steps.version.outputs.VERSION }}/ansible
+          # Copy Ansible playbooks (needed at runtime for custom playbooks)
+          cp -r ansible release/node-pulse-${{ steps.version.outputs.VERSION }}/ansible
 
           # Copy documentation
           cp README.md release/node-pulse-${{ steps.version.outputs.VERSION }}/
@@ -187,7 +187,7 @@ jobs:
           - `setup-mtls.sh` - mTLS certificate bootstrap script
           - `.env.example` - Environment variables template
           - `caddy/` - Reverse proxy configuration
-          - `ansible/` - Agent deployment playbooks
+          - `ansible/` - Ansible playbooks (mounted at runtime, supports custom playbooks)
           - `DEPLOYMENT.md` - This file
 
           ## Docker Images
