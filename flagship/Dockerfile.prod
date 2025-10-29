@@ -1,13 +1,10 @@
 # Production Dockerfile for Laravel with Ansible
 # Clean PHP-FPM only - Caddy handles HTTP in separate container
 
-# Build argument for GitHub repository owner (for base image)
-ARG GITHUB_REPOSITORY_OWNER
-
 # ------------------------------------------------------------
 # Stage 1: PHP Base with Extensions (Pre-compiled)
 # ------------------------------------------------------------
-FROM ghcr.io/${GITHUB_REPOSITORY_OWNER}/node-pulse-flagship-base:latest AS php-base
+FROM ghcr.io/node-pulse/node-pulse-flagship-base:latest AS php-base
 
 # Base image already includes:
 # - PHP 8.3 FPM Alpine

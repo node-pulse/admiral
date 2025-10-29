@@ -4,10 +4,6 @@ on:
   workflow_dispatch:  # Manual trigger via GitHub UI
   schedule:
     - cron: '0 0 1,15 * *'  # Bi-weekly on the 1st and 15th at midnight UTC
-  push:
-    paths:
-      - 'docker/node-pulse-flagship-base/**'  # Auto-rebuild when base image changes
-      - '.github/workflows/build-base-images.yml'
 
 env:
   REGISTRY: ghcr.io
