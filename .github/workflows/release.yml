@@ -72,10 +72,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -121,13 +117,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
       - name: Tag image as latest
         run: |
-          VERSION_TAG="${{ env.IMAGE_PREFIX }}-${{ matrix.image_suffix }}:${{ steps.version.outputs.VERSION }}"
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          VERSION_TAG="${{ env.IMAGE_PREFIX }}-${{ matrix.image_suffix }}:$VERSION"
           LATEST_TAG="${{ env.IMAGE_PREFIX }}-${{ matrix.image_suffix }}:latest"
 
           echo "Pulling version tag: $VERSION_TAG"
