@@ -48,7 +48,7 @@ RUN echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/docker-ph
 # ------------------------------------------------------------
 # Stage 2: Composer Dependencies
 # ------------------------------------------------------------
-FROM composer:2.8-alpine AS vendor
+FROM composer:2 AS vendor
 
 WORKDIR /app
 
