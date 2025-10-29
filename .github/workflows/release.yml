@@ -93,7 +93,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
-          visibility: public
 
   # Tag all images as :latest only if ALL builds succeeded
   tag-latest:

@@ -49,7 +49,6 @@ jobs:
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          visibility: public
 
   # Tag as :latest only if build succeeded
   tag-latest:
