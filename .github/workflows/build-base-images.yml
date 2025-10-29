@@ -40,7 +40,7 @@ jobs:
             type=sha
 
       - name: Build and push base image
-        uses: docker/build-push-action@v6.18
+        uses: docker/build-push-action@v6
         with:
           context: ./docker/node-pulse-flagship-base
           push: true
