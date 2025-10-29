@@ -79,14 +79,16 @@ RUN apk add --no-cache \
     php83-xml \
     php83-tokenizer \
     php83-fileinfo \
-    php83-dom
+    php83-dom \
+    php83-phar \
+    php83-openssl \
+    php83-curl \
+    php83-ctype \
+    php83-session
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Copy composer files and install dependencies
+# Copy composer files and vendor from vendor stage
 COPY composer.json composer.lock ./
-RUN composer install --no-scripts --prefer-dist
+COPY --from=vendor /app/vendor ./vendor
 
 # Copy package files
 COPY package*.json ./
@@ -96,9 +98,6 @@ RUN npm ci
 
 # Copy application code
 COPY . .
-
-# Generate optimized autoloader for artisan commands
-RUN composer dump-autoload --optimize
 
 # Build production assets
 RUN npm run build
