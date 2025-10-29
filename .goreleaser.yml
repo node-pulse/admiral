@@ -3,7 +3,7 @@
 
 version: 2
 
-project_name: node-pulse-admiral
+project_name: admiral
 
 # We don't build Go binaries here (they're in Docker images)
 # Tarball is created manually in GitHub Actions workflow
