@@ -38,9 +38,11 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=sha
+          labels: |
+            org.opencontainers.image.visibility=public
 
       - name: Build and push base image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6.18
         with:
           context: ./docker/node-pulse-flagship-base
           push: true
