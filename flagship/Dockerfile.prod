@@ -1,49 +1,22 @@
 # Production Dockerfile for Laravel with Ansible
 # Clean PHP-FPM only - Caddy handles HTTP in separate container
 
+# Build argument for GitHub repository owner (for base image)
+ARG GITHUB_REPOSITORY_OWNER
+
 # ------------------------------------------------------------
-# Stage 1: PHP Base with Extensions
+# Stage 1: PHP Base with Extensions (Pre-compiled)
 # ------------------------------------------------------------
-FROM php:8.3-fpm-alpine AS php-base
+FROM ghcr.io/${GITHUB_REPOSITORY_OWNER}/node-pulse-flagship-base:latest AS php-base
 
-# Install system dependencies and PHP extensions
-RUN apk add --no-cache \
-    curl \
-    git \
-    openssh-client \
-    icu-dev \
-    libzip-dev \
-    oniguruma-dev \
-    postgresql-dev \
-    # Python and Ansible for deployment orchestration
-    python3 \
-    py3-pip \
-    ansible \
-    sshpass \
-    && docker-php-ext-install -j$(nproc) \
-    intl \
-    mbstring \
-    zip \
-    bcmath \
-    pcntl \
-    pdo_pgsql \
-    pgsql \
-    opcache \
-    && docker-php-ext-enable opcache
+# Base image already includes:
+# - PHP 8.3 FPM Alpine
+# - All Laravel extensions (intl, mbstring, zip, bcmath, pcntl, pdo_pgsql, pgsql, opcache)
+# - Ansible, Python3, SSH tools
+# - Production PHP configuration
+# - Optimized OPcache settings
 
-# Configure PHP for production
-RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
-
-# Configure OPcache for production
-RUN echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
-    && echo "opcache.interned_strings_buffer=8" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
-    && echo "opcache.max_accelerated_files=4000" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
-    && echo "opcache.revalidate_freq=2" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
-    && echo "opcache.fast_shutdown=1" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
-    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
-
-# Install Ansible collections (optional, uncomment if needed)
-# RUN ansible-galaxy collection install community.general
+# No additional setup needed - extensions are pre-compiled!
 
 # ------------------------------------------------------------
 # Stage 2: Composer Dependencies

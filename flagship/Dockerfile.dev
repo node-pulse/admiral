@@ -2,37 +2,22 @@
 # Includes development tools and hot reload capabilities
 # Clean PHP-FPM only - Caddy handles HTTP in separate container
 
-FROM php:8.3-fpm-alpine
+# Build argument for GitHub repository owner (for base image)
+ARG GITHUB_REPOSITORY_OWNER=node-pulse
 
-# Install system dependencies, PHP extensions, and development tools
+# Use pre-compiled base image (much faster than building from scratch)
+FROM ghcr.io/${GITHUB_REPOSITORY_OWNER}/node-pulse-flagship-base:latest
+
+# Base image already includes all Laravel extensions and tools
+# Just add development-specific tools
+
+# Install Node.js, Bash, and dev dependencies
 RUN apk add --no-cache \
-    curl \
-    git \
     bash \
     nodejs \
     npm \
-    openssh-client \
-    icu-dev \
-    libzip-dev \
-    oniguruma-dev \
-    postgresql-dev \
     linux-headers \
-    $PHPIZE_DEPS \
-    # Python and Ansible for deployment testing
-    python3 \
-    py3-pip \
-    ansible \
-    sshpass \
-    && docker-php-ext-install -j$(nproc) \
-    intl \
-    mbstring \
-    zip \
-    bcmath \
-    pcntl \
-    pdo_pgsql \
-    pgsql \
-    opcache \
-    && docker-php-ext-enable opcache
+    $PHPIZE_DEPS
 
 # Install Xdebug for development (optional, comment out if not needed)
 RUN pecl install xdebug \
