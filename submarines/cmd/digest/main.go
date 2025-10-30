@@ -88,15 +88,26 @@ func main() {
 }
 
 func processMessages(ctx context.Context, valkeyClient *valkey.Client, db *database.DB) error {
-	// Read messages from stream
-	messages, err := valkeyClient.XReadGroup(ctx, consumerGroup, consumerName, streamKey, ">", batchSize)
+	// Try to read pending messages first (messages that were delivered but not ACKed)
+	// Use "0" to read pending messages for this consumer
+	messages, err := valkeyClient.XReadGroup(ctx, consumerGroup, consumerName, streamKey, "0", batchSize)
 	if err != nil {
-		log.Printf("[ERROR] Failed to read from stream: %v", err)
+		log.Printf("[ERROR] Failed to read pending messages from stream: %v", err)
 		return err
+	}
+
+	// If no pending messages, read new messages
+	if len(messages) == 0 {
+		messages, err = valkeyClient.XReadGroup(ctx, consumerGroup, consumerName, streamKey, ">", batchSize)
+		if err != nil {
+			log.Printf("[ERROR] Failed to read new messages from stream: %v", err)
+			return err
+		}
 	}
 
 	if len(messages) == 0 {
 		// No messages, take a longer break to reduce polling
+		// log.Printf("[DEBUG] No messages available, sleeping for %d seconds", idleSleep)
 		time.Sleep(idleSleep * time.Second)
 		return nil
 	}
