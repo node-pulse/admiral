@@ -1,4 +1,5 @@
 {
+    "name": "flagship",
     "private": true,
     "type": "module",
     "scripts": {
@@ -79,6 +80,7 @@
         "@rollup/rollup-darwin-arm64": "4.9.5",
         "@rollup/rollup-linux-arm64-musl": "4.9.5",
         "@rollup/rollup-linux-x64-gnu": "4.9.5",
+        "@rollup/rollup-linux-x64-musl": "4.9.5",
         "@rollup/rollup-win32-x64-msvc": "4.9.5",
         "@tailwindcss/oxide-darwin-arm64": "^4.0.1",
         "@tailwindcss/oxide-linux-arm64-musl": "^4.0.1",
