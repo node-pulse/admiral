@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Select,
@@ -78,6 +79,7 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         } else {
             setMetricsData([]);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedServers, timeRange, metricType]);
 
     const fetchMetrics = async () => {
