@@ -27,6 +27,44 @@ const (
 	idleSleep     = 5 // seconds to sleep when no messages
 )
 
+// allowedMetrics defines which metrics should be stored in the database
+// This prevents unnecessary metrics from bloating the database
+// Only metrics used by the dashboard should be included here
+var allowedMetrics = map[string]bool{
+	// CPU metrics
+	"node_cpu_seconds_total": true,
+	"node_load1":             true,
+	"node_load5":             true,
+	"node_load15":            true,
+
+	// Memory metrics
+	"node_memory_MemTotal_bytes":     true,
+	"node_memory_MemAvailable_bytes": true,
+	"node_memory_MemFree_bytes":      true,
+	"node_memory_Buffers_bytes":      true,
+	"node_memory_Cached_bytes":       true,
+	"node_memory_SwapTotal_bytes":    true,
+	"node_memory_SwapFree_bytes":     true,
+
+	// Disk metrics
+	"node_filesystem_size_bytes":  true,
+	"node_filesystem_avail_bytes": true,
+	"node_filesystem_free_bytes":  true,
+
+	// Network metrics
+	"node_network_receive_bytes_total":  true,
+	"node_network_transmit_bytes_total": true,
+	"node_network_receive_errs_total":   true,
+	"node_network_transmit_errs_total":  true,
+
+	// System uptime
+	"node_boot_time_seconds": true,
+	"node_time_seconds":      true,
+
+	// Node exporter up status
+	"up": true,
+}
+
 func main() {
 	log.Println("Starting digest worker...")
 
@@ -210,7 +248,15 @@ func insertPrometheusMetrics(tx *sql.Tx, serverID string, metrics []*parsers.Pro
 	}
 	defer stmt.Close()
 
+	insertedCount := 0
+	skippedCount := 0
+
 	for _, metric := range metrics {
+		// Filter out metrics not in the allowlist
+		if !allowedMetrics[metric.Name] {
+			skippedCount++
+			continue
+		}
 		// Convert labels map to JSON string
 		var labelsJSON string
 		if len(metric.Labels) > 0 {
@@ -253,6 +299,13 @@ func insertPrometheusMetrics(tx *sql.Tx, serverID string, metrics []*parsers.Pro
 		if err != nil {
 			return err
 		}
+		insertedCount++
+	}
+
+	// Log filtering statistics
+	if skippedCount > 0 {
+		log.Printf("[FILTER] Inserted %d metrics, skipped %d unnecessary metrics for server %s",
+			insertedCount, skippedCount, serverID)
 	}
 
 	return nil
