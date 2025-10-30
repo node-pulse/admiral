@@ -27,10 +27,14 @@ interface MetricsChartProps {
 interface MetricDataPoint {
     timestamp: string;
     cpu_usage_percent?: number;
-    memory_usage_percent?: number;
-    disk_usage_percent?: number;
-    network_upload_bytes?: number;
-    network_download_bytes?: number;
+    memory_used_mb?: number;
+    memory_available_mb?: number;
+    memory_total_mb?: number;
+    disk_used_gb?: number;
+    disk_available_gb?: number;
+    disk_total_gb?: number;
+    network_download_mbps?: number;
+    network_upload_mbps?: number;
 }
 
 interface ServerMetrics {
@@ -109,14 +113,26 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         }
     };
 
+    // Align timestamp to 15-second boundary for consistent chart display
+    const alignTimestampTo15Seconds = (timestamp: string): string => {
+        const date = new Date(timestamp);
+        const seconds = date.getSeconds();
+        const alignedSeconds = Math.floor(seconds / 15) * 15;
+
+        date.setSeconds(alignedSeconds);
+        date.setMilliseconds(0);
+
+        return date.toISOString();
+    };
+
     // Transform data for Recharts
     const transformDataForChart = () => {
         if (metricsData.length === 0) {
             return [];
         }
 
-        // Agents now send aligned timestamps (truncated to interval boundaries)
-        // No bucketing needed - use exact timestamps from backend
+        // Align timestamps to 15-second boundaries for consistent display
+        // This groups data points from slightly different timestamps together
         const timestampMap = new Map<
             string,
             Record<string, number | string | null>
@@ -125,18 +141,32 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         // First pass: Create entries for all timestamps and initialize server values to null
         metricsData.forEach((serverMetric) => {
             serverMetric.data_points.forEach((point) => {
-                const timestamp = point.timestamp;
+                // Align timestamp to 15-second boundary
+                const alignedTimestamp = alignTimestampTo15Seconds(
+                    point.timestamp,
+                );
 
-                if (!timestampMap.has(timestamp)) {
+                if (!timestampMap.has(alignedTimestamp)) {
+                    const date = new Date(alignedTimestamp);
                     const newEntry: Record<string, number | string | null> = {
-                        timestamp: new Date(timestamp).toLocaleTimeString(),
-                        rawTime: timestamp,
+                        timestamp: date.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                        }),
+                        rawTime: alignedTimestamp,
                     };
                     // Initialize all servers to null for this timestamp
                     metricsData.forEach((sm) => {
-                        newEntry[sm.display_name] = null;
+                        if (metricType === 'network') {
+                            // Network has 2 lines per server (upload & download)
+                            newEntry[`${sm.display_name} (Download)`] = null;
+                            newEntry[`${sm.display_name} (Upload)`] = null;
+                        } else {
+                            newEntry[sm.display_name] = null;
+                        }
                     });
-                    timestampMap.set(timestamp, newEntry);
+                    timestampMap.set(alignedTimestamp, newEntry);
                 }
             });
         });
@@ -144,8 +174,11 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         // Second pass: Fill in actual metric values where they exist
         metricsData.forEach((serverMetric) => {
             serverMetric.data_points.forEach((point) => {
-                const timestamp = point.timestamp;
-                const dataPoint = timestampMap.get(timestamp);
+                // Align timestamp to match first pass
+                const alignedTimestamp = alignTimestampTo15Seconds(
+                    point.timestamp,
+                );
+                const dataPoint = timestampMap.get(alignedTimestamp);
                 if (!dataPoint) return;
 
                 // Add metric value for this server
@@ -157,23 +190,24 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
                         point.cpu_usage_percent;
                 } else if (
                     metricType === 'memory' &&
-                    point.memory_usage_percent !== undefined
+                    point.memory_used_mb !== undefined
                 ) {
-                    dataPoint[serverMetric.display_name] =
-                        point.memory_usage_percent;
+                    // Show memory used in MB (absolute value)
+                    dataPoint[serverMetric.display_name] = point.memory_used_mb;
                 } else if (
                     metricType === 'disk' &&
-                    point.disk_usage_percent !== undefined
+                    point.disk_used_gb !== undefined
                 ) {
-                    dataPoint[serverMetric.display_name] =
-                        point.disk_usage_percent;
+                    // Show disk used in GB (absolute value)
+                    dataPoint[serverMetric.display_name] = point.disk_used_gb;
                 } else if (metricType === 'network') {
-                    // For network, we'll show upload + download in MB
-                    const upload = point.network_upload_bytes || 0;
-                    const download = point.network_download_bytes || 0;
-                    dataPoint[serverMetric.display_name] = parseFloat(
-                        ((upload + download) / 1024 / 1024).toFixed(2),
-                    );
+                    // Show upload and download separately
+                    const uploadMbps = point.network_upload_mbps || 0;
+                    const downloadMbps = point.network_download_mbps || 0;
+                    dataPoint[`${serverMetric.display_name} (Download)`] =
+                        downloadMbps;
+                    dataPoint[`${serverMetric.display_name} (Upload)`] =
+                        uploadMbps;
                 }
             });
         });
@@ -187,10 +221,18 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
     const chartData = transformDataForChart();
 
     const getYAxisLabel = () => {
-        if (metricType === 'network') {
-            return 'MB/s';
+        switch (metricType) {
+            case 'cpu':
+                return '%';
+            case 'memory':
+                return 'MB';
+            case 'disk':
+                return 'GB';
+            case 'network':
+                return 'MB/s';
+            default:
+                return '';
         }
-        return '%';
     };
 
     const getChartTitle = () => {
@@ -274,7 +316,8 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
                             <XAxis
                                 dataKey="timestamp"
                                 tick={{ fontSize: 12 }}
-                                interval="preserveStartEnd"
+                                interval="equidistantPreserveStart"
+                                minTickGap={50}
                             />
                             <YAxis
                                 label={{
@@ -285,17 +328,41 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
                             />
                             <Tooltip />
                             <Legend />
-                            {metricsData.map((serverMetric, index) => (
-                                <Line
-                                    key={serverMetric.server_id}
-                                    type="monotone"
-                                    dataKey={serverMetric.display_name}
-                                    stroke={COLORS[index % COLORS.length]}
-                                    strokeWidth={2}
-                                    dot={false}
-                                    connectNulls={false}
-                                />
-                            ))}
+                            {metricType === 'network'
+                                ? // Network: Show 2 lines per server (upload & download)
+                                  metricsData.flatMap((serverMetric, index) => [
+                                      <Line
+                                          key={`${serverMetric.server_id}-download`}
+                                          type="monotone"
+                                          dataKey={`${serverMetric.display_name} (Download)`}
+                                          stroke={COLORS[(index * 2) % COLORS.length]}
+                                          strokeWidth={2}
+                                          dot={false}
+                                          connectNulls={false}
+                                      />,
+                                      <Line
+                                          key={`${serverMetric.server_id}-upload`}
+                                          type="monotone"
+                                          dataKey={`${serverMetric.display_name} (Upload)`}
+                                          stroke={COLORS[(index * 2 + 1) % COLORS.length]}
+                                          strokeWidth={2}
+                                          strokeDasharray="5 5"
+                                          dot={false}
+                                          connectNulls={false}
+                                      />,
+                                  ])
+                                : // Other metrics: 1 line per server
+                                  metricsData.map((serverMetric, index) => (
+                                      <Line
+                                          key={serverMetric.server_id}
+                                          type="monotone"
+                                          dataKey={serverMetric.display_name}
+                                          stroke={COLORS[index % COLORS.length]}
+                                          strokeWidth={2}
+                                          dot={false}
+                                          connectNulls={false}
+                                      />
+                                  ))}
                         </LineChart>
                     </ResponsiveContainer>
                 )}

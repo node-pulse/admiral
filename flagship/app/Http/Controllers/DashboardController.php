@@ -255,14 +255,22 @@ class DashboardController extends Controller
                 timestamp,
                 CASE
                     WHEN prev_idle IS NOT NULL THEN
-                        GREATEST(0, LEAST(100,
-                            100 - ((cpu_idle_seconds - prev_idle) /
-                                  ((cpu_idle_seconds - prev_idle) +
-                                   (cpu_user_seconds - prev_user) +
-                                   (cpu_system_seconds - prev_system) +
-                                   (cpu_iowait_seconds - prev_iowait) +
-                                   (cpu_steal_seconds - prev_steal)) * 100)
-                        ))
+                        CASE
+                            WHEN ((cpu_idle_seconds - prev_idle) +
+                                  (cpu_user_seconds - prev_user) +
+                                  (cpu_system_seconds - prev_system) +
+                                  (cpu_iowait_seconds - prev_iowait) +
+                                  (cpu_steal_seconds - prev_steal)) > 0 THEN
+                                GREATEST(0, LEAST(100,
+                                    100 - ((cpu_idle_seconds - prev_idle) /
+                                          ((cpu_idle_seconds - prev_idle) +
+                                           (cpu_user_seconds - prev_user) +
+                                           (cpu_system_seconds - prev_system) +
+                                           (cpu_iowait_seconds - prev_iowait) +
+                                           (cpu_steal_seconds - prev_steal)) * 100)
+                                ))
+                            ELSE 0
+                        END
                     ELSE NULL
                 END as cpu_usage_percent
             FROM with_previous
@@ -326,12 +334,12 @@ class DashboardController extends Controller
             }
 
             $used = $row->memory_total_bytes - $row->memory_available_bytes;
-            $usagePercent = ($used / $row->memory_total_bytes) * 100;
+            $available = $row->memory_available_bytes;
 
             $resultsByServer[$row->server_id][] = [
                 'timestamp' => $row->timestamp,
-                'memory_usage_percent' => round($usagePercent, 2),
                 'memory_used_mb' => round($used / 1024 / 1024, 2),
+                'memory_available_mb' => round($available / 1024 / 1024, 2),
                 'memory_total_mb' => round($row->memory_total_bytes / 1024 / 1024, 2),
             ];
         }
@@ -375,12 +383,12 @@ class DashboardController extends Controller
             }
 
             $used = $row->disk_total_bytes - $row->disk_available_bytes;
-            $usagePercent = ($used / $row->disk_total_bytes) * 100;
+            $available = $row->disk_available_bytes;
 
             $resultsByServer[$row->server_id][] = [
                 'timestamp' => $row->timestamp,
-                'disk_usage_percent' => round($usagePercent, 2),
                 'disk_used_gb' => round($used / 1024 / 1024 / 1024, 2),
+                'disk_available_gb' => round($available / 1024 / 1024 / 1024, 2),
                 'disk_total_gb' => round($row->disk_total_bytes / 1024 / 1024 / 1024, 2),
             ];
         }
@@ -446,8 +454,8 @@ class DashboardController extends Controller
             if ($row->download_bps !== null && $row->upload_bps !== null) {
                 $resultsByServer[$row->server_id][] = [
                     'timestamp' => $row->timestamp,
-                    'network_download_bytes' => round((float)$row->download_bps, 2),
-                    'network_upload_bytes' => round((float)$row->upload_bps, 2),
+                    'network_download_mbps' => round((float)$row->download_bps / 1024 / 1024, 2),
+                    'network_upload_mbps' => round((float)$row->upload_bps / 1024 / 1024, 2),
                 ];
             }
         }

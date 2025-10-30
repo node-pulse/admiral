@@ -123,6 +123,11 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
+	// Log the received snapshot for debugging (pretty-printed JSON)
+	if snapshotJSON, err := json.MarshalIndent(snapshot, "", "  "); err == nil {
+		log.Printf("DEBUG: Received metric snapshot:\n%s", string(snapshotJSON))
+	}
+
 	// Get server_id from JSON body (agents include it in the snapshot)
 	// For backward compatibility, also check query parameter
 	serverIDStr := c.Query("server_id")
