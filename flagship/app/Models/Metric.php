@@ -258,4 +258,90 @@ class Metric extends Model
 
         return $this->swap_total_bytes - $this->swap_free_bytes;
     }
+
+    /**
+     * Get latest metric snapshot for a server
+     *
+     * @param string $serverId Server ID (text format)
+     * @return Metric|null
+     */
+    public static function getLatestForServer(string $serverId): ?Metric
+    {
+        return static::where('server_id', $serverId)
+            ->orderBy('timestamp', 'desc')
+            ->first();
+    }
+
+    /**
+     * Get metrics for a server within a time range
+     *
+     * @param string $serverId Server ID (text format)
+     * @param \Carbon\Carbon $startTime Start time
+     * @param \Carbon\Carbon|null $endTime End time (defaults to now)
+     * @param int $limit Maximum number of results (default 500)
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public static function getForServerInRange(string $serverId, $startTime, $endTime = null, int $limit = 500)
+    {
+        $query = static::where('server_id', $serverId)
+            ->where('timestamp', '>=', $startTime)
+            ->orderBy('timestamp', 'desc')
+            ->limit($limit);
+
+        if ($endTime) {
+            $query->where('timestamp', '<=', $endTime);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Get metrics for multiple servers in a time range
+     * Useful for batch queries
+     *
+     * @param array $serverIds Array of server IDs (text format)
+     * @param \Carbon\Carbon $startTime Start time
+     * @param \Carbon\Carbon|null $endTime End time (defaults to now)
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public static function getForServersInRange(array $serverIds, $startTime, $endTime = null)
+    {
+        $query = static::whereIn('server_id', $serverIds)
+            ->where('timestamp', '>=', $startTime)
+            ->orderBy('server_id')
+            ->orderBy('timestamp', 'desc');
+
+        if ($endTime) {
+            $query->where('timestamp', '<=', $endTime);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Count total metrics stored for a server
+     *
+     * @param string $serverId Server ID (text format)
+     * @return int
+     */
+    public static function countForServer(string $serverId): int
+    {
+        return static::where('server_id', $serverId)->count();
+    }
+
+    /**
+     * Get oldest metric timestamp for a server
+     * Useful for checking data retention
+     *
+     * @param string $serverId Server ID (text format)
+     * @return \Carbon\Carbon|null
+     */
+    public static function getOldestTimestampForServer(string $serverId): ?\Carbon\Carbon
+    {
+        $metric = static::where('server_id', $serverId)
+            ->orderBy('timestamp', 'asc')
+            ->first(['timestamp']);
+
+        return $metric?->timestamp;
+    }
 }

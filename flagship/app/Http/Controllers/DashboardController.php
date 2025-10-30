@@ -212,200 +212,10 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * Calculate CPU usage from Prometheus node_cpu_seconds_total counter
-     */
-    private function getCpuMetrics(string $serverIdText, $startTime)
-    {
-        // Get node_cpu_seconds_total for all CPUs in idle mode
-        // Limit to 500 samples max for performance (15s interval = ~33 samples/hour)
-        $cpuMetrics = MetricSample::where('server_id', $serverIdText)
-            ->where('metric_name', 'node_cpu_seconds_total')
-            ->where('timestamp', '>=', $startTime)
-            ->whereRaw("labels->>'mode' = ?", ['idle'])
-            ->orderBy('timestamp', 'desc')
-            ->limit(500)
-            ->get()
-            ->sortBy('timestamp');
-
-        // Group by timestamp (agents now send aligned timestamps, use ISO8601 for exact matching)
-        $grouped = $cpuMetrics->groupBy(fn($m) => $m->timestamp->toIso8601String());
-
-        $dataPoints = collect();
-        $previousTimestamp = null;
-        $previousIdleTotal = null;
-
-        foreach ($grouped as $timestamp => $samples) {
-            $currentIdleTotal = $samples->sum('value');
-            $cpuCount = $samples->count();
-
-            if ($previousIdleTotal !== null && $previousTimestamp !== null) {
-                // Parse ISO8601 timestamps for precise time difference calculation
-                $timeDiff = strtotime($timestamp) - strtotime($previousTimestamp);
-                $idleDiff = $currentIdleTotal - $previousIdleTotal;
-
-                if ($timeDiff > 0) {
-                    // Calculate usage: 100 - (idle_diff / (time_diff * cpu_count)) * 100
-                    $idlePercent = ($idleDiff / ($timeDiff * $cpuCount)) * 100;
-                    $usagePercent = max(0, min(100, 100 - $idlePercent));
-
-                    $dataPoints->push([
-                        'timestamp' => $samples->first()->timestamp->toIso8601String(),
-                        'cpu_usage_percent' => round($usagePercent, 2),
-                    ]);
-                }
-            }
-
-            $previousTimestamp = $timestamp;
-            $previousIdleTotal = $currentIdleTotal;
-        }
-
-        return $dataPoints;
-    }
 
     /**
-     * Calculate memory usage from Prometheus node_memory_* gauges
-     */
-    private function getMemoryMetrics(string $serverIdText, $startTime)
-    {
-        // Get memory total and available metrics
-        // Limit to 1000 samples max (2 metrics × 500 samples)
-        $memoryMetrics = MetricSample::where('server_id', $serverIdText)
-            ->whereIn('metric_name', ['node_memory_MemTotal_bytes', 'node_memory_MemAvailable_bytes'])
-            ->where('timestamp', '>=', $startTime)
-            ->orderBy('timestamp', 'desc')
-            ->limit(1000)
-            ->get()
-            ->sortBy('timestamp');
-
-        // Group by timestamp (agents now send aligned timestamps, use ISO8601 for exact matching)
-        $grouped = $memoryMetrics->groupBy(fn($m) => $m->timestamp->toIso8601String());
-
-        return $grouped->map(function ($samples) {
-            $total = $samples->firstWhere('metric_name', 'node_memory_MemTotal_bytes')?->value;
-            $available = $samples->firstWhere('metric_name', 'node_memory_MemAvailable_bytes')?->value;
-
-            if ($total && $available !== null) {
-                $used = $total - $available;
-                $usagePercent = ($used / $total) * 100;
-
-                return [
-                    'timestamp' => $samples->first()->timestamp->toIso8601String(),
-                    'memory_usage_percent' => round($usagePercent, 2),
-                    'memory_used_mb' => round($used / 1024 / 1024, 2),
-                    'memory_total_mb' => round($total / 1024 / 1024, 2),
-                ];
-            }
-
-            return null;
-        })->filter()->values();
-    }
-
-    /**
-     * Calculate disk usage from Prometheus node_filesystem_* gauges
-     */
-    private function getDiskMetrics(string $serverIdText, $startTime)
-    {
-        // Get filesystem metrics for root mountpoint only (or primary filesystem)
-        // Exclude tmpfs, devtmpfs, and other virtual filesystems
-        // Limit to 1000 samples max (2 metrics × 500 samples)
-        $diskMetrics = MetricSample::where('server_id', $serverIdText)
-            ->whereIn('metric_name', ['node_filesystem_size_bytes', 'node_filesystem_avail_bytes'])
-            ->where('timestamp', '>=', $startTime)
-            ->whereRaw("labels->>'mountpoint' = ?", ['/']) // Root filesystem only
-            ->whereRaw("labels->>'fstype' NOT IN ('tmpfs', 'devtmpfs', 'overlay', 'squashfs')")
-            ->orderBy('timestamp', 'desc')
-            ->limit(1000)
-            ->get()
-            ->sortBy('timestamp');
-
-        // Group by timestamp (agents now send aligned timestamps, use ISO8601 for exact matching)
-        $grouped = $diskMetrics->groupBy(fn($m) => $m->timestamp->toIso8601String());
-
-        return $grouped->map(function ($samples) {
-            $total = $samples->firstWhere('metric_name', 'node_filesystem_size_bytes')?->value;
-            $available = $samples->firstWhere('metric_name', 'node_filesystem_avail_bytes')?->value;
-
-            if ($total && $available !== null) {
-                $used = $total - $available;
-                $usagePercent = ($used / $total) * 100;
-
-                return [
-                    'timestamp' => $samples->first()->timestamp->toIso8601String(),
-                    'disk_usage_percent' => round($usagePercent, 2),
-                    'disk_used_gb' => round($used / 1024 / 1024 / 1024, 2),
-                    'disk_total_gb' => round($total / 1024 / 1024 / 1024, 2),
-                ];
-            }
-
-            return null;
-        })->filter()->values();
-    }
-
-    /**
-     * Calculate network throughput from Prometheus node_network_* counters
-     */
-    private function getNetworkMetrics(string $serverIdText, $startTime)
-    {
-        // Get network metrics for main interfaces (exclude loopback, docker, etc.)
-        // Limit to 1000 samples max (2 metrics × multiple devices × samples)
-        $networkMetrics = MetricSample::where('server_id', $serverIdText)
-            ->whereIn('metric_name', ['node_network_receive_bytes_total', 'node_network_transmit_bytes_total'])
-            ->where('timestamp', '>=', $startTime)
-            ->whereRaw("labels->>'device' NOT IN ('lo', 'docker0', 'veth0', 'virbr0')")
-            ->whereRaw("labels->>'device' NOT LIKE 'veth%'")
-            ->orderBy('timestamp', 'desc')
-            ->limit(1000)
-            ->get()
-            ->sortBy('timestamp');
-
-        // Group by timestamp and device (agents now send aligned timestamps, use ISO8601 for exact matching)
-        $grouped = $networkMetrics
-            ->groupBy(fn($m) => $m->timestamp->toIso8601String() . '|' . ($m->labels['device'] ?? 'unknown'));
-
-        $dataPoints = collect();
-        $previous = [];
-
-        foreach ($grouped as $key => $samples) {
-            [$timestamp, $device] = explode('|', $key);
-
-            $rx = $samples->firstWhere('metric_name', 'node_network_receive_bytes_total')?->value;
-            $tx = $samples->firstWhere('metric_name', 'node_network_transmit_bytes_total')?->value;
-
-            if ($rx !== null && $tx !== null) {
-                $prevKey = $device;
-
-                if (isset($previous[$prevKey])) {
-                    $rxDiff = $rx - $previous[$prevKey]['rx'];
-                    $txDiff = $tx - $previous[$prevKey]['tx'];
-                    $timeDiff = strtotime($timestamp) - strtotime($previous[$prevKey]['timestamp']);
-
-                    if ($timeDiff > 0) {
-                        // Calculate bytes per second, then convert to MB/s
-                        $downloadBps = $rxDiff / $timeDiff;
-                        $uploadBps = $txDiff / $timeDiff;
-
-                        $dataPoints->push([
-                            'timestamp' => $samples->first()->timestamp->toIso8601String(),
-                            'network_download_bytes' => round($downloadBps, 2),
-                            'network_upload_bytes' => round($uploadBps, 2),
-                        ]);
-                    }
-                }
-
-                $previous[$prevKey] = [
-                    'timestamp' => $timestamp,
-                    'rx' => $rx,
-                    'tx' => $tx,
-                ];
-            }
-        }
-
-        return $dataPoints;
-    }
-
-    /**
-     * Batch version: Get CPU metrics for multiple servers in a single query
+     * Get CPU metrics for multiple servers in a single query
+     * Uses LAG() window function to calculate CPU usage from counter deltas
      * Returns: ['server_id_text' => [datapoints...]]
      */
     private function getCpuMetricsBatch(array $serverIdTexts, $startTime)
@@ -482,7 +292,9 @@ class DashboardController extends Controller
     }
 
     /**
-     * Batch version: Get memory metrics for multiple servers in a single query
+     * Get memory metrics for multiple servers in a single query
+     * Calculates memory usage from raw bytes (total - available)
+     * Returns: ['server_id_text' => [datapoints...]]
      */
     private function getMemoryMetricsBatch(array $serverIdTexts, $startTime)
     {
@@ -529,7 +341,9 @@ class DashboardController extends Controller
     }
 
     /**
-     * Batch version: Get disk metrics for multiple servers in a single query
+     * Get disk metrics for multiple servers in a single query
+     * Calculates disk usage from raw bytes (total - available)
+     * Returns: ['server_id_text' => [datapoints...]]
      */
     private function getDiskMetricsBatch(array $serverIdTexts, $startTime)
     {
@@ -576,7 +390,9 @@ class DashboardController extends Controller
     }
 
     /**
-     * Batch version: Get network metrics for multiple servers in a single query
+     * Get network metrics for multiple servers in a single query
+     * Uses LAG() window function to calculate throughput from counter deltas
+     * Returns: ['server_id_text' => [datapoints...]]
      */
     private function getNetworkMetricsBatch(array $serverIdTexts, $startTime)
     {
