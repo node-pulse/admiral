@@ -1,5 +1,5 @@
 ---
-- name: Deploy Node Pulse Agent
+- name: Deploy Node Pulse Agent (no mTLS)
   hosts: all
   become: yes
   gather_facts: yes
@@ -43,43 +43,124 @@
         msg: "Server {{ inventory_hostname }} is unreachable"
       when: connection_test is failed
 
-    - name: Install NTP for clock synchronization
-      apt:
-        name: ntp
-        state: present
-        update_cache: yes
-      when: ansible_os_family == "Debian"
+    - name: Check if a time synchronization service is already running
+      shell: systemctl list-units --type=service --state=running | grep -E 'ntp|chrony|timesyncd'
+      register: time_service_check
+      changed_when: false
+      failed_when: false
 
-    - name: Install chrony for clock synchronization (RHEL/CentOS)
-      yum:
-        name: chrony
-        state: present
-      when: ansible_os_family == "RedHat"
+    - name: Ensure systemd-timesyncd is running (Debian/Ubuntu)
+      block:
+        - name: Enable and start systemd-timesyncd
+          systemd:
+            name: systemd-timesyncd
+            state: started
+            enabled: yes
+          ignore_errors: yes
 
-    - name: Ensure NTP service is running and enabled (Debian/Ubuntu)
-      systemd:
-        name: ntp
-        state: started
-        enabled: yes
-      when: ansible_os_family == "Debian"
+        - name: Install chrony if systemd-timesyncd is not available
+          apt:
+            name: chrony
+            state: present
+            update_cache: yes
+          ignore_errors: yes
 
-    - name: Ensure chrony service is running and enabled (RHEL/CentOS)
-      systemd:
-        name: chronyd
-        state: started
-        enabled: yes
-      when: ansible_os_family == "RedHat"
+        - name: Start chrony if installed
+          systemd:
+            name: chrony
+            state: started
+            enabled: yes
+          ignore_errors: yes
+      when:
+        - ansible_os_family == "Debian"
+        - time_service_check.rc != 0
 
-    - name: Wait for NTP to sync (may take a few seconds)
+    - name: Install and configure chrony (RHEL/CentOS/Fedora/Rocky/AlmaLinux)
+      block:
+        - name: Install chrony
+          package:
+            name: chrony
+            state: present
+
+        - name: Ensure chrony service is running and enabled
+          systemd:
+            name: chronyd
+            state: started
+            enabled: yes
+      when:
+        - ansible_os_family == "RedHat"
+        - time_service_check.rc != 0
+
+    - name: Install and configure chrony (Arch Linux)
+      block:
+        - name: Install chrony
+          pacman:
+            name: chrony
+            state: present
+
+        - name: Ensure chrony service is running and enabled
+          systemd:
+            name: chronyd
+            state: started
+            enabled: yes
+      when:
+        - ansible_os_family == "Archlinux"
+        - time_service_check.rc != 0
+
+    - name: Install and configure chrony (SUSE/openSUSE)
+      block:
+        - name: Install chrony
+          zypper:
+            name: chrony
+            state: present
+
+        - name: Ensure chrony service is running and enabled
+          systemd:
+            name: chronyd
+            state: started
+            enabled: yes
+      when:
+        - ansible_os_family == "Suse"
+        - time_service_check.rc != 0
+
+    - name: Install and configure chrony (Alpine Linux)
+      block:
+        - name: Install chrony
+          apk:
+            name: chrony
+            state: present
+
+        - name: Ensure chrony service is running and enabled
+          service:
+            name: chronyd
+            state: started
+            enabled: yes
+      when:
+        - ansible_os_family == "Alpine"
+        - time_service_check.rc != 0
+
+    - name: Fallback - Try systemd-timesyncd for unsupported distros
+      block:
+        - name: Enable and start systemd-timesyncd as fallback
+          systemd:
+            name: systemd-timesyncd
+            state: started
+            enabled: yes
+          ignore_errors: yes
+      when:
+        - ansible_os_family not in ["Debian", "RedHat", "Archlinux", "Suse", "Alpine"]
+        - time_service_check.rc != 0
+
+    - name: Wait for time sync (may take a few seconds)
       pause:
         seconds: 5
 
-    - name: Check NTP sync status (Debian/Ubuntu)
+    - name: Check time synchronization status
       command: timedatectl
       register: timedatectl_output
       changed_when: false
 
-    - name: Display NTP sync status
+    - name: Display time synchronization status
       debug:
         msg: "{{ timedatectl_output.stdout_lines }}"
 

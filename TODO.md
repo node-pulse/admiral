@@ -14,18 +14,21 @@ Implement cache-first server ID validation that works independently of mTLS.
 #### Requirements
 
 **1. mTLS Toggle Configuration**
+
 - [ ] mTLS is OFF by default (`MTLS_ENABLED=false`)
 - [ ] Can be enabled via environment variable
 - [ ] Can be toggled via admin UI (System Settings page)
 - [ ] Setting persists in database (`settings` table)
 
 **2. Server ID Validation (Always Active)**
+
 - [ ] Validate `server_id` on EVERY metrics ingestion request
 - [ ] Works independently of mTLS state (additional security layer)
 - [ ] Cache-first approach using Valkey/Redis
 - [ ] Negative caching to prevent DoS attacks
 
 **3. Implementation Tasks**
+
 - [ ] Create `submarines/internal/validation/server_id.go`
 - [ ] Add `ValidateServerID()` function with Valkey integration
 - [ ] Implement cache strategy:
@@ -43,6 +46,7 @@ Implement cache-first server ID validation that works independently of mTLS.
   ```
 
 **4. Admin UI Integration**
+
 - [ ] Add mTLS Settings page to Flagship admin panel
 - [ ] Show toggle switch for mTLS enabled/disabled
 - [ ] Display CA information when mTLS is enabled
@@ -50,6 +54,7 @@ Implement cache-first server ID validation that works independently of mTLS.
 - [ ] Require admin authentication to access/modify
 
 **5. Testing**
+
 - [ ] Unit tests for `ValidateServerID()` function
 - [ ] Integration test with Valkey cache
 - [ ] Test negative caching behavior
@@ -59,6 +64,7 @@ Implement cache-first server ID validation that works independently of mTLS.
 #### Technical Details
 
 **Validation Flow:**
+
 ```
 1. Extract server_id from request
 2. Check Valkey: GET server:valid:{server_id}
@@ -70,13 +76,14 @@ Implement cache-first server ID validation that works independently of mTLS.
 
 **Integration with mTLS:**
 
-| mTLS State | Server ID Check | Certificate Check | Result |
-|------------|-----------------|-------------------|---------|
-| OFF | ✅ Always | ❌ Skipped | Accept if server_id valid |
-| ON (optional) | ✅ Always | ⚠️ If present | Accept if server_id valid |
-| ON (required) | ✅ Always | ✅ Required | Accept if BOTH valid |
+| mTLS State    | Server ID Check | Certificate Check | Result                    |
+| ------------- | --------------- | ----------------- | ------------------------- |
+| OFF           | ✅ Always       | ❌ Skipped        | Accept if server_id valid |
+| ON (optional) | ✅ Always       | ⚠️ If present     | Accept if server_id valid |
+| ON (required) | ✅ Always       | ✅ Required       | Accept if BOTH valid      |
 
 **Benefits:**
+
 - Defense in depth (two independent security layers)
 - 99% reduction in database queries via caching
 - DoS protection via negative caching (1-hour TTL prevents repeated DB queries)
@@ -414,3 +421,7 @@ Based on `docs/prometheus-integration-plan.md`, the following items are still in
    - Complete Prometheus integration documentation
    - Deployment guides
    - Troubleshooting guides
+
+### Ansible Playbooks
+
+- [ ] production-ready for all major Linux distributions!

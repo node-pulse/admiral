@@ -154,7 +154,7 @@ export default function CreateDeployment() {
     const fetchPlaybooks = async () => {
         setLoadingPlaybooks(true);
         try {
-            const response = await fetch('/api/dashboard/ansibleplaybooks', {
+            const response = await fetch('/api/fleetops/ansible-playbooks/list', {
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,
                     Accept: 'application/json',
@@ -166,11 +166,36 @@ export default function CreateDeployment() {
             }
 
             const data = await response.json();
-            setPlaybooks(data.playbooks || []);
+
+            // Flatten the tree structure to get a list of playbooks
+            const flattenTree = (nodes: any[]): any[] => {
+                const playbooks: any[] = [];
+
+                const traverse = (nodes: any[]) => {
+                    for (const node of nodes) {
+                        if (node.type === 'file') {
+                            playbooks.push({
+                                name: node.title || node.name,
+                                file_name: node.name,
+                                path: node.path,
+                                description: node.description,
+                            });
+                        } else if (node.type === 'directory' && node.children) {
+                            traverse(node.children);
+                        }
+                    }
+                };
+
+                traverse(nodes);
+                return playbooks;
+            };
+
+            const playbooksList = flattenTree(data.tree || []);
+            setPlaybooks(playbooksList);
 
             // Set default playbook to first one if available
-            if (data.playbooks && data.playbooks.length > 0 && !playbook) {
-                setPlaybook(data.playbooks[0].path);
+            if (playbooksList.length > 0 && !playbook) {
+                setPlaybook(playbooksList[0].path);
             }
         } catch (error) {
             console.error('Error fetching playbooks:', error);

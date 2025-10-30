@@ -11,8 +11,11 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/stats', [DashboardController::class, 'stats']);
         Route::get('/servers', [DashboardController::class, 'servers']);
         Route::get('/metrics', [DashboardController::class, 'metrics']);
-        Route::get('/ansibleplaybooks', [AnsiblePlaybooksController::class, 'index']);
-        Route::get('/ansibleplaybooks/{path}', [AnsiblePlaybooksController::class, 'show'])->where('path', '.*');
+    });
+
+    Route::prefix('fleetops')->group(function () {
+        Route::get('/ansible-playbooks/list', [AnsiblePlaybooksController::class, 'index']);
+        Route::get('/ansible-playbooks/details/{path}', [AnsiblePlaybooksController::class, 'show'])->where('path', '.*');
     });
 });
 

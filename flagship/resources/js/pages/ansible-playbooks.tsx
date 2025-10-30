@@ -72,7 +72,7 @@ export default function AnsiblePlaybooks() {
     const fetchTree = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/dashboard/ansibleplaybooks', {
+            const response = await fetch('/api/fleetops/ansible-playbooks/list', {
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,
                 },
@@ -102,7 +102,7 @@ export default function AnsiblePlaybooks() {
         try {
             setLoadingFile(true);
             const response = await fetch(
-                `/api/dashboard/ansibleplaybooks/${encodeURIComponent(path)}`,
+                `/api/fleetops/ansible-playbooks/details/${encodeURIComponent(path)}`,
                 {
                     headers: {
                         'X-CSRF-TOKEN': csrfToken,
