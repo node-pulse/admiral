@@ -84,6 +84,11 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('dashboard')->group(fun
         Route::get('/create', [\App\Http\Controllers\DeploymentsController::class, 'create'])->name('deployments.create');
         Route::get('/{id}/details', [\App\Http\Controllers\DeploymentsController::class, 'details'])->name('deployments.details');
     });
+
+    // Ansible Playbooks management (admin only)
+    Route::prefix('ansible-playbooks')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AnsiblePlaybooksController::class, 'page'])->name('ansible-playbooks');
+    });
 });
 
 require __DIR__.'/settings.php';

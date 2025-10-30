@@ -11,6 +11,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import {
+    ansiblePlaybooks,
     dashboard,
     deployments,
     servers,
@@ -135,9 +136,9 @@ const getMainNavSections = (isAdmin: boolean): NavSection[] => {
             items: [
                 {
                     title: 'Ansible Playbooks',
-                    href: '/dashboard/ansible-playbooks',
+                    href: ansiblePlaybooks(),
                     icon: FileCode,
-                    display: false, // Not implemented yet
+                    display: true,
                 },
                 {
                     title: 'Deployments',

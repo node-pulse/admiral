@@ -12,6 +12,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/servers', [DashboardController::class, 'servers']);
         Route::get('/metrics', [DashboardController::class, 'metrics']);
         Route::get('/ansibleplaybooks', [AnsiblePlaybooksController::class, 'index']);
+        Route::get('/ansibleplaybooks/{path}', [AnsiblePlaybooksController::class, 'show'])->where('path', '.*');
     });
 });
 
