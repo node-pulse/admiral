@@ -28,6 +28,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
+import { playbookFields } from '@/utils/playbook-fields';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Loader2, Rocket, Search, Server } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -43,41 +44,6 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/dashboard/deployments/create',
     },
 ];
-
-// Define field configurations
-interface FieldConfig {
-    name: string;
-    label: string;
-    placeholder: string;
-    helpText: string;
-}
-
-const extraVariables = {
-    agent_version: {
-        name: 'agent_version',
-        label: 'Agent Version (Optional)',
-        placeholder: 'latest',
-        helpText: 'Leave blank for latest (e.g., v0.1.0 for specific version)',
-    },
-    ingest_endpoint: {
-        name: 'ingest_endpoint',
-        label: 'Ingest Endpoint (Optional)',
-        placeholder: 'http://ingest.localhost/metrics/prometheus',
-        helpText: 'Leave blank to use default ingest endpoint',
-    },
-};
-
-// Define required fields for each playbook
-const playbookFields: Record<string, FieldConfig[]> = {
-    'nodepulse/deploy-agent.yml': [
-        extraVariables.agent_version,
-        extraVariables.ingest_endpoint,
-    ],
-    'nodepulse/retry-failed.yml': [
-        extraVariables.agent_version,
-        extraVariables.ingest_endpoint,
-    ],
-};
 
 interface ServerData {
     id: string;
@@ -154,12 +120,15 @@ export default function CreateDeployment() {
     const fetchPlaybooks = async () => {
         setLoadingPlaybooks(true);
         try {
-            const response = await fetch('/api/fleetops/ansible-playbooks/list', {
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    Accept: 'application/json',
+            const response = await fetch(
+                '/api/fleetops/ansible-playbooks/list',
+                {
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        Accept: 'application/json',
+                    },
                 },
-            });
+            );
 
             if (!response.ok) {
                 throw new Error('Failed to fetch playbooks');
