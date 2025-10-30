@@ -32,9 +32,6 @@ export function SSHTerminal({
     const wsRef = useRef<WebSocket | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
 
-    const [errorType, setErrorType] = useState<
-        'websocket' | 'auth' | 'network' | 'server' | null
-    >(null);
     const [password, setPassword] = useState('');
     const [showPasswordPrompt, setShowPasswordPrompt] = useState(true);
     const [connecting, setConnecting] = useState(false);
@@ -171,6 +168,18 @@ export function SSHTerminal({
         }
     }, [serverConnected]);
 
+    // Auto-show password prompt when connection is lost (e.g., user types "exit")
+    useEffect(() => {
+        if (!serverConnected && !showPasswordPrompt && connectionStatus !== 'connecting') {
+            // Use setTimeout to avoid setState during render
+            const timer = setTimeout(() => {
+                setShowPasswordPrompt(true);
+                setConnectionStatus('disconnected');
+            }, 0);
+            return () => clearTimeout(timer);
+        }
+    }, [serverConnected, showPasswordPrompt, connectionStatus]);
+
     const connect = () => {
         if (!xtermRef.current) {
             console.error('[SSH Terminal] No terminal instance available');
@@ -178,7 +187,6 @@ export function SSHTerminal({
         }
 
         setConnecting(true);
-        setErrorType(null);
         setConnectionStatus('connecting');
 
         const terminal = xtermRef.current;
@@ -276,7 +284,7 @@ export function SSHTerminal({
                             `\r\n\x1b[31m✗ Error: ${data.message}\x1b[0m\r\n`,
                         );
 
-                        const { helpMessage, errorType } = getErrorDetails(
+                        const { helpMessage } = getErrorDetails(
                             data.message,
                         );
 
@@ -285,7 +293,6 @@ export function SSHTerminal({
                             duration: 6000,
                         });
 
-                        setErrorType(errorType);
                         setConnectionStatus('error');
                         setConnecting(false);
                         break;
@@ -320,7 +327,6 @@ export function SSHTerminal({
                 duration: 6000,
             });
 
-            setErrorType('websocket');
             setConnectionStatus('error');
             setConnecting(false);
             onConnectionChange?.(false);
@@ -519,29 +525,6 @@ export function SSHTerminal({
                     style={{ height: '100%', width: '100%' }}
                 />
             </div>
-
-            {!serverConnected && !showPasswordPrompt && (
-                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                        Connection closed
-                    </p>
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                        Your SSH session has ended. Click the button below to
-                        start a new session.
-                    </p>
-                    <Button
-                        onClick={() => {
-                            setShowPasswordPrompt(true);
-                            setErrorType(null);
-                            setConnectionStatus('disconnected');
-                        }}
-                        className="w-full"
-                        variant="default"
-                    >
-                        Reconnect to Server
-                    </Button>
-                </div>
-            )}
         </div>
     );
 }
