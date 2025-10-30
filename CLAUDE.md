@@ -85,7 +85,7 @@ PostgreSQL has 1 main schema:
 
 1. **`admiral`** - Application data (shared by Submarines and Flagship)
    - `servers` - Agent/server registry
-   - `metric_samples` - **Prometheus-native time-series metrics** (JSONB labels, unlimited metrics)
+   - `metrics` - **Simplified metrics** (39 essential metrics per row, 98% bandwidth reduction)
    - `alerts` - Alert records
    - `alert_rules` - Alert configurations
    - `users` - User accounts (Laravel Fortify authentication)
@@ -93,48 +93,114 @@ PostgreSQL has 1 main schema:
    - `ssh_sessions` - SSH session audit logs
    - `private_keys` - SSH private keys for server access
 
-## Current Protocol: Prometheus Format (Primary)
+## Current Protocol: Simplified Metrics (Implemented 2025-10-30)
 
-**The system now uses Prometheus text format as the primary metric format.**
+**The system uses a simplified metrics architecture with agent-side parsing.**
 
-Agents scrape Prometheus exporters (like `node_exporter`) and push metrics to:
+### Architecture Flow
+
+```
+node_exporter (localhost:9100) → Agent parses locally → Sends 39 metrics (1KB JSON) → Submarines → PostgreSQL
+```
 
 **Endpoint**: `POST /metrics/prometheus`
 
-Example Prometheus text format:
-```
-# HELP node_cpu_seconds_total Seconds the CPUs spent in each mode.
-# TYPE node_cpu_seconds_total counter
-node_cpu_seconds_total{cpu="0",mode="idle"} 123456.78
-node_cpu_seconds_total{cpu="0",mode="system"} 12345.67
-node_memory_MemTotal_bytes 8589934592
-node_memory_MemAvailable_bytes 4294967296
-```
+### Agent-Side Parsing
 
-### Database Schema (Prometheus-First)
+Agents scrape Prometheus exporters (like `node_exporter`) and **parse metrics locally**:
+- Extracts only 39 essential metrics
+- Aggregates CPU metrics across all cores
+- Selects primary network interface and disk
+- Sends compact JSON payload (~1KB instead of 61KB)
 
-The `metric_samples` table stores Prometheus metrics natively:
+**Benefits:**
+- **98.32% bandwidth reduction** (61KB → 1KB per scrape)
+- **99.8% database reduction** (1100+ rows → 1 row per scrape)
+- **10-30x faster queries** (direct column access vs JSONB parsing)
+- **Distributed parsing load** (offloaded to agents)
+
+### Database Schema (Simplified Metrics)
+
+The `metrics` table stores 39 essential metrics per row:
 
 ```sql
-CREATE TABLE admiral.metric_samples (
+CREATE TABLE admiral.metrics (
     id BIGSERIAL PRIMARY KEY,
     server_id TEXT NOT NULL,
-    metric_name TEXT NOT NULL,        -- e.g., "node_cpu_seconds_total"
-    metric_type TEXT NOT NULL,        -- counter, gauge, histogram, summary
-    labels JSONB DEFAULT '{}'::jsonb, -- e.g., {"cpu": "0", "mode": "idle"}
-    value DOUBLE PRECISION NOT NULL,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
-    help_text TEXT,
-    unit TEXT,
+
+    -- CPU (6 fields) - raw counter values
+    cpu_idle_seconds DOUBLE PRECISION,
+    cpu_iowait_seconds DOUBLE PRECISION,
+    cpu_system_seconds DOUBLE PRECISION,
+    cpu_user_seconds DOUBLE PRECISION,
+    cpu_steal_seconds DOUBLE PRECISION,
+    cpu_cores INTEGER,
+
+    -- Memory (7 fields) - raw bytes
+    memory_total_bytes BIGINT,
+    memory_available_bytes BIGINT,
+    memory_free_bytes BIGINT,
+    memory_cached_bytes BIGINT,
+    memory_buffers_bytes BIGINT,
+    memory_active_bytes BIGINT,
+    memory_inactive_bytes BIGINT,
+
+    -- Swap (3 fields) - raw bytes
+    swap_total_bytes BIGINT,
+    swap_free_bytes BIGINT,
+    swap_cached_bytes BIGINT,
+
+    -- Disk (3 fields) - raw bytes for root filesystem
+    disk_total_bytes BIGINT,
+    disk_free_bytes BIGINT,
+    disk_available_bytes BIGINT,
+
+    -- Disk I/O (5 fields) - counters
+    disk_reads_completed_total BIGINT,
+    disk_writes_completed_total BIGINT,
+    disk_read_bytes_total BIGINT,
+    disk_written_bytes_total BIGINT,
+    disk_io_time_seconds_total DOUBLE PRECISION,
+
+    -- Network (8 fields) - counters for primary interface
+    network_receive_bytes_total BIGINT,
+    network_transmit_bytes_total BIGINT,
+    network_receive_packets_total BIGINT,
+    network_transmit_packets_total BIGINT,
+    network_receive_errs_total BIGINT,
+    network_transmit_errs_total BIGINT,
+    network_receive_drop_total BIGINT,
+    network_transmit_drop_total BIGINT,
+
+    -- System Load (3 fields)
+    load_1min DOUBLE PRECISION,
+    load_5min DOUBLE PRECISION,
+    load_15min DOUBLE PRECISION,
+
+    -- Processes (3 fields)
+    processes_running INTEGER,
+    processes_blocked INTEGER,
+    processes_total INTEGER,
+
+    -- Uptime (1 field)
+    uptime_seconds BIGINT,
+
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Optimized indexes
+CREATE INDEX idx_metrics_lookup ON admiral.metrics(server_id, timestamp DESC);
+CREATE INDEX idx_metrics_timestamp ON admiral.metrics(timestamp DESC);
+CREATE INDEX idx_metrics_server_created ON admiral.metrics(server_id, created_at DESC);
 ```
 
 **Key Features:**
-- Native JSONB label support for multi-dimensional metrics
-- Works with ANY Prometheus exporter (node, postgres, redis, etc.)
-- Dashboard queries directly from `metric_samples` table
-- No views needed - flexibility at query time
+- Stores raw counter values (not percentages) for maximum flexibility
+- Dashboard calculates percentages using LAG() window functions
+- No foreign keys (application-level relationships for better performance)
+- 1 row per scrape instead of 1100+ rows
+- Direct column access - no JSONB parsing needed
 
 ### Legacy JSON Protocol (Deprecated)
 
@@ -293,13 +359,15 @@ php artisan pail               # View logs
 
 ## Agent Integration
 
-### Current: Prometheus Exporters + Agent
+### Current: Simplified Metrics Architecture
 
-The recommended deployment model:
+The recommended deployment model uses agent-side parsing:
 
 1. **node_exporter** runs on target server (port 9100, localhost only)
-2. **Node Pulse Agent** (refactored) scrapes node_exporter and pushes to Submarines
-3. Agent buffers metrics locally (WAL) for reliability
+2. **Node Pulse Agent** scrapes node_exporter locally
+3. **Agent parses Prometheus metrics** and extracts 39 essential fields
+4. **Agent sends compact JSON** (~1KB) to Submarines
+5. Agent buffers metrics locally (WAL) for reliability
 
 Configure agent (`/etc/nodepulse/nodepulse.yml`):
 
@@ -316,7 +384,7 @@ scrapers:
 # Server configuration
 server:
   endpoint: "https://dashboard.example.com/metrics/prometheus"
-  format: "prometheus"  # Options: "prometheus" or "json" (legacy)
+  format: "prometheus"  # Sends parsed JSON in Prometheus format
   timeout: 10s
 
 # Agent behavior
@@ -324,30 +392,44 @@ agent:
   server_id: "auto-generated-uuid"
   interval: 15s  # How often to scrape and push
 
-# Buffering (WAL)
+# Buffering (Write-Ahead Log for reliability)
 buffer:
   enabled: true
   retention_hours: 48
   max_size_mb: 100
+
+# Logging
+logging:
+  level: "info"
+  file: "/var/log/nodepulse/nodepulse.log"
+  max_size_mb: 50
+  max_backups: 3
+  max_age_days: 7
 ```
 
 ### Deployment via Ansible
 
-Use the Ansible roles to deploy both node_exporter and the agent:
+Use the Ansible playbooks to deploy both node_exporter and the agent:
 
 ```bash
-# Deploy node_exporter
-ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-node-exporter.yml
+# 1. Deploy node_exporter (must be deployed first)
+ansible-playbook ansible/playbooks/prometheus/deploy-node-exporter.yml -i inventory.yml
 
-# Deploy Node Pulse Agent
-ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent.yml
+# 2. Deploy Node Pulse Agent
+# Production (with mTLS):
+ansible-playbook ansible/playbooks/nodepulse/deploy-agent-mtls.yml -i inventory.yml
+
+# Development (no mTLS):
+ansible-playbook ansible/playbooks/nodepulse/deploy-agent-no-mtls.yml -i inventory.yml
 ```
+
+See `ansible/playbooks/nodepulse/QUICK_START.md` for detailed deployment instructions.
 
 ## API Endpoints
 
-### Current (Prometheus)
+### Current (Simplified Metrics)
 
-- `POST /metrics/prometheus` - **Primary endpoint** for Prometheus text format metrics
+- `POST /metrics/prometheus` - **Primary endpoint** for simplified metrics (parsed JSON, 39 fields)
 - `POST /metrics` - Legacy JSON format (deprecated)
 - `GET /api/servers` - List all servers
 - `GET /api/servers/:id/metrics` - Get server metrics

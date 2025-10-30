@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Metric;
 use App\Models\Server;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

@@ -1,8 +1,23 @@
 # Node Pulse Agent Configuration
 # Deployed by Ansible on {{ ansible_date_time.iso8601 }}
+#
+# Architecture: Agent scrapes Prometheus exporters locally and pushes
+# parsed metrics to Submarines in simplified format (98% bandwidth reduction)
 
+# Prometheus scraper configuration
+scrapers:
+  prometheus:
+    enabled: true
+    endpoints:
+      - url: "http://127.0.0.1:9100/metrics"
+        name: "node_exporter"
+        interval: {{ agent_interval }}
+
+# Server configuration
 server:
   endpoint: "{{ ingest_endpoint }}"
+  format: "prometheus"  # Send metrics in Prometheus format (parsed locally)
+  timeout: {{ agent_timeout }}
 {% if tls_enabled | default(false) | bool %}
   tls:
     enabled: true
@@ -12,5 +27,21 @@ server:
     insecure_skip_verify: false
 {% endif %}
 
+# Agent behavior
 agent:
   server_id: "{{ agent_server_id_final }}"
+  interval: {{ agent_interval }}  # How often to scrape and push
+
+# Buffering (Write-Ahead Log for reliability)
+buffer:
+  enabled: {{ buffer_enabled }}
+  retention_hours: {{ buffer_retention_hours }}
+  max_size_mb: {{ buffer_max_size_mb }}
+
+# Logging configuration
+logging:
+  level: "{{ log_level }}"
+  file: "{{ agent_log_dir }}/nodepulse.log"
+  max_size_mb: {{ log_max_size_mb }}
+  max_backups: {{ log_max_backups }}
+  max_age_days: {{ log_max_age_days }}

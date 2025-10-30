@@ -1,8 +1,106 @@
 # Node Pulse Agent Deployment Playbooks
 
-This directory contains three Ansible playbooks for different agent deployment scenarios.
+This directory contains Ansible playbooks for deploying the Node Pulse monitoring stack to Linux servers.
+
+## Architecture Overview
+
+**Simplified Metrics Architecture** (Implemented 2025-10-30)
+
+The Node Pulse stack uses a two-component architecture that achieves **98% bandwidth reduction**:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Target Server                                       │
+│                                                      │
+│  ┌──────────────────┐         ┌─────────────────┐  │
+│  │ node_exporter    │ scrape  │ Node Pulse      │  │
+│  │ :9100 (localhost)│ ◄────── │ Agent           │  │
+│  │                  │         │                 │  │
+│  │ Exposes 1100+    │         │ Parses locally  │  │
+│  │ metrics          │         │ Extracts 39     │  │
+│  └──────────────────┘         │ essential       │  │
+│                                │ metrics         │  │
+│                                └────────┬────────┘  │
+│                                         │           │
+└─────────────────────────────────────────┼───────────┘
+                                          │ HTTPS POST
+                       1KB JSON (39 fields, 98% reduction)
+                                          │
+                                          ▼
+                                ┌─────────────────┐
+                                │  Submarines     │
+                                │  /metrics/      │
+                                │  prometheus     │
+                                └─────────────────┘
+```
+
+**Key Benefits:**
+- **98.32% bandwidth reduction** (61KB → 1KB per scrape)
+- **99.8% database reduction** (1100+ rows → 1 row per scrape)
+- **10-30x faster queries** (direct column access vs JSONB parsing)
+- **Distributed parsing** (load distributed across agents, not central server)
+
+## Deployment Order
+
+**For new servers, deploy in this order:**
+
+1. **Deploy node_exporter** (Prometheus metrics collector)
+   ```bash
+   ansible-playbook ansible/playbooks/prometheus/deploy-node-exporter.yml -i inventory.yml
+   ```
+
+2. **Deploy Node Pulse Agent** (scrapes node_exporter, pushes to Submarines)
+   ```bash
+   # Production (with mTLS)
+   ansible-playbook ansible/playbooks/nodepulse/deploy-agent-mtls.yml -i inventory.yml
+
+   # Development (no mTLS)
+   ansible-playbook ansible/playbooks/nodepulse/deploy-agent-no-mtls.yml -i inventory.yml
+   ```
 
 ## Playbooks
+
+### 0. deploy-node-exporter.yml - Deploy Prometheus node_exporter
+
+**Location**: `ansible/playbooks/prometheus/deploy-node-exporter.yml`
+
+**Purpose**: Deploy Prometheus node_exporter to collect system metrics.
+
+**When to use**:
+- **ALWAYS deploy this FIRST** before deploying the Node Pulse agent
+- Initial server setup
+- Any server where you want to collect metrics
+
+**Requirements**:
+- SSH access to target servers
+- Server must have network access (to download node_exporter binary)
+
+**Usage**:
+```bash
+ansible-playbook ansible/playbooks/prometheus/deploy-node-exporter.yml \
+  -i your-inventory.yml \
+  -e "node_exporter_version=1.8.2"
+```
+
+**What it does**:
+- Downloads and installs node_exporter binary
+- Configures to listen ONLY on localhost:9100 (security)
+- Creates systemd service
+- Enables and starts node_exporter
+- Verifies metrics endpoint is responding
+
+**Security Note**: node_exporter is configured by default to listen ONLY on 127.0.0.1:9100, so it's not accessible from the network. Only the Node Pulse Agent on the same server can scrape it.
+
+**Variables**:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `node_exporter_version` | `1.8.2` | node_exporter version to install |
+| `node_exporter_listen_address` | `127.0.0.1` | Bind address (localhost only) |
+| `node_exporter_listen_port` | `9100` | Port number |
+
+**Role**: Uses the `node-exporter` role from `ansible/roles/node-exporter/`
+
+---
 
 ### 1. deploy-agent-dev.yml - Development Deployment
 
@@ -116,8 +214,11 @@ ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent-mtls.yml \
 ### Development Workflow
 
 ```
-1. Run deploy-agent-dev.yml
-   └─> Agent installed without mTLS
+1. Run ansible/playbooks/prometheus/deploy-node-exporter.yml
+   └─> node_exporter installed and running on localhost:9100
+
+2. Run ansible/playbooks/nodepulse/deploy-agent-no-mtls.yml
+   └─> Agent installed, scrapes node_exporter, pushes to Submarines
 ```
 
 ### Production Workflow (Initial Deployment)
@@ -129,8 +230,11 @@ ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent-mtls.yml \
 2. Generate certificates in Flagship UI
    └─> Creates client certificates for each server
 
-3. Run deploy-agent-mtls.yml
-   └─> Agent installed with mTLS configured
+3. Run ansible/playbooks/prometheus/deploy-node-exporter.yml
+   └─> node_exporter installed and running on localhost:9100
+
+4. Run ansible/playbooks/nodepulse/deploy-agent-mtls.yml
+   └─> Agent installed with mTLS, scrapes node_exporter, pushes to Submarines
 ```
 
 ### Production Workflow (Certificate Rotation)
