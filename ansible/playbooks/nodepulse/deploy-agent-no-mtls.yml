@@ -21,10 +21,6 @@
     # Ingest endpoint - passed from Laravel job via extra vars
     ingest_endpoint: "{{ ingest_endpoint }}"
 
-    # Agent behavior (defaults)
-    agent_interval: "{{ agent_interval | default('15s') }}"
-    agent_timeout: "{{ agent_timeout | default('5s') }}"
-
   pre_tasks:
     - name: Display deployment information
       debug:

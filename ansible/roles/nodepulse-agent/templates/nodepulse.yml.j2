@@ -34,14 +34,15 @@ agent:
 
 # Buffering (Write-Ahead Log for reliability)
 buffer:
-  enabled: {{ buffer_enabled }}
+  enabled: {{ buffer_enabled | lower }}
   retention_hours: {{ buffer_retention_hours }}
   max_size_mb: {{ buffer_max_size_mb }}
 
 # Logging configuration
 logging:
   level: "{{ log_level }}"
-  file: "{{ agent_log_dir }}/nodepulse.log"
-  max_size_mb: {{ log_max_size_mb }}
-  max_backups: {{ log_max_backups }}
-  max_age_days: {{ log_max_age_days }}
+  file:
+    path: "{{ agent_log_dir }}/nodepulse.log"
+    max_size_mb: {{ log_max_size_mb }}
+    max_backups: {{ log_max_backups }}
+    max_age_days: {{ log_max_age_days }}

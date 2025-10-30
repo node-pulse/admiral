@@ -33,7 +33,18 @@ services:
     container_name: node-pulse-valkey
     env_file:
       - .env
-    command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD:-valkeypassword}
+    command:
+      - valkey-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - "everysec"
+      - --maxmemory
+      - "256mb"
+      - --maxmemory-policy
+      - "allkeys-lru"
+      - --requirepass
+      - "${VALKEY_PASSWORD:-valkeypassword}"
     volumes:
       - ./valkey_data:/data
     ports:

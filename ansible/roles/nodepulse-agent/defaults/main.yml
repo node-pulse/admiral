@@ -21,7 +21,7 @@ agent_log_dir: "/var/log/nodepulse"
 ingest_endpoint: "https://ingest.example.com/metrics/prometheus"
 
 # Agent behavior
-agent_interval: "5s"
+agent_interval: "15s"
 agent_timeout: "3s"
 
 # Buffer configuration
