@@ -63,7 +63,6 @@ func main() {
 	serverIDValidator := validation.NewServerIDValidator(db.DB, valkeyClient.GetClient(), cfg.ServerIDCacheTTL)
 
 	// Initialize handlers (with server ID validation)
-	metricsHandler := handlers.NewMetricsHandler(db, valkeyClient, serverIDValidator)
 	prometheusHandler := handlers.NewPrometheusHandler(db, valkeyClient, serverIDValidator)
 	certificateHandler := handlers.NewCertificateHandler(db.DB, cfg)
 
@@ -71,7 +70,7 @@ func main() {
 	mtlsMiddleware := tls.MTLSMiddlewareStrict(db.DB)
 
 	// Ingest routes (for agents only, WITH mTLS enforcement)
-	router.POST("/metrics", mtlsMiddleware, metricsHandler.IngestMetrics)                        // Legacy JSON format
+	// Legacy JSON format endpoint removed - agents now send simplified snapshots to /metrics/prometheus
 	router.POST("/metrics/prometheus", mtlsMiddleware, prometheusHandler.IngestPrometheusMetrics) // Prometheus text format
 	router.GET("/metrics/prometheus/health", prometheusHandler.HealthCheck)                       // Prometheus endpoint health (no mTLS)
 

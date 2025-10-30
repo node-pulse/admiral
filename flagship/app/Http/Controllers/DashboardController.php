@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MetricSample;
+use App\Models\Metric;
 use App\Models\Server;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -414,51 +414,51 @@ class DashboardController extends Controller
             return [];
         }
 
-        // Use raw SQL to aggregate in database instead of PHP
         $placeholders = implode(',', array_fill(0, count($serverIdTexts), '?'));
         $params = array_merge($serverIdTexts, [$startTime->toDateTimeString()]);
 
+        // With simplified schema: calculate CPU usage from raw counter values
+        // Formula: 100 - (idle_seconds / total_seconds * 100)
         $sql = "
-            WITH rounded_timestamps AS (
+            WITH with_previous AS (
                 SELECT
                     server_id,
-                    date_trunc('minute', timestamp) +
-                    INTERVAL '15 seconds' * FLOOR(EXTRACT(SECOND FROM timestamp) / 15) as rounded_ts,
-                    SUM(value) as idle_total,
-                    COUNT(*) as cpu_count
-                FROM admiral.metric_samples
+                    timestamp,
+                    cpu_idle_seconds,
+                    cpu_user_seconds,
+                    cpu_system_seconds,
+                    cpu_iowait_seconds,
+                    cpu_steal_seconds,
+                    cpu_cores,
+                    LAG(timestamp) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_ts,
+                    LAG(cpu_idle_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_idle,
+                    LAG(cpu_user_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_user,
+                    LAG(cpu_system_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_system,
+                    LAG(cpu_iowait_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_iowait,
+                    LAG(cpu_steal_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_steal
+                FROM admiral.metrics
                 WHERE server_id IN ($placeholders)
-                    AND metric_name = 'node_cpu_seconds_total'
-                    AND labels->>'mode' = 'idle'
                     AND timestamp >= ?
-                GROUP BY server_id, rounded_ts
-                ORDER BY server_id, rounded_ts
-            ),
-            with_previous AS (
-                SELECT
-                    server_id,
-                    rounded_ts,
-                    idle_total,
-                    cpu_count,
-                    LAG(rounded_ts) OVER (PARTITION BY server_id ORDER BY rounded_ts) as prev_ts,
-                    LAG(idle_total) OVER (PARTITION BY server_id ORDER BY rounded_ts) as prev_idle
-                FROM rounded_timestamps
+                ORDER BY server_id, timestamp
             )
             SELECT
                 server_id,
-                rounded_ts as timestamp,
+                timestamp,
                 CASE
-                    WHEN prev_idle IS NOT NULL AND prev_ts IS NOT NULL THEN
+                    WHEN prev_idle IS NOT NULL THEN
                         GREATEST(0, LEAST(100,
-                            100 - ((idle_total - prev_idle) /
-                                  (EXTRACT(EPOCH FROM (rounded_ts - prev_ts)) * cpu_count) * 100)
+                            100 - ((cpu_idle_seconds - prev_idle) /
+                                  ((cpu_idle_seconds - prev_idle) +
+                                   (cpu_user_seconds - prev_user) +
+                                   (cpu_system_seconds - prev_system) +
+                                   (cpu_iowait_seconds - prev_iowait) +
+                                   (cpu_steal_seconds - prev_steal)) * 100)
                         ))
                     ELSE NULL
                 END as cpu_usage_percent
             FROM with_previous
             WHERE prev_idle IS NOT NULL
-            ORDER BY server_id, rounded_ts DESC
-            LIMIT 500
+            ORDER BY server_id, timestamp DESC
         ";
 
         $results = \DB::select($sql, $params);
@@ -496,19 +496,14 @@ class DashboardController extends Controller
         $sql = "
             SELECT
                 server_id,
-                date_trunc('minute', timestamp) +
-                INTERVAL '15 seconds' * FLOOR(EXTRACT(SECOND FROM timestamp) / 15) as rounded_ts,
-                MAX(CASE WHEN metric_name = 'node_memory_MemTotal_bytes' THEN value END) as total_bytes,
-                MAX(CASE WHEN metric_name = 'node_memory_MemAvailable_bytes' THEN value END) as available_bytes
-            FROM admiral.metric_samples
+                timestamp,
+                memory_total_bytes,
+                memory_available_bytes
+            FROM admiral.metrics
             WHERE server_id IN ($placeholders)
-                AND metric_name IN ('node_memory_MemTotal_bytes', 'node_memory_MemAvailable_bytes')
                 AND timestamp >= ?
-            GROUP BY server_id, rounded_ts
-            HAVING MAX(CASE WHEN metric_name = 'node_memory_MemTotal_bytes' THEN value END) IS NOT NULL
-                AND MAX(CASE WHEN metric_name = 'node_memory_MemAvailable_bytes' THEN value END) IS NOT NULL
-            ORDER BY server_id, rounded_ts DESC
-            LIMIT 500
+                AND memory_total_bytes > 0
+            ORDER BY server_id, timestamp DESC
         ";
 
         $results = \DB::select($sql, $params);
@@ -519,14 +514,14 @@ class DashboardController extends Controller
                 $resultsByServer[$row->server_id] = [];
             }
 
-            $used = $row->total_bytes - $row->available_bytes;
-            $usagePercent = ($used / $row->total_bytes) * 100;
+            $used = $row->memory_total_bytes - $row->memory_available_bytes;
+            $usagePercent = ($used / $row->memory_total_bytes) * 100;
 
             $resultsByServer[$row->server_id][] = [
-                'timestamp' => $row->rounded_ts,
+                'timestamp' => $row->timestamp,
                 'memory_usage_percent' => round($usagePercent, 2),
                 'memory_used_mb' => round($used / 1024 / 1024, 2),
-                'memory_total_mb' => round($row->total_bytes / 1024 / 1024, 2),
+                'memory_total_mb' => round($row->memory_total_bytes / 1024 / 1024, 2),
             ];
         }
 
@@ -548,21 +543,14 @@ class DashboardController extends Controller
         $sql = "
             SELECT
                 server_id,
-                date_trunc('minute', timestamp) +
-                INTERVAL '15 seconds' * FLOOR(EXTRACT(SECOND FROM timestamp) / 15) as rounded_ts,
-                MAX(CASE WHEN metric_name = 'node_filesystem_size_bytes' THEN value END) as total_bytes,
-                MAX(CASE WHEN metric_name = 'node_filesystem_avail_bytes' THEN value END) as available_bytes
-            FROM admiral.metric_samples
+                timestamp,
+                disk_total_bytes,
+                disk_available_bytes
+            FROM admiral.metrics
             WHERE server_id IN ($placeholders)
-                AND metric_name IN ('node_filesystem_size_bytes', 'node_filesystem_avail_bytes')
                 AND timestamp >= ?
-                AND labels->>'mountpoint' = '/'
-                AND labels->>'fstype' NOT IN ('tmpfs', 'devtmpfs', 'overlay', 'squashfs')
-            GROUP BY server_id, rounded_ts
-            HAVING MAX(CASE WHEN metric_name = 'node_filesystem_size_bytes' THEN value END) IS NOT NULL
-                AND MAX(CASE WHEN metric_name = 'node_filesystem_avail_bytes' THEN value END) IS NOT NULL
-            ORDER BY server_id, rounded_ts DESC
-            LIMIT 500
+                AND disk_total_bytes > 0
+            ORDER BY server_id, timestamp DESC
         ";
 
         $results = \DB::select($sql, $params);
@@ -573,14 +561,14 @@ class DashboardController extends Controller
                 $resultsByServer[$row->server_id] = [];
             }
 
-            $used = $row->total_bytes - $row->available_bytes;
-            $usagePercent = ($used / $row->total_bytes) * 100;
+            $used = $row->disk_total_bytes - $row->disk_available_bytes;
+            $usagePercent = ($used / $row->disk_total_bytes) * 100;
 
             $resultsByServer[$row->server_id][] = [
-                'timestamp' => $row->rounded_ts,
+                'timestamp' => $row->timestamp,
                 'disk_usage_percent' => round($usagePercent, 2),
                 'disk_used_gb' => round($used / 1024 / 1024 / 1024, 2),
-                'disk_total_gb' => round($row->total_bytes / 1024 / 1024 / 1024, 2),
+                'disk_total_gb' => round($row->disk_total_bytes / 1024 / 1024 / 1024, 2),
             ];
         }
 
@@ -600,53 +588,36 @@ class DashboardController extends Controller
         $params = array_merge($serverIdTexts, [$startTime->toDateTimeString()]);
 
         $sql = "
-            WITH network_data AS (
+            WITH with_previous AS (
                 SELECT
                     server_id,
-                    date_trunc('minute', timestamp) +
-                    INTERVAL '15 seconds' * FLOOR(EXTRACT(SECOND FROM timestamp) / 15) as rounded_ts,
-                    labels->>'device' as device,
-                    MAX(CASE WHEN metric_name = 'node_network_receive_bytes_total' THEN value END) as rx_bytes,
-                    MAX(CASE WHEN metric_name = 'node_network_transmit_bytes_total' THEN value END) as tx_bytes
-                FROM admiral.metric_samples
+                    timestamp,
+                    network_receive_bytes_total,
+                    network_transmit_bytes_total,
+                    LAG(timestamp) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_ts,
+                    LAG(network_receive_bytes_total) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_rx,
+                    LAG(network_transmit_bytes_total) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_tx
+                FROM admiral.metrics
                 WHERE server_id IN ($placeholders)
-                    AND metric_name IN ('node_network_receive_bytes_total', 'node_network_transmit_bytes_total')
                     AND timestamp >= ?
-                    AND labels->>'device' NOT IN ('lo', 'docker0', 'veth0', 'virbr0')
-                    AND labels->>'device' NOT LIKE 'veth%'
-                GROUP BY server_id, rounded_ts, device
-                HAVING MAX(CASE WHEN metric_name = 'node_network_receive_bytes_total' THEN value END) IS NOT NULL
-                    AND MAX(CASE WHEN metric_name = 'node_network_transmit_bytes_total' THEN value END) IS NOT NULL
-            ),
-            with_previous AS (
-                SELECT
-                    server_id,
-                    rounded_ts,
-                    device,
-                    rx_bytes,
-                    tx_bytes,
-                    LAG(rounded_ts) OVER (PARTITION BY server_id, device ORDER BY rounded_ts) as prev_ts,
-                    LAG(rx_bytes) OVER (PARTITION BY server_id, device ORDER BY rounded_ts) as prev_rx,
-                    LAG(tx_bytes) OVER (PARTITION BY server_id, device ORDER BY rounded_ts) as prev_tx
-                FROM network_data
+                ORDER BY server_id, timestamp
             )
             SELECT
                 server_id,
-                rounded_ts as timestamp,
+                timestamp,
                 CASE
                     WHEN prev_rx IS NOT NULL AND prev_tx IS NOT NULL AND prev_ts IS NOT NULL THEN
-                        (rx_bytes - prev_rx) / GREATEST(1, EXTRACT(EPOCH FROM (rounded_ts - prev_ts)))
+                        (network_receive_bytes_total - prev_rx) / GREATEST(1, EXTRACT(EPOCH FROM (timestamp - prev_ts)))
                     ELSE NULL
                 END as download_bps,
                 CASE
                     WHEN prev_rx IS NOT NULL AND prev_tx IS NOT NULL AND prev_ts IS NOT NULL THEN
-                        (tx_bytes - prev_tx) / GREATEST(1, EXTRACT(EPOCH FROM (rounded_ts - prev_ts)))
+                        (network_transmit_bytes_total - prev_tx) / GREATEST(1, EXTRACT(EPOCH FROM (timestamp - prev_ts)))
                     ELSE NULL
                 END as upload_bps
             FROM with_previous
             WHERE prev_rx IS NOT NULL AND prev_tx IS NOT NULL
-            ORDER BY server_id, rounded_ts DESC
-            LIMIT 500
+            ORDER BY server_id, timestamp DESC
         ";
 
         $results = \DB::select($sql, $params);

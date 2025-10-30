@@ -47,11 +47,6 @@ class Server extends Model
         'updated_at' => 'datetime',
     ];
 
-    public function metricSamples(): HasMany
-    {
-        return $this->hasMany(MetricSample::class, 'server_id', 'server_id');
-    }
-
     public function alerts(): HasMany
     {
         return $this->hasMany(Alert::class);
@@ -75,6 +70,43 @@ class Server extends Model
     public function primaryPrivateKey()
     {
         return $this->privateKeys()->wherePivot('is_primary', true)->first();
+    }
+
+    /**
+     * Get latest metrics for this server (no relationship, direct query)
+     */
+    public function getLatestMetrics(): ?Metric
+    {
+        return Metric::where('server_id', $this->server_id)
+            ->orderBy('timestamp', 'desc')
+            ->first();
+    }
+
+    /**
+     * Get metrics in time range (no relationship, direct query)
+     */
+    public function getMetricsInRange($startTime, $endTime = null)
+    {
+        $query = Metric::where('server_id', $this->server_id)
+            ->where('timestamp', '>=', $startTime)
+            ->orderBy('timestamp', 'asc');
+
+        if ($endTime) {
+            $query->where('timestamp', '<=', $endTime);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Get recent metrics (last N entries, no relationship)
+     */
+    public function getRecentMetrics(int $limit = 100)
+    {
+        return Metric::where('server_id', $this->server_id)
+            ->orderBy('timestamp', 'desc')
+            ->limit($limit)
+            ->get();
     }
 
     /**

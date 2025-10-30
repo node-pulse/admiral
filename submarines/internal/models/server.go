@@ -87,23 +87,4 @@ type MetricReport struct {
 	IPv6       *string           `json:"ipv6,omitempty"`
 }
 
-type Metric struct {
-	ID                   int64      `json:"id"`
-	ServerID             uuid.UUID  `json:"server_id"`
-	Timestamp            time.Time  `json:"timestamp"`
-	CPUUsagePercent      *float64   `json:"cpu_usage_percent,omitempty"`
-	MemoryUsedMB         *int64     `json:"memory_used_mb,omitempty"`
-	MemoryTotalMB        *int64     `json:"memory_total_mb,omitempty"`
-	MemoryUsagePercent   *float64   `json:"memory_usage_percent,omitempty"`
-	DiskUsedGB           *float64   `json:"disk_used_gb,omitempty"`
-	DiskTotalGB          *float64   `json:"disk_total_gb,omitempty"`
-	DiskUsagePercent     *float64   `json:"disk_usage_percent,omitempty"`
-	DiskMountPoint       *string    `json:"disk_mount_point,omitempty"`
-	NetworkUploadBytes   *int64     `json:"network_upload_bytes,omitempty"`
-	NetworkDownloadBytes *int64     `json:"network_download_bytes,omitempty"`
-	UptimeDays           *float64   `json:"uptime_days,omitempty"`
-	Processes            []byte     `json:"processes,omitempty"`
-	IPv4                 *string    `json:"ipv4,omitempty"`
-	IPv6                 *string    `json:"ipv6,omitempty"`
-	CreatedAt            time.Time  `json:"created_at"`
-}
+ 

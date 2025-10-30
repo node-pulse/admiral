@@ -9,8 +9,8 @@
 -- Pivot table for server and private key relationships
 CREATE TABLE IF NOT EXISTS admiral.server_private_keys (
     id SERIAL PRIMARY KEY,
-    server_id UUID NOT NULL REFERENCES admiral.servers(id) ON DELETE CASCADE,
-    private_key_id INTEGER NOT NULL REFERENCES admiral.private_keys(id) ON DELETE CASCADE,
+    server_id UUID NOT NULL, -- References admiral.servers(id), no FK for flexibility
+    private_key_id INTEGER NOT NULL, -- References admiral.private_keys(id), no FK for flexibility
 
     -- Purpose/label for this key on this server
     purpose TEXT DEFAULT 'default', -- default, backup, deployment, monitoring, etc.

@@ -15,7 +15,6 @@ import (
 	"github.com/nodepulse/admiral/submarines/internal/config"
 	"github.com/nodepulse/admiral/submarines/internal/database"
 	"github.com/nodepulse/admiral/submarines/internal/handlers"
-	"github.com/nodepulse/admiral/submarines/internal/parsers"
 	"github.com/nodepulse/admiral/submarines/internal/valkey"
 )
 
@@ -27,43 +26,8 @@ const (
 	idleSleep     = 5 // seconds to sleep when no messages
 )
 
-// allowedMetrics defines which metrics should be stored in the database
-// This prevents unnecessary metrics from bloating the database
-// Only metrics used by the dashboard should be included here
-var allowedMetrics = map[string]bool{
-	// CPU metrics
-	"node_cpu_seconds_total": true,
-	"node_load1":             true,
-	"node_load5":             true,
-	"node_load15":            true,
-
-	// Memory metrics
-	"node_memory_MemTotal_bytes":     true,
-	"node_memory_MemAvailable_bytes": true,
-	"node_memory_MemFree_bytes":      true,
-	"node_memory_Buffers_bytes":      true,
-	"node_memory_Cached_bytes":       true,
-	"node_memory_SwapTotal_bytes":    true,
-	"node_memory_SwapFree_bytes":     true,
-
-	// Disk metrics
-	"node_filesystem_size_bytes":  true,
-	"node_filesystem_avail_bytes": true,
-	"node_filesystem_free_bytes":  true,
-
-	// Network metrics
-	"node_network_receive_bytes_total":  true,
-	"node_network_transmit_bytes_total": true,
-	"node_network_receive_errs_total":   true,
-	"node_network_transmit_errs_total":  true,
-
-	// System uptime
-	"node_boot_time_seconds": true,
-	"node_time_seconds":      true,
-
-	// Node exporter up status
-	"up": true,
-}
+// No longer need allowedMetrics filter - we parse and extract only essential metrics
+// The parser in parsers.ParsePrometheusMetricsToSnapshot() handles metric selection
 
 func main() {
 	log.Println("Starting digest worker...")
@@ -188,14 +152,17 @@ func processMessage(db *database.DB, msg valkey.StreamMessage) error {
 }
 
 func processPrometheusMessage(db *database.DB, payloadJSON string) error {
-	// Deserialize Prometheus metrics payload
-	var payload handlers.PrometheusMetricsPayload
+	// Deserialize metric snapshot payload (pre-parsed by agent)
+	var payload handlers.MetricSnapshotPayload
 	if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
 		return err
 	}
 
 	// Get server ID from payload (this is the server_id text field)
 	serverID := payload.ServerID
+
+	// Snapshot is already parsed by the agent - no need to parse here
+	snapshot := payload.Snapshot
 
 	// Start transaction
 	tx, err := db.Begin()
@@ -204,8 +171,8 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 	}
 	defer tx.Rollback()
 
-	// Insert all Prometheus metrics as samples using the server_id directly
-	if err := insertPrometheusMetrics(tx, serverID, payload.Metrics); err != nil {
+	// Insert single row into metrics table with all parsed metrics
+	if err := insertMetricSnapshot(tx, serverID, snapshot); err != nil {
 		return err
 	}
 
@@ -221,94 +188,103 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 	return tx.Commit()
 }
 
-func insertPrometheusMetrics(tx *sql.Tx, serverID string, metrics []*parsers.PrometheusMetric) error {
+func insertMetricSnapshot(tx *sql.Tx, serverID string, snapshot *handlers.MetricSnapshot) error {
 	query := `
-		INSERT INTO admiral.metric_samples (
+		INSERT INTO admiral.metrics (
 			server_id,
-			metric_name,
-			metric_type,
-			labels,
-			value,
 			timestamp,
-			sample_count,
-			sample_sum,
-			exemplar,
-			exemplar_value,
-			exemplar_timestamp,
-			help_text,
-			unit
+			cpu_idle_seconds,
+			cpu_iowait_seconds,
+			cpu_system_seconds,
+			cpu_user_seconds,
+			cpu_steal_seconds,
+			cpu_cores,
+			memory_total_bytes,
+			memory_available_bytes,
+			memory_free_bytes,
+			memory_cached_bytes,
+			memory_buffers_bytes,
+			memory_active_bytes,
+			memory_inactive_bytes,
+			swap_total_bytes,
+			swap_free_bytes,
+			swap_cached_bytes,
+			disk_total_bytes,
+			disk_free_bytes,
+			disk_available_bytes,
+			disk_reads_completed_total,
+			disk_writes_completed_total,
+			disk_read_bytes_total,
+			disk_written_bytes_total,
+			disk_io_time_seconds_total,
+			network_receive_bytes_total,
+			network_transmit_bytes_total,
+			network_receive_packets_total,
+			network_transmit_packets_total,
+			network_receive_errs_total,
+			network_transmit_errs_total,
+			network_receive_drop_total,
+			network_transmit_drop_total,
+			load_1min,
+			load_5min,
+			load_15min,
+			processes_running,
+			processes_blocked,
+			processes_total,
+			uptime_seconds
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+			$21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+			$31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41
 		)
 	`
 
-	stmt, err := tx.Prepare(query)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
+	_, err := tx.Exec(query,
+		serverID,
+		snapshot.Timestamp,
+		snapshot.CPUIdleSeconds,
+		snapshot.CPUIowaitSeconds,
+		snapshot.CPUSystemSeconds,
+		snapshot.CPUUserSeconds,
+		snapshot.CPUStealSeconds,
+		snapshot.CPUCores,
+		snapshot.MemoryTotalBytes,
+		snapshot.MemoryAvailableBytes,
+		snapshot.MemoryFreeBytes,
+		snapshot.MemoryCachedBytes,
+		snapshot.MemoryBuffersBytes,
+		snapshot.MemoryActiveBytes,
+		snapshot.MemoryInactiveBytes,
+		snapshot.SwapTotalBytes,
+		snapshot.SwapFreeBytes,
+		snapshot.SwapCachedBytes,
+		snapshot.DiskTotalBytes,
+		snapshot.DiskFreeBytes,
+		snapshot.DiskAvailableBytes,
+		snapshot.DiskReadsCompletedTotal,
+		snapshot.DiskWritesCompletedTotal,
+		snapshot.DiskReadBytesTotal,
+		snapshot.DiskWrittenBytesTotal,
+		snapshot.DiskIOTimeSecondsTotal,
+		snapshot.NetworkReceiveBytesTotal,
+		snapshot.NetworkTransmitBytesTotal,
+		snapshot.NetworkReceivePacketsTotal,
+		snapshot.NetworkTransmitPacketsTotal,
+		snapshot.NetworkReceiveErrsTotal,
+		snapshot.NetworkTransmitErrsTotal,
+		snapshot.NetworkReceiveDropTotal,
+		snapshot.NetworkTransmitDropTotal,
+		snapshot.Load1Min,
+		snapshot.Load5Min,
+		snapshot.Load15Min,
+		snapshot.ProcessesRunning,
+		snapshot.ProcessesBlocked,
+		snapshot.ProcessesTotal,
+		snapshot.UptimeSeconds,
+	)
 
-	insertedCount := 0
-	skippedCount := 0
-
-	for _, metric := range metrics {
-		// Filter out metrics not in the allowlist
-		if !allowedMetrics[metric.Name] {
-			skippedCount++
-			continue
-		}
-		// Convert labels map to JSON string
-		var labelsJSON string
-		if len(metric.Labels) > 0 {
-			labelBytes, err := json.Marshal(metric.Labels)
-			if err != nil {
-				return err
-			}
-			labelsJSON = string(labelBytes)
-		} else {
-			labelsJSON = "{}"
-		}
-
-		// Convert exemplar map to JSON string if present
-		var exemplarJSON *string
-		if len(metric.Exemplar) > 0 {
-			exemplarBytes, err := json.Marshal(metric.Exemplar)
-			if err != nil {
-				return err
-			}
-			exemplarStr := string(exemplarBytes)
-			exemplarJSON = &exemplarStr
-		}
-
-		// Execute insert
-		_, err = stmt.Exec(
-			serverID,
-			metric.Name,
-			metric.Type,
-			labelsJSON,
-			metric.Value,
-			metric.Timestamp,
-			metric.SampleCount,
-			metric.SampleSum,
-			exemplarJSON,
-			metric.ExemplarValue,
-			metric.ExemplarTimestamp,
-			metric.HelpText,
-			metric.Unit,
-		)
-		if err != nil {
-			return err
-		}
-		insertedCount++
-	}
-
-	// Log filtering statistics
-	if skippedCount > 0 {
-		log.Printf("[FILTER] Inserted %d metrics, skipped %d unnecessary metrics for server %s",
-			insertedCount, skippedCount, serverID)
-	}
-
-	return nil
+	return err
 }
 
 // updateServerLastSeen updates the server's last_seen_at timestamp

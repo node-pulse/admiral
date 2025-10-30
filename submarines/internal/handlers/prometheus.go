@@ -5,14 +5,83 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/nodepulse/admiral/submarines/internal/database"
-	"github.com/nodepulse/admiral/submarines/internal/parsers"
 	"github.com/nodepulse/admiral/submarines/internal/valkey"
 	"github.com/nodepulse/admiral/submarines/internal/validation"
 )
+
+const (
+	MetricsStreamKey = "nodepulse:metrics:stream"
+	MaxStreamBacklog = 10000 // Reject new metrics if stream has more than this many pending
+)
+
+// MetricSnapshot represents a parsed snapshot of all essential metrics
+// This matches the admiral.metrics table schema (raw values, no percentages)
+// Sent by agents after parsing Prometheus metrics locally
+type MetricSnapshot struct {
+	Timestamp time.Time `json:"timestamp"`
+
+	// CPU Metrics (seconds, raw values from counters)
+	CPUIdleSeconds   float64 `json:"cpu_idle_seconds"`
+	CPUIowaitSeconds float64 `json:"cpu_iowait_seconds"`
+	CPUSystemSeconds float64 `json:"cpu_system_seconds"`
+	CPUUserSeconds   float64 `json:"cpu_user_seconds"`
+	CPUStealSeconds  float64 `json:"cpu_steal_seconds"`
+	CPUCores         int     `json:"cpu_cores"`
+
+	// Memory Metrics (bytes, raw values)
+	MemoryTotalBytes     int64 `json:"memory_total_bytes"`
+	MemoryAvailableBytes int64 `json:"memory_available_bytes"`
+	MemoryFreeBytes      int64 `json:"memory_free_bytes"`
+	MemoryCachedBytes    int64 `json:"memory_cached_bytes"`
+	MemoryBuffersBytes   int64 `json:"memory_buffers_bytes"`
+	MemoryActiveBytes    int64 `json:"memory_active_bytes"`
+	MemoryInactiveBytes  int64 `json:"memory_inactive_bytes"`
+
+	// Swap Metrics (bytes, raw values)
+	SwapTotalBytes  int64 `json:"swap_total_bytes"`
+	SwapFreeBytes   int64 `json:"swap_free_bytes"`
+	SwapCachedBytes int64 `json:"swap_cached_bytes"`
+
+	// Disk Metrics (bytes for root filesystem)
+	DiskTotalBytes     int64 `json:"disk_total_bytes"`
+	DiskFreeBytes      int64 `json:"disk_free_bytes"`
+	DiskAvailableBytes int64 `json:"disk_available_bytes"`
+
+	// Disk I/O (counters and totals)
+	DiskReadsCompletedTotal  int64   `json:"disk_reads_completed_total"`
+	DiskWritesCompletedTotal int64   `json:"disk_writes_completed_total"`
+	DiskReadBytesTotal       int64   `json:"disk_read_bytes_total"`
+	DiskWrittenBytesTotal    int64   `json:"disk_written_bytes_total"`
+	DiskIOTimeSecondsTotal   float64 `json:"disk_io_time_seconds_total"`
+
+	// Network Metrics (counters and totals)
+	NetworkReceiveBytesTotal    int64 `json:"network_receive_bytes_total"`
+	NetworkTransmitBytesTotal   int64 `json:"network_transmit_bytes_total"`
+	NetworkReceivePacketsTotal  int64 `json:"network_receive_packets_total"`
+	NetworkTransmitPacketsTotal int64 `json:"network_transmit_packets_total"`
+	NetworkReceiveErrsTotal     int64 `json:"network_receive_errs_total"`
+	NetworkTransmitErrsTotal    int64 `json:"network_transmit_errs_total"`
+	NetworkReceiveDropTotal     int64 `json:"network_receive_drop_total"`
+	NetworkTransmitDropTotal    int64 `json:"network_transmit_drop_total"`
+
+	// System Load Average
+	Load1Min  float64 `json:"load_1min"`
+	Load5Min  float64 `json:"load_5min"`
+	Load15Min float64 `json:"load_15min"`
+
+	// Process Counts
+	ProcessesRunning int `json:"processes_running"`
+	ProcessesBlocked int `json:"processes_blocked"`
+	ProcessesTotal   int `json:"processes_total"`
+
+	// System Uptime
+	UptimeSeconds int64 `json:"uptime_seconds"`
+}
 
 type PrometheusHandler struct {
 	db        *database.DB
@@ -28,23 +97,34 @@ func NewPrometheusHandler(db *database.DB, valkeyClient *valkey.Client, validato
 	}
 }
 
-// PrometheusMetricsPayload represents the message published to Valkey Stream
-type PrometheusMetricsPayload struct {
-	ServerID string                     `json:"server_id"`
-	Metrics  []*parsers.PrometheusMetric `json:"metrics"`
+// MetricSnapshotPayload represents the message published to Valkey Stream
+// This is the simplified format sent by agents after parsing Prometheus metrics
+type MetricSnapshotPayload struct {
+	ServerID string          `json:"server_id"`
+	Snapshot *MetricSnapshot `json:"snapshot"`
 }
 
-// IngestPrometheusMetrics handles incoming Prometheus text format metrics
+// IngestPrometheusMetrics handles incoming simplified metric snapshots from agents
 // POST /metrics/prometheus
-// Content-Type: text/plain; version=0.0.4
-// Query param: server_id=<uuid>
+// Content-Type: application/json
+// Body: MetricSnapshot JSON (39 fields pre-parsed by agent)
 //
 // This endpoint:
-// 1. Parses Prometheus text format
+// 1. Receives pre-parsed metric snapshot JSON from agent
 // 2. Publishes to Valkey Stream
-// 3. Digest workers consume and write to PostgreSQL metric_samples table
+// 3. Digest workers consume and write to PostgreSQL metrics table (single row)
 func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
-	// Get server_id from query parameter
+	// Parse JSON body containing metric snapshot
+	var snapshot MetricSnapshot
+	if err := c.ShouldBindJSON(&snapshot); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("invalid JSON format: %v", err),
+		})
+		return
+	}
+
+	// Get server_id from JSON body (agents include it in the snapshot)
+	// For backward compatibility, also check query parameter
 	serverIDStr := c.Query("server_id")
 	if serverIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "server_id query parameter is required"})
@@ -78,7 +158,7 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
-	// Check stream backpressure BEFORE parsing
+	// Check stream backpressure BEFORE processing
 	// If stream is backed up, reject new data immediately
 	streamLen, err := h.valkey.StreamLength(MetricsStreamKey)
 	if err != nil {
@@ -97,36 +177,22 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
-	// Parse Prometheus text format
-	metrics, err := parsers.ParsePrometheusText(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("failed to parse Prometheus metrics: %v", err),
-		})
-		return
-	}
-
-	if len(metrics) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no metrics found in request body"})
-		return
-	}
-
 	// Create payload for Valkey Stream
-	payload := PrometheusMetricsPayload{
+	payload := MetricSnapshotPayload{
 		ServerID: serverID.String(),
-		Metrics:  metrics,
+		Snapshot: &snapshot,
 	}
 
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("ERROR: Failed to marshal Prometheus payload: %v", err)
+		log.Printf("ERROR: Failed to marshal snapshot payload: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process metrics"})
 		return
 	}
 
 	// Publish to Valkey Stream
 	messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
-		"type":    "prometheus",
+		"type":    "snapshot",
 		"payload": string(payloadJSON),
 	})
 	if err != nil {
@@ -135,14 +201,13 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
-	log.Printf("INFO: Published %d Prometheus metrics to stream (message_id=%s, server_id=%s)",
-		len(metrics), messageID, serverID.String())
+	log.Printf("INFO: Published metric snapshot to stream (message_id=%s, server_id=%s)",
+		messageID, serverID.String())
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":          "success",
-		"metrics_received": len(metrics),
-		"message_id":      messageID,
-		"server_id":       serverID.String(),
+		"status":     "success",
+		"message_id": messageID,
+		"server_id":  serverID.String(),
 	})
 }
 

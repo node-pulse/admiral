@@ -28,7 +28,7 @@ func (c *Cleaner) CleanOldMetrics(ctx context.Context) error {
 	// Calculate total rows to delete (for logging)
 	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*)
-		FROM admiral.metric_samples
+		FROM admiral.metrics
 		WHERE timestamp < NOW() - INTERVAL '%d hours'
 	`, retentionSettings.RetentionHours)
 
@@ -55,9 +55,9 @@ func (c *Cleaner) CleanOldMetrics(ctx context.Context) error {
 
 	for {
 		deleteQuery := fmt.Sprintf(`
-			DELETE FROM admiral.metric_samples
+			DELETE FROM admiral.metrics
 			WHERE id IN (
-				SELECT id FROM admiral.metric_samples
+				SELECT id FROM admiral.metrics
 				WHERE timestamp < NOW() - INTERVAL '%d hours'
 				ORDER BY timestamp ASC
 				LIMIT %d

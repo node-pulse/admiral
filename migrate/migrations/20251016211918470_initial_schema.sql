@@ -56,68 +56,116 @@ CREATE TABLE IF NOT EXISTS admiral.servers (
 );
 
 -- ============================================================
--- Prometheus-First Metrics Schema
--- Designed to natively support Prometheus metric format with labels
+-- Simplified Metrics Schema
+-- Designed for efficient storage and querying of essential server metrics
+-- Agent-side parsing extracts only needed metrics from Prometheus exporters
 -- ============================================================
 
--- Metric samples table (Prometheus-style time-series)
--- This is the core table storing all metric samples with labels
--- Supports all 4 Prometheus metric types: counter, gauge, histogram, summary
+-- Metrics table (simplified time-series with dedicated columns)
+-- Stores parsed and calculated metrics from agent (one row per scrape interval)
 -- NOTE: No foreign key on server_id - allows metrics retention even after server deletion
-CREATE TABLE IF NOT EXISTS admiral.metric_samples (
+CREATE TABLE IF NOT EXISTS admiral.metrics (
     id BIGSERIAL PRIMARY KEY,
     server_id TEXT NOT NULL, -- Agent's server_id (matches servers.server_id), no foreign key for performance
-
-    -- Metric identification
-    metric_name TEXT NOT NULL, -- e.g., "node_cpu_seconds_total", "node_memory_MemTotal_bytes"
-    metric_type TEXT NOT NULL, -- counter, gauge, histogram, summary
-
-    -- Labels (Prometheus labels as JSONB for flexibility)
-    -- e.g., {"cpu": "0", "mode": "idle"} or {"device": "sda", "mountpoint": "/"}
-    -- For histograms: {"le": "0.5"} where le = "less than or equal"
-    -- For summaries: {"quantile": "0.99"}
-    labels JSONB DEFAULT '{}'::jsonb,
-
-    -- Value and timestamp
-    value DOUBLE PRECISION NOT NULL,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 
-    -- Histogram/Summary aggregations (for _sum and _count suffixed metrics)
-    -- These are NULL for regular counter/gauge metrics
-    -- For histograms/summaries: stores the cumulative count and sum
-    sample_count BIGINT, -- Total number of observations (for _count metrics)
-    sample_sum DOUBLE PRECISION, -- Sum of all observed values (for _sum metrics)
+    -- ===========================================
+    -- CPU Metrics (seconds, raw values from counters)
+    -- ===========================================
+    cpu_idle_seconds DOUBLE PRECISION,       -- Total CPU idle time (all cores combined)
+    cpu_iowait_seconds DOUBLE PRECISION,     -- Total CPU I/O wait time
+    cpu_system_seconds DOUBLE PRECISION,     -- Total CPU system mode time
+    cpu_user_seconds DOUBLE PRECISION,       -- Total CPU user mode time
+    cpu_steal_seconds DOUBLE PRECISION,      -- Total CPU steal time (virtualization)
+    cpu_cores INTEGER,                       -- Number of CPU cores
 
-    -- Exemplars (optional, for histogram buckets)
-    -- Links metrics to traces/logs
-    -- e.g., {"trace_id": "abc123", "span_id": "def456"}
-    exemplar JSONB,
-    exemplar_value DOUBLE PRECISION, -- The exemplar's observed value
-    exemplar_timestamp TIMESTAMP WITH TIME ZONE, -- When the exemplar was observed
+    -- ===========================================
+    -- Memory Metrics (bytes, raw values)
+    -- ===========================================
+    memory_total_bytes BIGINT,               -- Total RAM
+    memory_available_bytes BIGINT,           -- Available RAM (best metric for "free" memory)
+    memory_free_bytes BIGINT,                -- Free RAM (raw, before cache reclaim)
+    memory_cached_bytes BIGINT,              -- Page cache
+    memory_buffers_bytes BIGINT,             -- Buffers
+    memory_active_bytes BIGINT,              -- Active memory
+    memory_inactive_bytes BIGINT,            -- Inactive memory
 
+    -- ===========================================
+    -- Swap Metrics (bytes, raw values)
+    -- ===========================================
+    swap_total_bytes BIGINT,                 -- Total swap space
+    swap_free_bytes BIGINT,                  -- Free swap space
+    swap_cached_bytes BIGINT,                -- Cached swap
+
+    -- ===========================================
+    -- Disk Metrics (root filesystem, bytes)
+    -- ===========================================
+    disk_total_bytes BIGINT,                 -- Total disk space (/)
+    disk_free_bytes BIGINT,                  -- Free disk space
+    disk_available_bytes BIGINT,             -- Available disk space (for non-root users)
+
+    -- ===========================================
+    -- Disk I/O (counters and totals)
+    -- ===========================================
+    disk_reads_completed_total BIGINT,       -- Total disk reads completed
+    disk_writes_completed_total BIGINT,      -- Total disk writes completed
+    disk_read_bytes_total BIGINT,            -- Total bytes read
+    disk_written_bytes_total BIGINT,         -- Total bytes written
+    disk_io_time_seconds_total DOUBLE PRECISION, -- Total time spent doing I/Os
+
+    -- ===========================================
+    -- Network Metrics (counters and totals)
+    -- ===========================================
+    network_receive_bytes_total BIGINT,      -- Total bytes received
+    network_transmit_bytes_total BIGINT,     -- Total bytes transmitted
+    network_receive_packets_total BIGINT,    -- Total packets received
+    network_transmit_packets_total BIGINT,   -- Total packets transmitted
+    network_receive_errs_total BIGINT,       -- Total receive errors
+    network_transmit_errs_total BIGINT,      -- Total transmit errors
+    network_receive_drop_total BIGINT,       -- Total receive drops
+    network_transmit_drop_total BIGINT,      -- Total transmit drops
+
+    -- ===========================================
+    -- System Load Average
+    -- ===========================================
+    load_1min DOUBLE PRECISION,              -- 1-minute load average
+    load_5min DOUBLE PRECISION,              -- 5-minute load average
+    load_15min DOUBLE PRECISION,             -- 15-minute load average
+
+    -- ===========================================
+    -- Process Counts
+    -- ===========================================
+    processes_running INTEGER,               -- Runnable processes
+    processes_blocked INTEGER,               -- Blocked processes
+    processes_total INTEGER,                 -- Total processes
+
+    -- ===========================================
+    -- System Uptime
+    -- ===========================================
+    uptime_seconds BIGINT,                   -- System uptime in seconds
+
+    -- ===========================================
     -- Metadata
-    help_text TEXT, -- Metric description from # HELP
-    unit TEXT, -- Metric unit (bytes, seconds, etc.)
-
+    -- ===========================================
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create composite index for efficient time-series queries
-CREATE INDEX IF NOT EXISTS idx_metric_samples_lookup
-    ON admiral.metric_samples(server_id, metric_name, timestamp DESC);
+-- Efficient time-series index (most common query pattern)
+CREATE INDEX IF NOT EXISTS idx_metrics_lookup
+    ON admiral.metrics(server_id, timestamp DESC);
 
--- Create index for label queries (GIN index for JSONB)
-CREATE INDEX IF NOT EXISTS idx_metric_samples_labels
-    ON admiral.metric_samples USING GIN(labels);
+-- For time-based retention queries
+CREATE INDEX IF NOT EXISTS idx_metrics_timestamp
+    ON admiral.metrics(timestamp DESC);
 
--- Create index for metric name queries
-CREATE INDEX IF NOT EXISTS idx_metric_samples_metric_name
-    ON admiral.metric_samples(metric_name);
+-- For aggregation queries
+CREATE INDEX IF NOT EXISTS idx_metrics_server_created
+    ON admiral.metrics(server_id, created_at DESC);
 
 -- Alerts table
 CREATE TABLE IF NOT EXISTS admiral.alerts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    server_id UUID NOT NULL REFERENCES admiral.servers(id) ON DELETE CASCADE,
+    server_id UUID NOT NULL, -- References admiral.servers(id), no FK for flexibility
 
     -- Alert details
     alert_type TEXT NOT NULL, -- cpu, memory, disk, network, uptime
@@ -173,10 +221,10 @@ CREATE INDEX IF NOT EXISTS idx_servers_server_id ON admiral.servers(server_id);
 CREATE INDEX IF NOT EXISTS idx_servers_status ON admiral.servers(status);
 CREATE INDEX IF NOT EXISTS idx_servers_last_seen ON admiral.servers(last_seen_at);
 
--- Prometheus metric_samples indexes (already created above near table definition)
--- idx_metric_samples_lookup: (server_id, metric_name, timestamp DESC)
--- idx_metric_samples_labels: GIN(labels)
--- idx_metric_samples_metric_name: (metric_name)
+-- Metrics indexes (already created above near table definition)
+-- idx_metrics_lookup: (server_id, timestamp DESC)
+-- idx_metrics_timestamp: (timestamp DESC)
+-- idx_metrics_server_created: (server_id, created_at DESC)
 
 -- Alert indexes
 CREATE INDEX IF NOT EXISTS idx_alerts_server_id ON admiral.alerts(server_id);

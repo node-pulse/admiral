@@ -44,8 +44,8 @@ COMMENT ON COLUMN admiral.deployments.variables IS 'Extra variables passed to An
 
 CREATE TABLE IF NOT EXISTS admiral.deployment_servers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    deployment_id UUID NOT NULL REFERENCES admiral.deployments(id) ON DELETE CASCADE,
-    server_id UUID NOT NULL REFERENCES admiral.servers(id) ON DELETE CASCADE,
+    deployment_id UUID NOT NULL, -- References admiral.deployments(id), no FK for flexibility
+    server_id UUID NOT NULL, -- References admiral.servers(id), no FK for flexibility
 
     -- Status
     status VARCHAR(50) NOT NULL DEFAULT 'pending',  -- pending, running, success, failed, skipped

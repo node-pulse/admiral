@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS admiral.ssh_session_recordings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id UUID NOT NULL REFERENCES admiral.ssh_sessions(id) ON DELETE CASCADE,
+    session_id UUID NOT NULL, -- References admiral.ssh_sessions(id), no FK for flexibility
     sequence INTEGER NOT NULL, -- Order of events within session
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     event_type VARCHAR(20) NOT NULL, -- 'input', 'output', 'resize', 'disconnect'

@@ -117,19 +117,34 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
 
         // Agents now send aligned timestamps (truncated to interval boundaries)
         // No bucketing needed - use exact timestamps from backend
-        const timestampMap = new Map<string, Record<string, number | string>>();
+        const timestampMap = new Map<
+            string,
+            Record<string, number | string | null>
+        >();
 
+        // First pass: Create entries for all timestamps and initialize server values to null
         metricsData.forEach((serverMetric) => {
             serverMetric.data_points.forEach((point) => {
                 const timestamp = point.timestamp;
 
                 if (!timestampMap.has(timestamp)) {
-                    timestampMap.set(timestamp, {
+                    const newEntry: Record<string, number | string | null> = {
                         timestamp: new Date(timestamp).toLocaleTimeString(),
                         rawTime: timestamp,
+                    };
+                    // Initialize all servers to null for this timestamp
+                    metricsData.forEach((sm) => {
+                        newEntry[sm.display_name] = null;
                     });
+                    timestampMap.set(timestamp, newEntry);
                 }
+            });
+        });
 
+        // Second pass: Fill in actual metric values where they exist
+        metricsData.forEach((serverMetric) => {
+            serverMetric.data_points.forEach((point) => {
+                const timestamp = point.timestamp;
                 const dataPoint = timestampMap.get(timestamp);
                 if (!dataPoint) return;
 
@@ -278,6 +293,7 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
                                     stroke={COLORS[index % COLORS.length]}
                                     strokeWidth={2}
                                     dot={false}
+                                    connectNulls={false}
                                 />
                             ))}
                         </LineChart>
