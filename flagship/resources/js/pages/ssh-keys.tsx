@@ -53,7 +53,7 @@ import { toast } from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'SSH Keys',
+        title: 'SSH Keys - Manage SSH private keys for server authentication',
         href: sshKeysRoute().url,
     },
 ];
@@ -372,14 +372,6 @@ export default function PrivateKeys() {
             <div className="AdmiralSSHKeys flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            SSH Keys
-                        </h1>
-                        <p className="text-muted-foreground">
-                            Manage SSH private keys for server authentication
-                        </p>
-                    </div>
                     <div className="flex gap-2">
                         <Button
                             variant="outline"

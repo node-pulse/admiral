@@ -25,6 +25,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
+import { systemSettings } from '@/routes';
+import { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { AlertCircle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useState } from 'react';
@@ -48,6 +50,13 @@ interface Props {
     settings: Setting[];
     mtls: MtlsStatus;
 }
+
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'System Settings - Manage system-wide configuration and preferences (Admin only)',
+        href: systemSettings().url,
+    },
+];
 
 export default function SystemSettings({ settings, mtls }: Props) {
     const [updating, setUpdating] = useState<string | null>(null);
@@ -299,20 +308,10 @@ export default function SystemSettings({ settings, mtls }: Props) {
     };
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="System Settings" />
 
             <div className="AdmiralSystemSettings flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">
-                        System Settings
-                    </h2>
-                    <p className="text-muted-foreground">
-                        Manage system-wide configuration and preferences. (Admin
-                        only)
-                    </p>
-                </div>
-
                 {/* Security Settings - mTLS Status */}
                 <Card>
                     <CardHeader>

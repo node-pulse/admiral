@@ -45,7 +45,7 @@ import { toast } from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'SSH Sessions',
+        title: 'SSH Sessions - View and manage SSH session history for all servers',
         href: sshSessionsRoute().url,
     },
 ];
@@ -260,17 +260,6 @@ export default function SshSessions() {
             <Head title="SSH Sessions" />
 
             <div className="AdmiralSSHSessions flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            SSH Sessions
-                        </h1>
-                        <p className="mt-2 text-muted-foreground">
-                            View and manage SSH session history for all servers
-                        </p>
-                    </div>
-                </div>
-
                 {/* Stats Cards */}
                 <div className="grid gap-4 md:grid-cols-4">
                     <Card>

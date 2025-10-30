@@ -67,7 +67,7 @@ import { ServerData } from '../types/servers';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Servers',
+        title: 'Servers - Manage your server fleet and SSH connections',
         href: serversRoute().url,
     },
 ];
@@ -229,14 +229,6 @@ function ServersContent() {
             <div className="AdmiralServers flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            Servers
-                        </h1>
-                        <p className="text-muted-foreground">
-                            Manage your server fleet and SSH connections
-                        </p>
-                    </div>
                     <div className="flex gap-2">
                         <Button
                             variant="outline"

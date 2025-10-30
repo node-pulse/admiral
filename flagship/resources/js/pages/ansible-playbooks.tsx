@@ -26,7 +26,7 @@ import * as YAML from 'yaml';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Ansible Playbooks',
+        title: 'Ansible Playbooks - Browse and view Ansible playbooks used for server deployments and configuration management',
         href: '/dashboard/ansible-playbooks',
     },
 ];
@@ -122,7 +122,8 @@ export default function AnsiblePlaybooks() {
                 YAML.parse(data.content);
                 setYamlError(null); // Clear any previous errors
             } catch (yamlError: any) {
-                const errorMessage = yamlError?.message || 'Unknown YAML parsing error';
+                const errorMessage =
+                    yamlError?.message || 'Unknown YAML parsing error';
                 setYamlError(errorMessage);
                 console.warn('Failed to parse YAML:', yamlError);
             }
@@ -240,18 +241,6 @@ export default function AnsiblePlaybooks() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Ansible Playbooks" />
             <div className="AnsiblePlaybooks flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            Ansible Playbooks
-                        </h1>
-                        <p className="mt-2 text-muted-foreground">
-                            Browse and view Ansible playbooks used for server
-                            deployments and configuration management
-                        </p>
-                    </div>
-                </div>
-
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Left: Directory Tree */}
                     <Card className="lg:col-span-1">
@@ -283,7 +272,10 @@ export default function AnsiblePlaybooks() {
                                     ? selectedFile.path
                                     : 'Select a file'}
                                 {yamlError && (
-                                    <Badge variant="destructive" className="ml-2">
+                                    <Badge
+                                        variant="destructive"
+                                        className="ml-2"
+                                    >
                                         Invalid YAML
                                     </Badge>
                                 )}
@@ -305,7 +297,9 @@ export default function AnsiblePlaybooks() {
                                                     YAML Parsing Error
                                                 </h3>
                                                 <p className="mt-1 text-sm text-destructive/90">
-                                                    This file contains invalid YAML syntax and may not work correctly with Ansible.
+                                                    This file contains invalid
+                                                    YAML syntax and may not work
+                                                    correctly with Ansible.
                                                 </p>
                                                 <pre className="mt-2 overflow-x-auto rounded-md bg-destructive/20 p-2 text-xs text-destructive">
                                                     {yamlError}

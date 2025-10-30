@@ -7,10 +7,24 @@ import {
 } from '@/components/ui/sidebar';
 import { resolveUrl } from '@/lib/utils';
 import { type NavSection } from '@/types';
-import { Link, usePage } from '@inertiajs/react';
+import { type InertiaLinkProps, Link, usePage } from '@inertiajs/react';
 
 export function NavMain({ sections = [] }: { sections: NavSection[] }) {
     const page = usePage();
+
+    const isActive = (href: NonNullable<InertiaLinkProps['href']>) => {
+        const resolvedUrl = resolveUrl(href);
+        const currentUrl = page.url;
+
+        // Exact match for root dashboard
+        if (resolvedUrl === '/dashboard') {
+            return currentUrl === '/dashboard';
+        }
+
+        // For other routes, use startsWith
+        return currentUrl.startsWith(resolvedUrl);
+    };
+
     return (
         <>
             {sections
@@ -25,9 +39,7 @@ export function NavMain({ sections = [] }: { sections: NavSection[] }) {
                                     <SidebarMenuItem key={item.title}>
                                         <SidebarMenuButton
                                             asChild
-                                            isActive={page.url.startsWith(
-                                                resolveUrl(item.href),
-                                            )}
+                                            isActive={isActive(item.href)}
                                             tooltip={{ children: item.title }}
                                         >
                                             <Link href={item.href} prefetch>

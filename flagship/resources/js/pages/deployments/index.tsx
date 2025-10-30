@@ -35,7 +35,7 @@ import { toast } from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Deployments',
+        title: 'Deployments - Deploy agents to your servers using Ansible',
         href: '/dashboard/deployments',
     },
 ];
@@ -204,14 +204,6 @@ export default function DeploymentsIndex() {
             <div className="AdmiralDeployments flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            Deployments
-                        </h1>
-                        <p className="mt-1 text-muted-foreground">
-                            Deploy agents to your servers using Ansible
-                        </p>
-                    </div>
                     <Button onClick={handleCreateDeployment}>
                         <Plus className="mr-2 h-4 w-4" />
                         New Deployment
