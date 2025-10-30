@@ -43,6 +43,46 @@
         msg: "Server {{ inventory_hostname }} is unreachable"
       when: connection_test is failed
 
+    - name: Install NTP for clock synchronization
+      apt:
+        name: ntp
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install chrony for clock synchronization (RHEL/CentOS)
+      yum:
+        name: chrony
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Ensure NTP service is running and enabled (Debian/Ubuntu)
+      systemd:
+        name: ntp
+        state: started
+        enabled: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure chrony service is running and enabled (RHEL/CentOS)
+      systemd:
+        name: chronyd
+        state: started
+        enabled: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Wait for NTP to sync (may take a few seconds)
+      pause:
+        seconds: 5
+
+    - name: Check NTP sync status (Debian/Ubuntu)
+      command: timedatectl
+      register: timedatectl_output
+      changed_when: false
+
+    - name: Display NTP sync status
+      debug:
+        msg: "{{ timedatectl_output.stdout_lines }}"
+
   roles:
     - role: ../../roles/nodepulse-agent
 
