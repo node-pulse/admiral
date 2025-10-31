@@ -70,11 +70,11 @@ buffer:
 
 # Logging configuration
 logging:
-  level: "{{ log_level }}"
+  level: "{{ log_level | default('info') }}"
   output: "{{ log_output | default('file') }}"
   file:
     path: "{{ agent_log_dir }}/nodepulse.log"
-    max_size_mb: {{ log_max_size_mb }}
-    max_backups: {{ log_max_backups }}
-    max_age_days: {{ log_max_age_days }}
+    max_size_mb: {{ log_max_size_mb | default(50) }}
+    max_backups: {{ log_max_backups | default(3) }}
+    max_age_days: {{ log_max_age_days | default(7) }}
     compress: {{ log_compress | default(true) | lower }}
