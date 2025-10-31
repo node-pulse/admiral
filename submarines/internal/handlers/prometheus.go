@@ -99,32 +99,24 @@ func NewPrometheusHandler(db *database.DB, valkeyClient *valkey.Client, validato
 
 // MetricSnapshotPayload represents the message published to Valkey Stream
 // This is the simplified format sent by agents after parsing Prometheus metrics
+// Phase 2: Includes exporter_name to distinguish between different metric sources
 type MetricSnapshotPayload struct {
-	ServerID string          `json:"server_id"`
-	Snapshot *MetricSnapshot `json:"snapshot"`
+	ServerID     string          `json:"server_id"`
+	ExporterName string          `json:"exporter_name"` // e.g., "node_exporter", "postgres_exporter"
+	Snapshot     *MetricSnapshot `json:"snapshot"`
 }
 
 // IngestPrometheusMetrics handles incoming simplified metric snapshots from agents
-// POST /metrics/prometheus
+// POST /metrics/prometheus?server_id=<uuid>
 // Content-Type: application/json
-// Body: MetricSnapshot JSON (39 fields pre-parsed by agent)
+// Body: Phase 2 grouped payload: { "node_exporter": [...], "postgres_exporter": [...] }
 //
 // This endpoint:
-// 1. Receives pre-parsed metric snapshot JSON from agent
-// 2. Publishes to Valkey Stream
-// 3. Digest workers consume and write to PostgreSQL metrics table (single row)
+// 1. Receives grouped payload from agent (multiple exporters, each with array of snapshots)
+// 2. Publishes each snapshot to Valkey Stream (one message per snapshot)
+// 3. Digest workers consume and write to PostgreSQL metrics table
 func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
-	// Parse JSON body containing metric snapshot
-	var snapshot MetricSnapshot
-	if err := c.ShouldBindJSON(&snapshot); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("invalid JSON format: %v", err),
-		})
-		return
-	}
-
-	// Get server_id from JSON body (agents include it in the snapshot)
-	// For backward compatibility, also check query parameter
+	// Get server_id from query parameter
 	serverIDStr := c.Query("server_id")
 	if serverIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "server_id query parameter is required"})
@@ -158,6 +150,15 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
+	// Parse Phase 2 grouped payload: { "node_exporter": [...], "postgres_exporter": [...] }
+	var groupedPayload map[string][]MetricSnapshot
+	if err := c.ShouldBindJSON(&groupedPayload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("invalid JSON format: %v", err),
+		})
+		return
+	}
+
 	// Check stream backpressure BEFORE processing
 	// If stream is backed up, reject new data immediately
 	streamLen, err := h.valkey.StreamLength(MetricsStreamKey)
@@ -177,37 +178,55 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
-	// Create payload for Valkey Stream
-	payload := MetricSnapshotPayload{
-		ServerID: serverID.String(),
-		Snapshot: &snapshot,
+	// Process each exporter's snapshots
+	totalPublished := 0
+	messageIDs := []string{}
+
+	for exporterName, snapshots := range groupedPayload {
+		for _, snapshot := range snapshots {
+			// Create payload for Valkey Stream
+			payload := MetricSnapshotPayload{
+				ServerID:     serverID.String(),
+				ExporterName: exporterName,
+				Snapshot:     &snapshot,
+			}
+
+			payloadJSON, err := json.Marshal(payload)
+			if err != nil {
+				log.Printf("ERROR: Failed to marshal snapshot payload: %v", err)
+				continue // Skip this snapshot, try next
+			}
+
+			// Publish to Valkey Stream
+			messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
+				"type":    "snapshot",
+				"payload": string(payloadJSON),
+			})
+			if err != nil {
+				log.Printf("ERROR: Failed to publish to stream: %v", err)
+				continue // Skip this snapshot, try next
+			}
+
+			messageIDs = append(messageIDs, messageID)
+			totalPublished++
+		}
 	}
 
-	payloadJSON, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("ERROR: Failed to marshal snapshot payload: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process metrics"})
+	if totalPublished == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to publish any metrics",
+		})
 		return
 	}
 
-	// Publish to Valkey Stream
-	messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
-		"type":    "snapshot",
-		"payload": string(payloadJSON),
-	})
-	if err != nil {
-		log.Printf("ERROR: Failed to publish to stream: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to publish metrics"})
-		return
-	}
-
-	log.Printf("INFO: Published metric snapshot to stream (message_id=%s, server_id=%s)",
-		messageID, serverID.String())
+	log.Printf("INFO: Published %d metric snapshot(s) to stream (server_id=%s)",
+		totalPublished, serverID.String())
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":     "success",
-		"message_id": messageID,
-		"server_id":  serverID.String(),
+		"status":          "success",
+		"snapshots":       totalPublished,
+		"server_id":       serverID.String(),
+		"first_message_id": messageIDs[0],
 	})
 }
 

@@ -158,8 +158,16 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 		return err
 	}
 
-	// Get server ID from payload (this is the server_id text field)
+	// Get server ID and exporter name from payload
 	serverID := payload.ServerID
+	exporterName := payload.ExporterName
+
+	// For now, only process node_exporter metrics
+	// Other exporters will be added when their tables are created
+	if exporterName != "node_exporter" {
+		log.Printf("[INFO] Skipping %s metrics (table not created yet)", exporterName)
+		return nil // Don't fail - just skip non-node_exporter metrics
+	}
 
 	// Snapshot is already parsed by the agent - no need to parse here
 	snapshot := payload.Snapshot
