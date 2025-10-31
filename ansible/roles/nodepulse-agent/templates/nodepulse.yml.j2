@@ -1,22 +1,15 @@
 # Node Pulse Agent Configuration
 # Deployed by Ansible on {{ ansible_date_time.iso8601 }}
 #
-# Architecture: Agent scrapes Prometheus exporters locally and pushes
-# parsed metrics to Submarines in simplified format (98% bandwidth reduction)
-
-# Prometheus scraper configuration
-scrapers:
-  prometheus:
-    enabled: true
-    endpoints:
-      - url: "http://127.0.0.1:9100/metrics"
-        name: "node_exporter"
-        interval: {{ agent_interval }}
+# Phase 2 Architecture: Multi-exporter support with independent intervals
+# - Each exporter runs in parallel with its own scrape interval
+# - Agent parses Prometheus metrics locally and pushes simplified format
+# - Smart batching groups multiple exporters into single HTTP requests
+# - 98% bandwidth reduction compared to raw Prometheus text
 
 # Server configuration
 server:
   endpoint: "{{ ingest_endpoint }}"
-  format: "prometheus"  # Send metrics in Prometheus format (parsed locally)
   timeout: {{ agent_timeout }}
 {% if tls_enabled | default(false) | bool %}
   tls:
@@ -30,19 +23,58 @@ server:
 # Agent behavior
 agent:
   server_id: "{{ agent_server_id_final }}"
-  interval: {{ agent_interval }}  # How often to scrape and push
+  interval: {{ agent_interval }}  # Default interval (fallback for exporters without explicit interval)
+
+# Prometheus Exporters Configuration
+# Phase 2: Multiple exporters with independent intervals (parallel scraping)
+exporters:
+  # Node Exporter - System metrics (CPU, memory, disk, network)
+  - name: node_exporter
+    enabled: true
+    endpoint: "http://127.0.0.1:9100/metrics"
+    interval: {{ agent_interval }}
+    timeout: {{ agent_timeout }}
+
+{% if postgres_exporter_enabled | default(false) | bool %}
+  # PostgreSQL Exporter - Database metrics
+  - name: postgres_exporter
+    enabled: true
+    endpoint: "http://127.0.0.1:9187/metrics"
+    interval: {{ postgres_exporter_interval | default('30s') }}
+    timeout: {{ postgres_exporter_timeout | default('5s') }}
+{% endif %}
+
+{% if mysql_exporter_enabled | default(false) | bool %}
+  # MySQL Exporter - Database metrics
+  - name: mysql_exporter
+    enabled: true
+    endpoint: "http://127.0.0.1:9104/metrics"
+    interval: {{ mysql_exporter_interval | default('30s') }}
+    timeout: {{ mysql_exporter_timeout | default('5s') }}
+{% endif %}
+
+{% if redis_exporter_enabled | default(false) | bool %}
+  # Redis Exporter - Cache metrics
+  - name: redis_exporter
+    enabled: true
+    endpoint: "http://127.0.0.1:9121/metrics"
+    interval: {{ redis_exporter_interval | default('15s') }}
+    timeout: {{ redis_exporter_timeout | default('3s') }}
+{% endif %}
 
 # Buffering (Write-Ahead Log for reliability)
 buffer:
-  enabled: {{ buffer_enabled | lower }}
+  path: "{{ buffer_path | default('/var/lib/nodepulse/buffer') }}"
   retention_hours: {{ buffer_retention_hours }}
-  max_size_mb: {{ buffer_max_size_mb }}
+  batch_size: {{ buffer_batch_size | default(10) }}
 
 # Logging configuration
 logging:
   level: "{{ log_level }}"
+  output: "{{ log_output | default('file') }}"
   file:
     path: "{{ agent_log_dir }}/nodepulse.log"
     max_size_mb: {{ log_max_size_mb }}
     max_backups: {{ log_max_backups }}
     max_age_days: {{ log_max_age_days }}
+    compress: {{ log_compress | default(true) | lower }}
