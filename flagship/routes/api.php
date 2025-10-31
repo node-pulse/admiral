@@ -4,6 +4,7 @@ use App\Http\Controllers\AnsiblePlaybooksController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeploymentsController;
+use App\Http\Controllers\ProcessController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth'])->group(function () {
@@ -11,6 +12,11 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/stats', [DashboardController::class, 'stats']);
         Route::get('/servers', [DashboardController::class, 'servers']);
         Route::get('/metrics', [DashboardController::class, 'metrics']);
+    });
+
+    // Process monitoring
+    Route::prefix('processes')->group(function () {
+        Route::get('/top', [ProcessController::class, 'top']);
     });
 
     Route::prefix('fleetops')->group(function () {

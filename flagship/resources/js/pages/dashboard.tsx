@@ -1,5 +1,6 @@
 import { DashboardStatsCard } from '@/components/dashboard/dashboard-stats-card';
 import { MetricsChart } from '@/components/servers/metrics-chart';
+import { ProcessList } from '@/components/servers/process-list';
 import { ServerSelector } from '@/components/servers/server-selector';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
@@ -105,6 +106,9 @@ export default function Dashboard() {
 
                     {/* Metrics Chart */}
                     <MetricsChart selectedServers={selectedServers} />
+
+                    {/* Top Processes */}
+                    <ProcessList selectedServers={selectedServers} />
                 </div>
             </div>
         </AppLayout>

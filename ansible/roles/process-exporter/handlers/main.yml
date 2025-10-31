@@ -1,0 +1,11 @@
+---
+# Process Exporter Handlers
+
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: restart process_exporter
+  systemd:
+    name: process_exporter
+    state: restarted

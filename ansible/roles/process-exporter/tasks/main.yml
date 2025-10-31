@@ -1,0 +1,107 @@
+---
+# Process Exporter Installation Tasks
+
+- name: Create process_exporter system user
+  user:
+    name: "{{ process_exporter_user }}"
+    system: yes
+    shell: /sbin/nologin
+    createhome: no
+    state: present
+
+- name: Create process_exporter directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ process_exporter_user }}"
+    group: "{{ process_exporter_group }}"
+    mode: '0755'
+  loop:
+    - "{{ process_exporter_install_dir }}"
+    - "{{ process_exporter_config_dir }}"
+
+- name: Check if process_exporter is already installed
+  stat:
+    path: "{{ process_exporter_bin_path }}"
+  register: process_exporter_binary
+
+- name: Get installed version
+  command: "{{ process_exporter_bin_path }} --version"
+  register: installed_version
+  changed_when: false
+  failed_when: false
+  when: process_exporter_binary.stat.exists
+
+- name: Download process_exporter
+  get_url:
+    url: "{{ process_exporter_download_url }}"
+    dest: "/tmp/process-exporter-{{ process_exporter_version }}.tar.gz"
+    mode: '0644'
+  when: not process_exporter_binary.stat.exists or process_exporter_version not in installed_version.stdout | default('')
+
+- name: Extract process_exporter archive
+  unarchive:
+    src: "/tmp/process-exporter-{{ process_exporter_version }}.tar.gz"
+    dest: "{{ process_exporter_install_dir }}"
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+    owner: "{{ process_exporter_user }}"
+    group: "{{ process_exporter_group }}"
+  when: not process_exporter_binary.stat.exists or process_exporter_version not in installed_version.stdout | default('')
+  notify: restart process_exporter
+
+- name: Create symlink to binary
+  file:
+    src: "{{ process_exporter_install_dir }}/process-exporter"
+    dest: "{{ process_exporter_bin_path }}"
+    state: link
+  when: not process_exporter_binary.stat.exists or process_exporter_version not in installed_version.stdout | default('')
+
+- name: Deploy process_exporter configuration
+  template:
+    src: config.yml.j2
+    dest: "{{ process_exporter_config_file }}"
+    owner: "{{ process_exporter_user }}"
+    group: "{{ process_exporter_group }}"
+    mode: '0644'
+  notify: restart process_exporter
+
+- name: Deploy systemd service
+  template:
+    src: process_exporter.service.j2
+    dest: /etc/systemd/system/process_exporter.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart process_exporter
+
+- name: Enable and start process_exporter service
+  systemd:
+    name: process_exporter
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Wait for process_exporter to be ready
+  wait_for:
+    host: "{{ process_exporter_listen_address }}"
+    port: "{{ process_exporter_listen_port }}"
+    timeout: 30
+    msg: "process_exporter did not start within 30 seconds"
+
+- name: Verify process_exporter metrics endpoint
+  uri:
+    url: "http://{{ process_exporter_listen_address }}:{{ process_exporter_listen_port }}/metrics"
+    method: GET
+    status_code: 200
+  register: metrics_check
+  retries: 3
+  delay: 5
+  until: metrics_check.status == 200
+
+- name: Clean up downloaded archive
+  file:
+    path: "/tmp/process-exporter-{{ process_exporter_version }}.tar.gz"
+    state: absent

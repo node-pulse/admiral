@@ -1,0 +1,36 @@
+[Unit]
+Description=Process Exporter - Prometheus exporter for process metrics
+Documentation=https://github.com/ncabatoff/process-exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ process_exporter_user }}
+Group={{ process_exporter_group }}
+ExecStart={{ process_exporter_bin_path }} \
+  --web.listen-address={{ process_exporter_listen_address }}:{{ process_exporter_listen_port }} \
+  --config.path={{ process_exporter_config_file }} \
+{% if process_exporter_children | default(true) | bool %}
+  --children={{ process_exporter_children | lower }} \
+{% endif %}
+{% if process_exporter_threads | default(true) | bool %}
+  --threads={{ process_exporter_threads | lower }} \
+{% endif %}
+{% if not (process_exporter_smaps | default(false) | bool) %}
+  --namemapping= \
+{% endif %}
+{% if not (process_exporter_recheck | default(false) | bool) %}
+  --recheck={{ process_exporter_recheck | lower }} \
+{% endif %}
+{% for flag in process_exporter_extra_flags | default([]) %}
+  {{ flag }} \
+{% endfor %}
+
+SyslogIdentifier=process_exporter
+Restart=always
+RestartSec=5s
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -162,16 +162,6 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 	serverID := payload.ServerID
 	exporterName := payload.ExporterName
 
-	// For now, only process node_exporter metrics
-	// Other exporters will be added when their tables are created
-	if exporterName != "node_exporter" {
-		log.Printf("[INFO] Skipping %s metrics (table not created yet)", exporterName)
-		return nil // Don't fail - just skip non-node_exporter metrics
-	}
-
-	// Snapshot is already parsed by the agent - no need to parse here
-	snapshot := payload.Snapshot
-
 	// Start transaction
 	tx, err := db.Begin()
 	if err != nil {
@@ -179,9 +169,47 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 	}
 	defer tx.Rollback()
 
-	// Insert single row into metrics table with all parsed metrics
-	if err := insertMetricSnapshot(tx, serverID, snapshot); err != nil {
-		return err
+	// Route to appropriate handler based on exporter type
+	switch exporterName {
+	case "node_exporter":
+		// Insert single row into metrics table with all parsed metrics
+		if err := insertMetricSnapshot(tx, serverID, payload.Snapshot); err != nil {
+			return err
+		}
+
+	case "process_exporter":
+		// Process_exporter sends a different payload structure
+		// Need to re-parse from the payload
+		var processPayload struct {
+			Snapshot *handlers.ProcessExporterSnapshot `json:"snapshot"`
+		}
+
+		// Re-marshal and unmarshal to get the correct type
+		// This is a workaround since payload.Snapshot is typed as MetricSnapshot
+		payloadBytes, _ := json.Marshal(map[string]interface{}{
+			"server_id":     payload.ServerID,
+			"exporter_name": payload.ExporterName,
+			"snapshot":      payload.Snapshot,
+		})
+
+		var rawPayload map[string]json.RawMessage
+		if err := json.Unmarshal(payloadBytes, &rawPayload); err != nil {
+			return fmt.Errorf("failed to parse process_exporter payload: %w", err)
+		}
+
+		var processSnapshot handlers.ProcessExporterSnapshot
+		if err := json.Unmarshal(rawPayload["snapshot"], &processSnapshot); err != nil {
+			return fmt.Errorf("failed to parse process snapshot: %w", err)
+		}
+
+		// Insert process snapshots
+		if err := insertProcessSnapshots(tx, serverID, &processSnapshot); err != nil {
+			return err
+		}
+
+	default:
+		log.Printf("[INFO] Skipping %s metrics (handler not implemented yet)", exporterName)
+		return nil // Don't fail - just skip unknown exporters
 	}
 
 	// Update server's last_seen_at timestamp to mark it as online
@@ -318,6 +346,48 @@ func updateServerLastSeen(tx *sql.Tx, serverID string) error {
 		log.Printf("[WARN] Server %s not found in database, last_seen_at not updated", serverID)
 	}
 
+	return nil
+}
+
+// insertProcessSnapshots inserts multiple process snapshots into the process_snapshots table
+func insertProcessSnapshots(tx *sql.Tx, serverID string, snapshot *handlers.ProcessExporterSnapshot) error {
+	if len(snapshot.Processes) == 0 {
+		return nil // Nothing to insert
+	}
+
+	query := `
+		INSERT INTO admiral.process_snapshots (
+			server_id,
+			timestamp,
+			process_name,
+			num_procs,
+			cpu_seconds_total,
+			memory_bytes
+		) VALUES ($1, $2, $3, $4, $5, $6)
+	`
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	// Insert each process snapshot
+	for _, process := range snapshot.Processes {
+		_, err := stmt.Exec(
+			serverID,
+			snapshot.Timestamp,
+			process.Name,
+			process.NumProcs,
+			process.CPUSecondsTotal,
+			process.MemoryBytes,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to insert process %s: %w", process.Name, err)
+		}
+	}
+
+	log.Printf("[DEBUG] Inserted %d process snapshots for server %s", len(snapshot.Processes), serverID)
 	return nil
 }
 

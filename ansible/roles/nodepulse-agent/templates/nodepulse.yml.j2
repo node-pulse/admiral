@@ -35,6 +35,15 @@ exporters:
     interval: {{ agent_interval }}
     timeout: {{ agent_timeout }}
 
+{% if process_exporter_enabled | default(false) | bool %}
+  # Process Exporter - Per-process metrics (CPU, memory by process name)
+  - name: process_exporter
+    enabled: true
+    endpoint: "http://127.0.0.1:9256/metrics"
+    interval: {{ process_exporter_interval | default(agent_interval) }}
+    timeout: {{ process_exporter_timeout | default(agent_timeout) }}
+{% endif %}
+
 {% if postgres_exporter_enabled | default(false) | bool %}
   # PostgreSQL Exporter - Database metrics
   - name: postgres_exporter

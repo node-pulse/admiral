@@ -1,0 +1,30 @@
+---
+galaxy_info:
+  role_name: process-exporter
+  author: NodePulse Team
+  description: Install and configure Prometheus process_exporter
+  license: MIT
+  min_ansible_version: '2.9'
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: EL
+      versions:
+        - '8'
+        - '9'
+
+  galaxy_tags:
+    - monitoring
+    - prometheus
+    - exporter
+    - processes
+    - metrics
+
+dependencies: []

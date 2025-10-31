@@ -1,0 +1,29 @@
+# Process Exporter Configuration
+# Deployed by Ansible on {{ ansible_date_time.iso8601 }}
+#
+# This configuration tracks all processes grouped by command name
+# Provides per-process metrics: CPU, memory, count
+# Used by NodePulse to show "Top 10 Processes" in dashboard
+
+process_names:
+{% if process_exporter_track_all | default(true) | bool %}
+  # Track all processes grouped by command name (comm)
+  # This captures everything running on the system
+  - name: "{% raw %}{{.Comm}}{% endraw %}"
+    cmdline: []
+{% endif %}
+
+{% if process_exporter_process_names is defined %}
+# Custom process groups
+{% for process in process_exporter_process_names %}
+  - name: "{{ process.name }}"
+{% if process.cmdline is defined and process.cmdline | length > 0 %}
+    cmdline:
+{% for cmd in process.cmdline %}
+      - "{{ cmd }}"
+{% endfor %}
+{% else %}
+    cmdline: []
+{% endif %}
+{% endfor %}
+{% endif %}

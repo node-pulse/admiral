@@ -83,6 +83,21 @@ type MetricSnapshot struct {
 	UptimeSeconds int64 `json:"uptime_seconds"`
 }
 
+// ProcessSnapshot represents a single process group metric snapshot from process_exporter
+type ProcessSnapshot struct {
+	Timestamp       time.Time `json:"timestamp"`
+	Name            string    `json:"name"`              // Process name (groupname)
+	NumProcs        int       `json:"num_procs"`         // Number of processes
+	CPUSecondsTotal float64   `json:"cpu_seconds_total"` // Total CPU time (counter)
+	MemoryBytes     int64     `json:"memory_bytes"`      // Resident memory (RSS)
+}
+
+// ProcessExporterSnapshot represents the full payload from process_exporter
+type ProcessExporterSnapshot struct {
+	Timestamp time.Time         `json:"timestamp"`
+	Processes []ProcessSnapshot `json:"processes"`
+}
+
 type PrometheusHandler struct {
 	db        *database.DB
 	valkey    *valkey.Client
