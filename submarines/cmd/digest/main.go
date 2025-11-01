@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"database/sql"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,10 +22,26 @@ import (
 const (
 	streamKey     = handlers.MetricsStreamKey
 	consumerGroup = "submarines-digest"
-	consumerName  = "digest-1"
-	batchSize     = 10
-	idleSleep     = 5 // seconds to sleep when no messages
+	batchSize     = 100 // Process up to 100 messages per read
+	idleSleep     = 5   // seconds to sleep when no messages
 )
+
+var (
+	// Generate unique consumer name for horizontal scaling
+	consumerName = getConsumerName()
+)
+
+func getConsumerName() string {
+	// Use hostname (Docker container ID in containerized environments)
+	hostname, err := os.Hostname()
+	if err != nil || hostname == "" {
+		// Fallback to random hex ID if hostname unavailable
+		b := make([]byte, 4)
+		rand.Read(b)
+		hostname = fmt.Sprintf("%x", b)
+	}
+	return fmt.Sprintf("digest-%s", hostname)
+}
 
 // No longer need allowedMetrics filter - we parse and extract only essential metrics
 // The parser in parsers.ParsePrometheusMetricsToSnapshot() handles metric selection
@@ -142,82 +158,78 @@ func processMessages(ctx context.Context, valkeyClient *valkey.Client, db *datab
 }
 
 func processMessage(db *database.DB, msg valkey.StreamMessage) error {
-	// Extract payload from stream message
+	// Extract server_id and raw payload from stream message (new simplified format)
+	serverID, ok := msg.Fields["server_id"]
+	if !ok {
+		return fmt.Errorf("missing server_id in message")
+	}
+
 	payloadJSON, ok := msg.Fields["payload"]
 	if !ok {
-		return nil // Skip malformed messages
+		return fmt.Errorf("missing payload in message")
 	}
 
-	// All messages are Prometheus format
-	return processPrometheusMessage(db, payloadJSON)
+	// Parse and process the raw payload
+	return processRawPayload(db, serverID, payloadJSON)
 }
 
-func processPrometheusMessage(db *database.DB, payloadJSON string) error {
-	// Deserialize metric snapshot payload (pre-parsed by agent)
-	var payload handlers.MetricSnapshotPayload
-	if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
-		return err
+func processRawPayload(db *database.DB, serverID string, payloadJSON string) error {
+	// Parse grouped payload: { "node_exporter": [...], "process_exporter": [...] }
+	var groupedPayload map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(payloadJSON), &groupedPayload); err != nil {
+		return fmt.Errorf("invalid JSON payload: %w", err)
 	}
 
-	// Get server ID and exporter name from payload
-	serverID := payload.ServerID
-	exporterName := payload.ExporterName
+	// Process each exporter type (NO TRANSACTION - process individually)
+	for exporterName, rawData := range groupedPayload {
+		log.Printf("[DEBUG] Processing %s for server %s", exporterName, serverID)
 
-	// Start transaction
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+		switch exporterName {
+		case "node_exporter":
+			// Parse node_exporter snapshots
+			var snapshots []handlers.MetricSnapshot
+			if err := json.Unmarshal(rawData, &snapshots); err != nil {
+				log.Printf("[ERROR] Failed to parse node_exporter data: %v", err)
+				continue // Skip this exporter, don't fail entire message
+			}
 
-	// Route to appropriate handler based on exporter type
-	log.Printf("[DEBUG] Processing %s metrics for server %s", exporterName, serverID)
-	switch exporterName {
-	case "node_exporter":
-		// Insert single row into metrics table with all parsed metrics
-		if err := insertMetricSnapshot(tx, serverID, payload.Snapshot); err != nil {
-			return err
+			// Insert each snapshot
+			for _, snapshot := range snapshots {
+				if err := insertMetricSnapshotDirect(db, serverID, &snapshot); err != nil {
+					log.Printf("[ERROR] Failed to insert node_exporter snapshot: %v", err)
+					// Continue processing other snapshots
+				}
+			}
+
+		case "process_exporter":
+			// Parse process_exporter snapshots
+			var processSnapshots []handlers.ProcessSnapshot
+			if err := json.Unmarshal(rawData, &processSnapshots); err != nil {
+				log.Printf("[ERROR] Failed to parse process_exporter data: %v", err)
+				continue
+			}
+
+			log.Printf("[DEBUG] Batch inserting %d process snapshots", len(processSnapshots))
+			if err := insertProcessSnapshotsBatchDirect(db, serverID, processSnapshots); err != nil {
+				log.Printf("[ERROR] Failed to insert process snapshots: %v", err)
+				// Continue processing other exporters
+			}
+
+		default:
+			log.Printf("[WARN] Unknown exporter type: %s", exporterName)
 		}
-
-	case "process_exporter":
-		log.Printf("[DEBUG] Processing process_exporter snapshots (batch)")
-		// Process_exporter sends payload like: {"server_id":"...", "exporter_name":"...", "snapshots":[...]}
-		// Parse directly from payloadJSON instead of using struct (which has wrong type)
-		var rawPayload map[string]json.RawMessage
-		if err := json.Unmarshal([]byte(payloadJSON), &rawPayload); err != nil {
-			return fmt.Errorf("failed to parse process_exporter payload: %w", err)
-		}
-
-		var processSnapshots []handlers.ProcessSnapshot
-		if err := json.Unmarshal(rawPayload["snapshots"], &processSnapshots); err != nil {
-			return fmt.Errorf("failed to parse process snapshots: %w", err)
-		}
-
-		log.Printf("[DEBUG] Batch inserting %d process snapshots", len(processSnapshots))
-		// Batch insert all process snapshots at once
-		if err := insertProcessSnapshotsBatch(tx, serverID, processSnapshots); err != nil {
-			return fmt.Errorf("failed to batch insert process snapshots: %w", err)
-		}
-		log.Printf("[SUCCESS] Inserted %d process snapshots in batch", len(processSnapshots))
-
-	default:
-		log.Printf("[INFO] Skipping %s metrics (handler not implemented yet)", exporterName)
-		return nil // Don't fail - just skip unknown exporters
 	}
 
-	// Update server's last_seen_at timestamp to mark it as online
-	// This allows the dashboard to show the server as "Online" when metrics are flowing
-	if err := updateServerLastSeen(tx, serverID); err != nil {
+	// Update server's last_seen_at timestamp
+	if err := updateServerLastSeenDirect(db, serverID); err != nil {
 		log.Printf("[WARN] Failed to update last_seen_at for server %s: %v", serverID, err)
-		// Don't fail the entire transaction if this update fails
-		// Metrics are more important than the online status
 	}
 
-	// Commit transaction
-	return tx.Commit()
+	return nil
 }
 
-func insertMetricSnapshot(tx *sql.Tx, serverID string, snapshot *handlers.MetricSnapshot) error {
+// insertMetricSnapshotDirect inserts without transaction (for simplified batch processing)
+func insertMetricSnapshotDirect(db *database.DB, serverID string, snapshot *handlers.MetricSnapshot) error {
 	query := `
 		INSERT INTO admiral.metrics (
 			server_id,
@@ -269,7 +281,7 @@ func insertMetricSnapshot(tx *sql.Tx, serverID string, snapshot *handlers.Metric
 		)
 	`
 
-	_, err := tx.Exec(query,
+	_, err := db.DB.Exec(query,
 		serverID,
 		snapshot.Timestamp,
 		snapshot.CPUIdleSeconds,
@@ -316,16 +328,16 @@ func insertMetricSnapshot(tx *sql.Tx, serverID string, snapshot *handlers.Metric
 	return err
 }
 
-// updateServerLastSeen updates the server's last_seen_at timestamp
-// This is used to determine if a server is "online" in the dashboard
-func updateServerLastSeen(tx *sql.Tx, serverID string) error {
+
+// updateServerLastSeenDirect updates without transaction (for simplified batch processing)
+func updateServerLastSeenDirect(db *database.DB, serverID string) error {
 	query := `
 		UPDATE admiral.servers
 		SET last_seen_at = NOW(), updated_at = NOW()
 		WHERE server_id = $1
 	`
 
-	result, err := tx.Exec(query, serverID)
+	result, err := db.DB.Exec(query, serverID)
 	if err != nil {
 		return fmt.Errorf("failed to update last_seen_at: %w", err)
 	}
@@ -342,44 +354,13 @@ func updateServerLastSeen(tx *sql.Tx, serverID string) error {
 	return nil
 }
 
-// insertProcessSnapshot inserts a single process snapshot into the process_snapshots table
-func insertProcessSnapshot(tx *sql.Tx, serverID string, snapshot *handlers.ProcessSnapshot) error {
-	query := `
-		INSERT INTO admiral.process_snapshots (
-			server_id,
-			timestamp,
-			process_name,
-			num_procs,
-			cpu_seconds_total,
-			memory_bytes
-		) VALUES ($1, $2, $3, $4, $5, $6)
-	`
-
-	_, err := tx.Exec(
-		query,
-		serverID,
-		snapshot.Timestamp,
-		snapshot.Name,
-		snapshot.NumProcs,
-		snapshot.CPUSecondsTotal,
-		snapshot.MemoryBytes,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to insert process %s: %w", snapshot.Name, err)
-	}
-
-	return nil
-}
-
-// insertProcessSnapshotsBatch performs bulk insert of multiple process snapshots
-// Uses PostgreSQL multi-row VALUES syntax for optimal performance
-func insertProcessSnapshotsBatch(tx *sql.Tx, serverID string, snapshots []handlers.ProcessSnapshot) error {
+// insertProcessSnapshotsBatchDirect performs bulk insert without transaction
+func insertProcessSnapshotsBatchDirect(db *database.DB, serverID string, snapshots []handlers.ProcessSnapshot) error {
 	if len(snapshots) == 0 {
 		return nil
 	}
 
 	// Build bulk INSERT query with multiple VALUES
-	// INSERT INTO table (...) VALUES ($1,$2,$3), ($4,$5,$6), ...
 	query := `
 		INSERT INTO admiral.process_snapshots (
 			server_id,
@@ -393,7 +374,7 @@ func insertProcessSnapshotsBatch(tx *sql.Tx, serverID string, snapshots []handle
 
 	// Build VALUES clauses and args array
 	values := []string{}
-	args := []interface{}{}
+	args := []any{}
 
 	for i, snapshot := range snapshots {
 		// Each row has 6 parameters
@@ -416,7 +397,7 @@ func insertProcessSnapshotsBatch(tx *sql.Tx, serverID string, snapshots []handle
 	query += strings.Join(values, ", ")
 
 	// Execute bulk insert
-	_, err := tx.Exec(query, args...)
+	_, err := db.DB.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to batch insert %d process snapshots: %w", len(snapshots), err)
 	}

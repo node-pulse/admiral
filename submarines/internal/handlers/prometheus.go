@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,7 +15,7 @@ import (
 
 const (
 	MetricsStreamKey = "nodepulse:metrics:stream"
-	MaxStreamBacklog = 10000 // Reject new metrics if stream has more than this many pending
+	MaxStreamBacklog = 50000 // Reject new metrics if stream has more than this many pending
 )
 
 // MetricSnapshot represents a parsed snapshot of all essential metrics
@@ -119,12 +118,12 @@ type MetricSnapshotPayload struct {
 // IngestPrometheusMetrics handles incoming simplified metric snapshots from agents
 // POST /metrics/prometheus?server_id=<uuid>
 // Content-Type: application/json
-// Body: Phase 2 grouped payload: { "node_exporter": [...], "postgres_exporter": [...] }
+// Body: Raw JSON payload from agent (any structure)
 //
-// This endpoint:
-// 1. Receives grouped payload from agent (multiple exporters, each with array of snapshots)
-// 2. Publishes each snapshot to Valkey Stream (one message per snapshot)
-// 3. Digest workers consume and write to PostgreSQL metrics table
+// This endpoint (SIMPLIFIED):
+// 1. Validates server_id and checks stream backlog
+// 2. Pushes raw payload to Valkey Stream (NO parsing)
+// 3. Digest workers handle parsing and database writes
 func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 	// Get server_id from query parameter
 	serverIDStr := c.Query("server_id")
@@ -143,7 +142,6 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 	}
 
 	// Validate server_id exists in database (with Valkey caching)
-	// This runs REGARDLESS of mTLS state - it's an independent security layer
 	exists, err := h.validator.ValidateServerID(c.Request.Context(), serverID.String())
 	if err != nil {
 		log.Printf("ERROR: Server ID validation failed: %v", err)
@@ -160,25 +158,7 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
-	// Parse Phase 2 grouped payload using json.RawMessage for flexibility
-	// Supports: { "node_exporter": [...], "process_exporter": [...] }
-	var groupedPayload map[string]json.RawMessage
-	if err := c.ShouldBindJSON(&groupedPayload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("invalid JSON format: %v", err),
-		})
-		return
-	}
-
-	// Log all exporters present in the payload
-	exporterNames := make([]string, 0, len(groupedPayload))
-	for name := range groupedPayload {
-		exporterNames = append(exporterNames, name)
-	}
-	log.Printf("DEBUG: Received payload with exporters: %v from server_id=%s", exporterNames, serverID.String())
-
 	// Check stream backpressure BEFORE processing
-	// If stream is backed up, reject new data immediately
 	streamLen, err := h.valkey.StreamLength(MetricsStreamKey)
 	if err != nil {
 		log.Printf("ERROR: Failed to check stream length: %v", err)
@@ -196,110 +176,34 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
-	// Process each exporter's snapshots
-	totalPublished := 0
-	messageIDs := []string{}
-
-	log.Printf("INFO: Processing grouped payload with %d exporter(s) from server_id=%s", len(groupedPayload), serverID.String())
-	for exporterName, rawSnapshots := range groupedPayload {
-		log.Printf("INFO: Processing exporter: %s (payload size: %d bytes)", exporterName, len(rawSnapshots))
-		switch exporterName {
-		case "node_exporter":
-			// Parse node_exporter snapshots (array of MetricSnapshot)
-			var snapshots []MetricSnapshot
-			if err := json.Unmarshal(rawSnapshots, &snapshots); err != nil {
-				log.Printf("ERROR: Failed to parse node_exporter payload: %v", err)
-				continue
-			}
-
-			for _, snapshot := range snapshots {
-				payload := MetricSnapshotPayload{
-					ServerID:     serverID.String(),
-					ExporterName: exporterName,
-					Snapshot:     &snapshot,
-				}
-
-				payloadJSON, err := json.Marshal(payload)
-				if err != nil {
-					log.Printf("ERROR: Failed to marshal node_exporter snapshot: %v", err)
-					continue
-				}
-
-				messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
-					"type":    "snapshot",
-					"payload": string(payloadJSON),
-				})
-				if err != nil {
-					log.Printf("ERROR: Failed to publish to stream: %v", err)
-					continue
-				}
-
-				messageIDs = append(messageIDs, messageID)
-				totalPublished++
-			}
-
-		case "process_exporter":
-			// Parse process_exporter snapshots (flat array of ProcessSnapshot)
-			var processSnapshots []ProcessSnapshot
-			if err := json.Unmarshal(rawSnapshots, &processSnapshots); err != nil {
-				log.Printf("ERROR: Failed to parse process_exporter payload: %v", err)
-				continue
-			}
-
-			log.Printf("INFO: Parsed %d process snapshot(s) from process_exporter", len(processSnapshots))
-			// Debug: log first snapshot to see what data we're getting
-			if len(processSnapshots) > 0 {
-				log.Printf("DEBUG: First process snapshot: name=%s, num_procs=%d, cpu=%.2f, mem=%d",
-					processSnapshots[0].Name, processSnapshots[0].NumProcs,
-					processSnapshots[0].CPUSecondsTotal, processSnapshots[0].MemoryBytes)
-			}
-
-			// Publish ALL process snapshots as a single message (batch insert optimization)
-			// Instead of 100+ messages, send 1 message with array of snapshots
-			payloadMap := map[string]any{
-				"server_id":     serverID.String(),
-				"exporter_name": exporterName,
-				"snapshots":     processSnapshots, // Array of all snapshots
-			}
-
-			payloadJSON, err := json.Marshal(payloadMap)
-			if err != nil {
-				log.Printf("ERROR: Failed to marshal process_exporter snapshots: %v", err)
-				continue
-			}
-
-			messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
-				"type":    "snapshots", // Changed from "snapshot" to "snapshots"
-				"payload": string(payloadJSON),
-			})
-			if err != nil {
-				log.Printf("ERROR: Failed to publish to stream: %v", err)
-				continue
-			}
-
-			messageIDs = append(messageIDs, messageID)
-			totalPublished++
-
-		default:
-			log.Printf("WARN: Unknown exporter type: %s", exporterName)
-		}
-	}
-
-	if totalPublished == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to publish any metrics",
+	// Read raw body (no parsing/validation)
+	rawPayload, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("failed to read request body: %v", err),
 		})
 		return
 	}
 
-	log.Printf("INFO: Published %d metric snapshot(s) to stream (server_id=%s)",
-		totalPublished, serverID.String())
+	// Push to stream as-is with server_id and timestamp
+	messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
+		"server_id": serverID.String(),
+		"payload":   string(rawPayload),
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	})
+	if err != nil {
+		log.Printf("ERROR: Failed to publish to stream: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to queue metrics"})
+		return
+	}
+
+	log.Printf("INFO: Queued payload from server_id=%s (size=%d bytes, message_id=%s)",
+		serverID.String(), len(rawPayload), messageID)
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":          "success",
-		"snapshots":       totalPublished,
-		"server_id":       serverID.String(),
-		"first_message_id": messageIDs[0],
+		"status":     "queued",
+		"server_id":  serverID.String(),
+		"message_id": messageID,
 	})
 }
 
