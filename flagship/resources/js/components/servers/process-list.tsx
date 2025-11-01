@@ -108,12 +108,13 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
     return (
         <Card>
             <CardHeader>
-                <div className="flex items-center justify-between">
-                    <CardTitle>
-                        Top 10 Processes by{' '}
-                        {metric === 'cpu' ? 'CPU' : 'Memory'}
-                    </CardTitle>
-                    <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                        <CardTitle>
+                            Top 10 Processes by{' '}
+                            {metric === 'cpu' ? 'CPU' : 'Memory'}
+                        </CardTitle>
+                        <div className="flex items-center gap-4">
                         <Tabs
                             value={metric}
                             onValueChange={(value) =>
@@ -142,6 +143,10 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
                         </Select>
                     </div>
                 </div>
+                <p className="text-sm text-muted-foreground">
+                    Note: Linux truncates process names to 15 characters
+                </p>
+            </div>
             </CardHeader>
             <CardContent>
                 {loading ? (
