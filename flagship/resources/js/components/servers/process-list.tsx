@@ -6,7 +6,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Table,
     TableBody,
@@ -15,6 +14,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEffect, useState } from 'react';
 
 interface ProcessListProps {
@@ -38,7 +38,7 @@ const TIME_RANGES = [
 
 export function ProcessList({ selectedServers }: ProcessListProps) {
     const [timeRange, setTimeRange] = useState('1');
-    const [metric, setMetric] = useState<'cpu' | 'memory'>('cpu');
+    const [metric, setMetric] = useState<'cpu' | 'memory'>('memory');
     const [processes, setProcesses] = useState<ProcessData[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -110,7 +110,8 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle>
-                        Top 10 Processes by {metric === 'cpu' ? 'CPU' : 'Memory'}
+                        Top 10 Processes by{' '}
+                        {metric === 'cpu' ? 'CPU' : 'Memory'}
                     </CardTitle>
                     <div className="flex items-center gap-4">
                         <Tabs
@@ -152,7 +153,8 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
                 ) : processes.length === 0 ? (
                     <div className="flex h-64 items-center justify-center">
                         <p className="text-muted-foreground">
-                            No process data available for the selected time range
+                            No process data available for the selected time
+                            range
                         </p>
                     </div>
                 ) : (
@@ -161,10 +163,18 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
                             <TableRow>
                                 <TableHead className="w-[50px]">#</TableHead>
                                 <TableHead>Process Name</TableHead>
-                                <TableHead className="text-right">Count</TableHead>
-                                <TableHead className="text-right">Avg CPU</TableHead>
-                                <TableHead className="text-right">Avg Memory</TableHead>
-                                <TableHead className="text-right">Peak Memory</TableHead>
+                                <TableHead className="text-right">
+                                    Count
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Avg CPU
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Avg Memory
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Peak Memory
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
