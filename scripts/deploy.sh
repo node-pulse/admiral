@@ -329,13 +329,14 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     echo ""
 
-    # Database connection
-    prompt_config "DB_CONNECTION" "pgsql" "Database driver (pgsql/mysql/sqlite)"
+    # Database connection (fixed to PostgreSQL)
+    CONFIG["DB_CONNECTION"]="pgsql"
 
     # These reference PostgreSQL values
     CONFIG["DB_DATABASE"]="${CONFIG[POSTGRES_DB]}"
     CONFIG["DB_USERNAME"]="${CONFIG[POSTGRES_USER]}"
 
+    echo -e "${CYAN}DB_CONNECTION set to pgsql (PostgreSQL only)${NC}"
     echo -e "${CYAN}DB_DATABASE and DB_USERNAME auto-set from PostgreSQL config${NC}"
     echo ""
 
