@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Select,
@@ -105,6 +104,8 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
             }
 
             const data = await response.json();
+
+            // Backend now returns calculated values - no processing needed!
             setMetricsData(data.metrics);
         } catch (error) {
             console.error('Failed to fetch metrics:', error);
@@ -116,6 +117,13 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
     // Align timestamp to 15-second boundary for consistent chart display
     const alignTimestampTo15Seconds = (timestamp: string): string => {
         const date = new Date(timestamp);
+
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            console.error('Invalid timestamp:', timestamp);
+            return new Date().toISOString(); // Fallback to current time
+        }
+
         const seconds = date.getSeconds();
         const alignedSeconds = Math.floor(seconds / 15) * 15;
 
@@ -215,7 +223,7 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         // Sort by timestamp (oldest to newest for proper line chart display)
         return Array.from(timestampMap.entries())
             .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-            .map(([_, value]) => value);
+            .map(([, value]) => value);
     };
 
     const chartData = transformDataForChart();

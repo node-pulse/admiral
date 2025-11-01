@@ -168,11 +168,10 @@ class DashboardController extends Controller
             }
         }
 
-        // Sort all unique timestamps
+        // Sort all unique timestamps (no artificial limit - already filtered by timestamp in queries)
         $sortedTimestamps = collect(array_keys($allTimestamps))
             ->sort()
             ->reverse()
-            ->take(1000)
             ->values();
 
         // Second pass: fill in data for each server using unified timeline
@@ -213,9 +212,8 @@ class DashboardController extends Controller
 
 
     /**
-     * Get CPU metrics for multiple servers in a single query
-     * Uses LAG() window function to calculate CPU usage from counter deltas
-     * Returns: ['server_id_text' => [datapoints...]]
+     * Get CPU metrics - SIMPLE CALCULATION
+     * Calculate percentage directly in SQL using LAG for deltas
      */
     private function getCpuMetricsBatch(array $serverIdTexts, $startTime)
     {
@@ -226,61 +224,53 @@ class DashboardController extends Controller
         $placeholders = implode(',', array_fill(0, count($serverIdTexts), '?'));
         $params = array_merge($serverIdTexts, [$startTime->toDateTimeString()]);
 
-        // With simplified schema: calculate CPU usage from raw counter values
-        // Formula: 100 - (idle_seconds / total_seconds * 100)
+        // Aggregate to 1-minute intervals for smoother charts
         $sql = "
-            WITH with_previous AS (
+            WITH minute_buckets AS (
                 SELECT
                     server_id,
-                    timestamp,
-                    cpu_idle_seconds,
-                    cpu_user_seconds,
-                    cpu_system_seconds,
-                    cpu_iowait_seconds,
-                    cpu_steal_seconds,
-                    cpu_cores,
-                    LAG(timestamp) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_ts,
-                    LAG(cpu_idle_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_idle,
-                    LAG(cpu_user_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_user,
-                    LAG(cpu_system_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_system,
-                    LAG(cpu_iowait_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_iowait,
-                    LAG(cpu_steal_seconds) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_steal
+                    date_trunc('minute', timestamp) as minute,
+                    AVG(cpu_cores) as cpu_cores,
+                    MAX(cpu_user_seconds) as cpu_user_seconds,
+                    MAX(cpu_system_seconds) as cpu_system_seconds,
+                    MAX(cpu_iowait_seconds) as cpu_iowait_seconds,
+                    MAX(cpu_steal_seconds) as cpu_steal_seconds
                 FROM admiral.metrics
                 WHERE server_id IN ($placeholders)
                     AND timestamp >= ?
-                ORDER BY server_id, timestamp
+                GROUP BY server_id, date_trunc('minute', timestamp)
+            ),
+            deltas AS (
+                SELECT
+                    server_id,
+                    minute as timestamp,
+                    cpu_cores,
+                    cpu_user_seconds - LAG(cpu_user_seconds) OVER (PARTITION BY server_id ORDER BY minute) as user_delta,
+                    cpu_system_seconds - LAG(cpu_system_seconds) OVER (PARTITION BY server_id ORDER BY minute) as system_delta,
+                    cpu_iowait_seconds - LAG(cpu_iowait_seconds) OVER (PARTITION BY server_id ORDER BY minute) as iowait_delta,
+                    cpu_steal_seconds - LAG(cpu_steal_seconds) OVER (PARTITION BY server_id ORDER BY minute) as steal_delta,
+                    EXTRACT(EPOCH FROM (minute - LAG(minute) OVER (PARTITION BY server_id ORDER BY minute))) as time_delta
+                FROM minute_buckets
             )
             SELECT
                 server_id,
                 timestamp,
                 CASE
-                    WHEN prev_idle IS NOT NULL THEN
-                        CASE
-                            WHEN ((cpu_idle_seconds - prev_idle) +
-                                  (cpu_user_seconds - prev_user) +
-                                  (cpu_system_seconds - prev_system) +
-                                  (cpu_iowait_seconds - prev_iowait) +
-                                  (cpu_steal_seconds - prev_steal)) > 0 THEN
-                                GREATEST(0, LEAST(100,
-                                    100 - ((cpu_idle_seconds - prev_idle) /
-                                          ((cpu_idle_seconds - prev_idle) +
-                                           (cpu_user_seconds - prev_user) +
-                                           (cpu_system_seconds - prev_system) +
-                                           (cpu_iowait_seconds - prev_iowait) +
-                                           (cpu_steal_seconds - prev_steal)) * 100)
-                                ))
-                            ELSE 0
-                        END
+                    -- Only calculate if time_delta is reasonable (30-120 seconds for 1-min buckets)
+                    WHEN time_delta BETWEEN 30 AND 120
+                        AND cpu_cores > 0
+                        AND user_delta >= 0 AND system_delta >= 0 AND iowait_delta >= 0 AND steal_delta >= 0
+                    THEN
+                        LEAST(100, (user_delta + system_delta + iowait_delta + steal_delta) / cpu_cores / time_delta * 100)
                     ELSE NULL
                 END as cpu_usage_percent
-            FROM with_previous
-            WHERE prev_idle IS NOT NULL
+            FROM deltas
+            WHERE time_delta IS NOT NULL
             ORDER BY server_id, timestamp DESC
         ";
 
         $results = \DB::select($sql, $params);
 
-        // Group by server_id
         $resultsByServer = [];
         foreach ($results as $row) {
             if (!isset($resultsByServer[$row->server_id])) {
@@ -397,9 +387,8 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get network metrics for multiple servers in a single query
-     * Uses LAG() window function to calculate throughput from counter deltas
-     * Returns: ['server_id_text' => [datapoints...]]
+     * Get network metrics - SIMPLE CALCULATION
+     * Calculate Mbps directly in SQL using LAG for deltas
      */
     private function getNetworkMetricsBatch(array $serverIdTexts, $startTime)
     {
@@ -410,36 +399,45 @@ class DashboardController extends Controller
         $placeholders = implode(',', array_fill(0, count($serverIdTexts), '?'));
         $params = array_merge($serverIdTexts, [$startTime->toDateTimeString()]);
 
+        // Aggregate to 1-minute intervals for smoother charts
         $sql = "
-            WITH with_previous AS (
+            WITH minute_buckets AS (
                 SELECT
                     server_id,
-                    timestamp,
-                    network_receive_bytes_total,
-                    network_transmit_bytes_total,
-                    LAG(timestamp) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_ts,
-                    LAG(network_receive_bytes_total) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_rx,
-                    LAG(network_transmit_bytes_total) OVER (PARTITION BY server_id ORDER BY timestamp) as prev_tx
+                    date_trunc('minute', timestamp) as minute,
+                    MAX(network_receive_bytes_total) as network_receive_bytes_total,
+                    MAX(network_transmit_bytes_total) as network_transmit_bytes_total
                 FROM admiral.metrics
                 WHERE server_id IN ($placeholders)
                     AND timestamp >= ?
-                ORDER BY server_id, timestamp
+                GROUP BY server_id, date_trunc('minute', timestamp)
+            ),
+            deltas AS (
+                SELECT
+                    server_id,
+                    minute as timestamp,
+                    network_receive_bytes_total - LAG(network_receive_bytes_total) OVER (PARTITION BY server_id ORDER BY minute) as rx_delta,
+                    network_transmit_bytes_total - LAG(network_transmit_bytes_total) OVER (PARTITION BY server_id ORDER BY minute) as tx_delta,
+                    EXTRACT(EPOCH FROM (minute - LAG(minute) OVER (PARTITION BY server_id ORDER BY minute))) as time_delta
+                FROM minute_buckets
             )
             SELECT
                 server_id,
                 timestamp,
                 CASE
-                    WHEN prev_rx IS NOT NULL AND prev_tx IS NOT NULL AND prev_ts IS NOT NULL THEN
-                        (network_receive_bytes_total - prev_rx) / GREATEST(1, EXTRACT(EPOCH FROM (timestamp - prev_ts)))
+                    -- Only calculate if time_delta is reasonable (30-120 seconds for 1-min buckets)
+                    WHEN time_delta BETWEEN 30 AND 120 AND rx_delta >= 0
+                    THEN (rx_delta / time_delta * 8 / 1024 / 1024)
                     ELSE NULL
-                END as download_bps,
+                END as network_download_mbps,
                 CASE
-                    WHEN prev_rx IS NOT NULL AND prev_tx IS NOT NULL AND prev_ts IS NOT NULL THEN
-                        (network_transmit_bytes_total - prev_tx) / GREATEST(1, EXTRACT(EPOCH FROM (timestamp - prev_ts)))
+                    -- Only calculate if time_delta is reasonable (30-120 seconds for 1-min buckets)
+                    WHEN time_delta BETWEEN 30 AND 120 AND tx_delta >= 0
+                    THEN (tx_delta / time_delta * 8 / 1024 / 1024)
                     ELSE NULL
-                END as upload_bps
-            FROM with_previous
-            WHERE prev_rx IS NOT NULL AND prev_tx IS NOT NULL
+                END as network_upload_mbps
+            FROM deltas
+            WHERE time_delta IS NOT NULL
             ORDER BY server_id, timestamp DESC
         ";
 
@@ -451,11 +449,11 @@ class DashboardController extends Controller
                 $resultsByServer[$row->server_id] = [];
             }
 
-            if ($row->download_bps !== null && $row->upload_bps !== null) {
+            if ($row->network_download_mbps !== null && $row->network_upload_mbps !== null) {
                 $resultsByServer[$row->server_id][] = [
                     'timestamp' => $row->timestamp,
-                    'network_download_mbps' => round((float)$row->download_bps / 1024 / 1024, 2),
-                    'network_upload_mbps' => round((float)$row->upload_bps / 1024 / 1024, 2),
+                    'network_download_mbps' => round((float)$row->network_download_mbps, 2),
+                    'network_upload_mbps' => round((float)$row->network_upload_mbps, 2),
                 ];
             }
         }
