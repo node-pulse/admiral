@@ -170,6 +170,13 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
+	// Log all exporters present in the payload
+	exporterNames := make([]string, 0, len(groupedPayload))
+	for name := range groupedPayload {
+		exporterNames = append(exporterNames, name)
+	}
+	log.Printf("DEBUG: Received payload with exporters: %v from server_id=%s", exporterNames, serverID.String())
+
 	// Check stream backpressure BEFORE processing
 	// If stream is backed up, reject new data immediately
 	streamLen, err := h.valkey.StreamLength(MetricsStreamKey)
@@ -193,7 +200,9 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 	totalPublished := 0
 	messageIDs := []string{}
 
+	log.Printf("INFO: Processing grouped payload with %d exporter(s) from server_id=%s", len(groupedPayload), serverID.String())
 	for exporterName, rawSnapshots := range groupedPayload {
+		log.Printf("INFO: Processing exporter: %s (payload size: %d bytes)", exporterName, len(rawSnapshots))
 		switch exporterName {
 		case "node_exporter":
 			// Parse node_exporter snapshots (array of MetricSnapshot)
@@ -237,33 +246,39 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 				continue
 			}
 
-			// Publish each process snapshot individually (same as node_exporter pattern)
-			for _, processSnapshot := range processSnapshots {
-				// Create payload structure that digest can parse
-				payloadMap := map[string]any{
-					"server_id":     serverID.String(),
-					"exporter_name": exporterName,
-					"snapshot":      processSnapshot,
-				}
-
-				payloadJSON, err := json.Marshal(payloadMap)
-				if err != nil {
-					log.Printf("ERROR: Failed to marshal process_exporter snapshot: %v", err)
-					continue
-				}
-
-				messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
-					"type":    "snapshot",
-					"payload": string(payloadJSON),
-				})
-				if err != nil {
-					log.Printf("ERROR: Failed to publish to stream: %v", err)
-					continue
-				}
-
-				messageIDs = append(messageIDs, messageID)
-				totalPublished++
+			log.Printf("INFO: Parsed %d process snapshot(s) from process_exporter", len(processSnapshots))
+			// Debug: log first snapshot to see what data we're getting
+			if len(processSnapshots) > 0 {
+				log.Printf("DEBUG: First process snapshot: name=%s, num_procs=%d, cpu=%.2f, mem=%d",
+					processSnapshots[0].Name, processSnapshots[0].NumProcs,
+					processSnapshots[0].CPUSecondsTotal, processSnapshots[0].MemoryBytes)
 			}
+
+			// Publish ALL process snapshots as a single message (batch insert optimization)
+			// Instead of 100+ messages, send 1 message with array of snapshots
+			payloadMap := map[string]any{
+				"server_id":     serverID.String(),
+				"exporter_name": exporterName,
+				"snapshots":     processSnapshots, // Array of all snapshots
+			}
+
+			payloadJSON, err := json.Marshal(payloadMap)
+			if err != nil {
+				log.Printf("ERROR: Failed to marshal process_exporter snapshots: %v", err)
+				continue
+			}
+
+			messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
+				"type":    "snapshots", // Changed from "snapshot" to "snapshots"
+				"payload": string(payloadJSON),
+			})
+			if err != nil {
+				log.Printf("ERROR: Failed to publish to stream: %v", err)
+				continue
+			}
+
+			messageIDs = append(messageIDs, messageID)
+			totalPublished++
 
 		default:
 			log.Printf("WARN: Unknown exporter type: %s", exporterName)

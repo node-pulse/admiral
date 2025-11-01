@@ -568,3 +568,4 @@ DIGEST_ID=digest-2 go run cmd/digest/main.go
 - **Project**: Node Pulse Agent Fleet Management
 - **Status**: Development / MVP
 - **License**: MIT
+- use @compose.development.yml

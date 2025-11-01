@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -170,6 +171,7 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 	defer tx.Rollback()
 
 	// Route to appropriate handler based on exporter type
+	log.Printf("[DEBUG] Processing %s metrics for server %s", exporterName, serverID)
 	switch exporterName {
 	case "node_exporter":
 		// Insert single row into metrics table with all parsed metrics
@@ -178,29 +180,25 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 		}
 
 	case "process_exporter":
-		// Process_exporter sends individual ProcessSnapshot (not wrapped)
-		// Re-marshal and unmarshal to get the correct type
-		// This is needed since payload.Snapshot is typed as MetricSnapshot
-		payloadBytes, _ := json.Marshal(map[string]any{
-			"server_id":     payload.ServerID,
-			"exporter_name": payload.ExporterName,
-			"snapshot":      payload.Snapshot,
-		})
-
+		log.Printf("[DEBUG] Processing process_exporter snapshots (batch)")
+		// Process_exporter sends payload like: {"server_id":"...", "exporter_name":"...", "snapshots":[...]}
+		// Parse directly from payloadJSON instead of using struct (which has wrong type)
 		var rawPayload map[string]json.RawMessage
-		if err := json.Unmarshal(payloadBytes, &rawPayload); err != nil {
+		if err := json.Unmarshal([]byte(payloadJSON), &rawPayload); err != nil {
 			return fmt.Errorf("failed to parse process_exporter payload: %w", err)
 		}
 
-		var processSnapshot handlers.ProcessSnapshot
-		if err := json.Unmarshal(rawPayload["snapshot"], &processSnapshot); err != nil {
-			return fmt.Errorf("failed to parse process snapshot: %w", err)
+		var processSnapshots []handlers.ProcessSnapshot
+		if err := json.Unmarshal(rawPayload["snapshots"], &processSnapshots); err != nil {
+			return fmt.Errorf("failed to parse process snapshots: %w", err)
 		}
 
-		// Insert single process snapshot
-		if err := insertProcessSnapshot(tx, serverID, &processSnapshot); err != nil {
-			return err
+		log.Printf("[DEBUG] Batch inserting %d process snapshots", len(processSnapshots))
+		// Batch insert all process snapshots at once
+		if err := insertProcessSnapshotsBatch(tx, serverID, processSnapshots); err != nil {
+			return fmt.Errorf("failed to batch insert process snapshots: %w", err)
 		}
+		log.Printf("[SUCCESS] Inserted %d process snapshots in batch", len(processSnapshots))
 
 	default:
 		log.Printf("[INFO] Skipping %s metrics (handler not implemented yet)", exporterName)
@@ -368,6 +366,59 @@ func insertProcessSnapshot(tx *sql.Tx, serverID string, snapshot *handlers.Proce
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert process %s: %w", snapshot.Name, err)
+	}
+
+	return nil
+}
+
+// insertProcessSnapshotsBatch performs bulk insert of multiple process snapshots
+// Uses PostgreSQL multi-row VALUES syntax for optimal performance
+func insertProcessSnapshotsBatch(tx *sql.Tx, serverID string, snapshots []handlers.ProcessSnapshot) error {
+	if len(snapshots) == 0 {
+		return nil
+	}
+
+	// Build bulk INSERT query with multiple VALUES
+	// INSERT INTO table (...) VALUES ($1,$2,$3), ($4,$5,$6), ...
+	query := `
+		INSERT INTO admiral.process_snapshots (
+			server_id,
+			timestamp,
+			process_name,
+			num_procs,
+			cpu_seconds_total,
+			memory_bytes
+		) VALUES
+	`
+
+	// Build VALUES clauses and args array
+	values := []string{}
+	args := []interface{}{}
+
+	for i, snapshot := range snapshots {
+		// Each row has 6 parameters
+		paramOffset := i * 6
+		values = append(values, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)",
+			paramOffset+1, paramOffset+2, paramOffset+3,
+			paramOffset+4, paramOffset+5, paramOffset+6))
+
+		args = append(args,
+			serverID,
+			snapshot.Timestamp,
+			snapshot.Name,
+			snapshot.NumProcs,
+			snapshot.CPUSecondsTotal,
+			snapshot.MemoryBytes,
+		)
+	}
+
+	// Concatenate VALUES clauses
+	query += strings.Join(values, ", ")
+
+	// Execute bulk insert
+	_, err := tx.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to batch insert %d process snapshots: %w", len(snapshots), err)
 	}
 
 	return nil
