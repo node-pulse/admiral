@@ -3,6 +3,7 @@
 ## ⚠️ CRITICAL RULES
 
 **DATABASE ACCESS: READ ONLY**
+
 - You have READ ONLY permission to the database
 - NEVER run UPDATE, DELETE, INSERT, DROP, ALTER, TRUNCATE, or any other modification commands
 - ALWAYS ask the user for explicit permission before suggesting database modifications
@@ -108,12 +109,14 @@ node_exporter (localhost:9100) → Agent parses locally → Sends 39 metrics (1K
 ### Agent-Side Parsing
 
 Agents scrape Prometheus exporters (like `node_exporter`) and **parse metrics locally**:
+
 - Extracts only 39 essential metrics
 - Aggregates CPU metrics across all cores
 - Selects primary network interface and disk
 - Sends compact JSON payload (~1KB instead of 61KB)
 
 **Benefits:**
+
 - **98.32% bandwidth reduction** (61KB → 1KB per scrape)
 - **99.8% database reduction** (1100+ rows → 1 row per scrape)
 - **10-30x faster queries** (direct column access vs JSONB parsing)
@@ -196,6 +199,7 @@ CREATE INDEX idx_metrics_server_created ON admiral.metrics(server_id, created_at
 ```
 
 **Key Features:**
+
 - Stores raw counter values (not percentages) for maximum flexibility
 - Dashboard calculates percentages using LAG() window functions
 - No foreign keys (application-level relationships for better performance)
@@ -384,13 +388,13 @@ scrapers:
 # Server configuration
 server:
   endpoint: "https://dashboard.example.com/metrics/prometheus"
-  format: "prometheus"  # Sends parsed JSON in Prometheus format
+  format: "prometheus" # Sends parsed JSON in Prometheus format
   timeout: 10s
 
 # Agent behavior
 agent:
   server_id: "auto-generated-uuid"
-  interval: 15s  # How often to scrape and push
+  interval: 15s # How often to scrape and push
 
 # Buffering (Write-Ahead Log for reliability)
 buffer:
@@ -568,4 +572,4 @@ DIGEST_ID=digest-2 go run cmd/digest/main.go
 - **Project**: Node Pulse Agent Fleet Management
 - **Status**: Development / MVP
 - **License**: MIT
-- use @compose.development.yml
+- use @compose.development.yml for any development stuff

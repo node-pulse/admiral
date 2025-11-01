@@ -9,41 +9,100 @@ Node Pulse uses a **push-based** approach where agents actively send metrics to 
 ### Key Benefits
 
 1. **Firewall-Friendly**: Agents can push metrics through firewalls, NAT, and network restrictions without requiring inbound ports to be exposed. This makes it ideal for:
+
    - Agents behind corporate firewalls
    - Servers with strict security policies
    - Cloud instances without public IPs
    - Edge devices with dynamic IPs
 
 2. **Built-in Reliability**: Each agent has a local buffer that stores metrics when the dashboard is unreachable, ensuring:
+
    - No data loss during network outages or dashboard maintenance
    - Automatic retry with exponential backoff
    - Up to 48 hours of buffered metrics (configurable)
 
 3. **Simplified Network Configuration**: No need to:
+
    - Open inbound firewall rules on monitored servers
    - Configure service discovery mechanisms
    - Maintain allowlists of scraper IPs
    - Set up VPN tunnels for monitoring access
 
-4. **Real-time Data**: Metrics arrive as soon as they're collected (5-second default interval), providing:
+4. **Real-time Data**: Metrics arrive as soon as they're collected (15-second default interval), providing:
+
    - Immediate visibility into system state
    - Faster incident detection and response
    - No scrape interval delays
 
 5. **Scalability**: The dashboard scales independently from the number of agents:
+
    - Valkey Streams buffer incoming metrics during traffic spikes
    - Multiple digest workers process metrics in parallel
+   - Horizontal scaling based on stream lag
    - No need to manage scrape scheduling and intervals
+
+6. **Efficient Data Model**: Agent-side parsing with simplified metrics:
+   - **98.32% bandwidth reduction** (61KB → 1KB per scrape)
+   - **99.8% database reduction** (1100+ rows → 1 row per scrape)
+   - **10-30x faster queries** with direct column access
+   - Distributed parsing load (offloaded to agents, not central server)
 
 ## Architecture
 
-This project uses Docker Compose to orchestrate multiple services:
+Node Pulse Admiral uses a **push-based metrics pipeline** with Docker Compose orchestration:
 
-- **Submarines (Go-Gin)**: High-performance metrics ingestion pipeline (ingest, digest, status, sshws services)
-- **Flagship (Laravel 12)**: Web dashboard and management UI with Inertia.js + React frontend
-- **PostgreSQL 18**: Main database with admiral schema
-- **Valkey**: Redis-compatible in-memory data store for message streams, caching, and sessions
-- **Caddy**: Modern reverse proxy and web server with automatic HTTPS
+### Metrics Data Flow
+
+```
+node_exporter (:9100) and process_exporter (:9256)
+    │
+    │ scrapes (HTTP)
+    ▼
+Node Pulse Agent - parses & extracts 39 metrics, WAL buffer
+Node Pulse Agent - parses & extracts top N processes, WAL buffer
+    │
+    │ pushes JSON via HTTPS POST
+    ▼
+Submarines Ingest (:8080) - validates & publishes
+    │
+    │ streams to Valkey
+    ▼
+Valkey Streams (:6379) - message buffer & backpressure
+    │
+    │ consumes (batch of 100)
+    ▼
+Submarines Digest (worker) - batch insert
+    │
+    │ INSERT query
+    ▼
+PostgreSQL (:5432) - admiral.metrics + admiral.process_snapshots
+```
+
+### Component Architecture
+
+**Submarines (Go) - Metrics Pipeline**
+
+- **Ingest** (:8080) - Receives metrics from agents, publishes to Valkey Stream (~5ms response)
+- **Digest** (worker) - Consumes from stream, batch writes to PostgreSQL
+- **Status** (:8081) - Public status pages and health badges (read-only)
+- **Deployer** (worker) - Executes Ansible playbooks for agent deployment
+- **SSH WS** (:6001) - WebSocket terminal for server access
+
+**Flagship (Laravel + React) - Management UI**
+
+- Web dashboard with real-time charts (:9000 dev, :8000 via Caddy)
+- Server management and configuration
+- User authentication (Laravel Fortify)
+- API endpoints for metrics and processes
+
+**Data Layer**
+
+- **PostgreSQL 18** - Admiral schema (metrics, servers, users, alerts)
+- **Valkey** - Message streams, caching, sessions (Redis-compatible)
+
+**Reverse Proxy**
+
+- **Caddy** - Routes requests, automatic HTTPS in production
 
 ## Roadmap
 
@@ -82,6 +141,7 @@ sudo ./deploy.sh
 ```
 
 The deployment script will:
+
 - Guide you through configuration
 - Set up mTLS certificates automatically
 - Pull pre-built Docker images
@@ -119,11 +179,23 @@ make up           # Start services
    # Edit .env with your settings
    ```
 
-3. **Start services** (development mode, no mTLS):
+3. **Start services** (development mode):
 
    ```bash
    docker compose -f compose.development.yml up -d
    ```
+
+   This starts all services:
+
+   - PostgreSQL (port 5432)
+   - Valkey (port 6379)
+   - Submarines Ingest (port 8080)
+   - Submarines Status (port 8081)
+   - Submarines SSH WS (port 6001)
+   - Submarines Digest (background worker)
+   - Submarines Deployer (background worker)
+   - Flagship (port 9000 + Vite HMR on 5173)
+   - Caddy (port 8000)
 
    **Or** (production mode, with mTLS):
 
@@ -134,35 +206,46 @@ make up           # Start services
 4. **Check service status**:
 
    ```bash
-   make status
-   # or
-   docker compose ps
+   docker compose -f compose.development.yml ps
    ```
 
 5. **View logs**:
+
    ```bash
-   make logs
-   # or
-   docker compose logs -f
+   docker compose -f compose.development.yml logs -f
+
+   # Or specific service
+   docker compose -f compose.development.yml logs -f submarines-ingest
+   docker compose -f compose.development.yml logs -f flagship
    ```
 
 ## Service URLs
 
-Once all services are running:
+Once all services are running (development mode):
 
-- **Flagship (Admin Dashboard)**: http://localhost (via Caddy)
-- **Submarines Ingest**: http://localhost:8080
-- **Submarines Status**: http://localhost:8082
+- **Caddy Reverse Proxy**: http://localhost:8000 (routes to Flagship)
+- **Flagship (Admin Dashboard)**: http://localhost:9000 (direct access)
+- **Vite Dev Server** (HMR): http://localhost:5173
+- **Submarines Ingest**: http://localhost:8080 (metrics endpoint)
+- **Submarines Status**: http://localhost:8081 (public status pages)
+- **Submarines SSH WS**: http://localhost:6001 (WebSocket terminal)
 - **PostgreSQL**: localhost:5432
 - **Valkey**: localhost:6379
-- **Vite Dev Server** (development): http://localhost:5173
 
 ## Database Schema
 
 The PostgreSQL database uses a single **admiral** schema for all application data (shared by Submarines and Flagship):
 
 - `servers`: Server/agent registry
-- `metrics`: Time-series metrics data
+- `metrics`: **Simplified metrics** - 39 essential metrics per row (98% bandwidth reduction vs raw Prometheus)
+  - CPU: 6 fields (raw counter values)
+  - Memory: 7 fields (bytes)
+  - Swap: 3 fields (bytes)
+  - Disk: 8 fields (bytes and I/O counters)
+  - Network: 8 fields (counters for primary interface)
+  - System: 3 load average fields
+  - Processes: 3 fields
+  - Uptime: 1 field
 - `alerts`: Alert records
 - `alert_rules`: Alert rule configurations
 - `users`: User accounts (Laravel Fortify authentication)
@@ -171,47 +254,62 @@ The PostgreSQL database uses a single **admiral** schema for all application dat
 - `private_keys`: SSH private keys for server access
 - `settings`: Application settings
 
+### Metrics Architecture
+
+Node Pulse uses **agent-side parsing** for efficient metrics collection:
+
+1. **node_exporter** runs on each server (localhost:9100)
+2. **Node Pulse Agent** scrapes node_exporter locally
+3. **Agent parses** Prometheus metrics and extracts 39 essential fields
+4. **Agent sends compact JSON** (~1KB) to Submarines
+5. **Submarines** writes to PostgreSQL (1 row per scrape)
+
+**Benefits:**
+
+- 98.32% bandwidth reduction (61KB → 1KB)
+- 99.8% database reduction (1100+ rows → 1 row)
+- 10-30x faster queries (direct column access vs JSONB)
+- Distributed parsing load (offloaded to agents)
+
 ## API Endpoints
 
 ### Metrics Ingestion
 
-Agents send metrics to:
+**Primary Endpoint:**
 
 ```
-POST http://your-domain/metrics
+POST http://your-domain/metrics/prometheus
 ```
 
-Example payload (matches Node Pulse agent format):
+Accepts simplified metrics format with 39 essential fields (agent-side parsed from Prometheus exporters).
+
+**Request Format:**
 
 ```json
 {
-  "timestamp": "2025-10-13T14:30:00Z",
-  "server_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "hostname": "server-01",
-  "system_info": {
-    "hostname": "server-01",
-    "kernel": "Linux",
-    "kernel_version": "5.15.0-89-generic",
-    "distro": "Ubuntu",
-    "distro_version": "22.04.3 LTS",
-    "architecture": "amd64",
-    "cpu_cores": 8
-  },
-  "cpu": {
-    "usage_percent": 45.2
-  },
-  "memory": {
-    "used_mb": 2048,
-    "total_mb": 8192,
-    "usage_percent": 25.0
-  },
-  "network": {
-    "upload_bytes": 1024000,
-    "download_bytes": 2048000
-  },
-  "uptime": {
-    "days": 15.5
-  }
+  "node_exporter": [
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "cpu_idle_seconds": 7184190.53,
+      "cpu_iowait_seconds": 295.19,
+      "cpu_system_seconds": 2979.08,
+      "cpu_user_seconds": 7293.29,
+      "cpu_steal_seconds": 260.7,
+      "cpu_cores": 4,
+      "memory_total_bytes": 8326443008,
+      "memory_available_bytes": 7920050176,
+      ... (39 total fields)
+    }
+  ],
+  "process_exporter": [
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "name": "nginx",
+      "num_procs": 4,
+      "cpu_seconds_total": 1234.56,
+      "memory_bytes": 104857600
+    }
+  ]
 }
 ```
 
@@ -219,25 +317,76 @@ Example payload (matches Node Pulse agent format):
 
 - `GET /api/servers` - List all servers
 - `GET /api/servers/:id/metrics` - Get metrics for a specific server
+- `GET /api/processes/top` - Get top N processes by CPU or memory
+- `GET /health` - Health check endpoint
 
 ## Configuring Node Pulse Agents
 
-Update your Node Pulse agent configuration (`/etc/node-pulse/nodepulse.yml`):
+The recommended deployment uses **node_exporter** + **Node Pulse Agent** with agent-side parsing:
+
+### Architecture
+
+```
+node_exporter (localhost:9100) → Agent parses locally → Sends 39 metrics (1KB JSON) → Submarines
+```
+
+### Agent Configuration
+
+Update your Node Pulse agent configuration (`/etc/nodepulse/nodepulse.yml`):
 
 ```yaml
+# Prometheus scraper configuration
+scrapers:
+  prometheus:
+    enabled: true
+    endpoints:
+      - url: "http://127.0.0.1:9100/metrics"
+        name: "node_exporter"
+        interval: 15s
+
+# Server configuration
 server:
-  endpoint: "http://your-dashboard-domain/metrics"
-  timeout: 3s
+  endpoint: "https://your-dashboard-domain/metrics/prometheus"
+  format: "prometheus" # Sends parsed JSON in Prometheus format
+  timeout: 10s
 
+# Agent behavior
 agent:
-  server_id: "00000000-0000-0000-0000-000000000000" # Auto-generated if not set
-  interval: 5s
+  server_id: "auto-generated-uuid"
+  interval: 15s # How often to scrape and push
 
+# Buffering (Write-Ahead Log for reliability)
 buffer:
   enabled: true
-  path: "/var/lib/node-pulse/buffer"
   retention_hours: 48
+  max_size_mb: 100
+
+# Logging
+logging:
+  level: "info"
+  file: "/var/log/nodepulse/nodepulse.log"
+  max_size_mb: 50
+  max_backups: 3
+  max_age_days: 7
 ```
+
+### Deployment via Ansible
+
+Use the included Ansible playbooks to deploy both node_exporter and the agent:
+
+```bash
+# 1. Deploy node_exporter (must be deployed first)
+ansible-playbook ansible/playbooks/prometheus/deploy-node-exporter.yml -i inventory.yml
+
+# 2. Deploy Node Pulse Agent
+# Production (with mTLS):
+ansible-playbook ansible/playbooks/nodepulse/deploy-agent-mtls.yml -i inventory.yml
+
+# Development (no mTLS):
+ansible-playbook ansible/playbooks/nodepulse/deploy-agent-no-mtls.yml -i inventory.yml
+```
+
+See `ansible/playbooks/nodepulse/QUICK_START.md` for detailed deployment instructions.
 
 ## Development
 
@@ -321,34 +470,26 @@ export default function Example({ data }) {
 Route::get('/example', [ExampleController::class, 'index']);
 ```
 
-## Accessing pgweb
-
-pgweb provides a web-based interface to browse and query the PostgreSQL database:
-
-1. Open http://localhost:8081
-2. Connection is pre-configured via `DATABASE_URL` environment variable
-3. Navigate between schemas using the schema selector
-
 ## Stopping Services
 
 ```bash
-# Stop all services
-docker compose down
+# Stop all services (development)
+docker compose -f compose.development.yml down
 
 # Stop and remove volumes (WARNING: This deletes all data)
-docker compose down -v
+docker compose -f compose.development.yml down -v
 ```
 
 ## Updating Services
 
 ```bash
-# Rebuild and restart a specific service
-docker compose up -d --build submarines-ingest
-docker compose up -d --build submarines-digest
-docker compose up -d --build flagship
+# Rebuild and restart a specific service (development)
+docker compose -f compose.development.yml up -d --build submarines-ingest
+docker compose -f compose.development.yml up -d --build submarines-digest
+docker compose -f compose.development.yml up -d --build flagship
 
 # Rebuild all services
-docker compose up -d --build
+docker compose -f compose.development.yml up -d --build
 ```
 
 ## Troubleshooting
@@ -358,11 +499,12 @@ docker compose up -d --build
 Check logs for specific services:
 
 ```bash
-docker compose logs submarines-ingest
-docker compose logs submarines-digest
-docker compose logs flagship
-docker compose logs postgres
-docker compose logs valkey
+docker compose -f compose.development.yml logs submarines-ingest
+docker compose -f compose.development.yml logs submarines-digest
+docker compose -f compose.development.yml logs submarines-deployer
+docker compose -f compose.development.yml logs flagship
+docker compose -f compose.development.yml logs postgres
+docker compose -f compose.development.yml logs valkey
 ```
 
 ### Database connection issues
@@ -370,27 +512,27 @@ docker compose logs valkey
 1. Ensure PostgreSQL is healthy:
 
    ```bash
-   docker compose ps postgres
+   docker compose -f compose.development.yml ps postgres
    ```
 
 2. Check database logs:
 
    ```bash
-   docker compose logs postgres
+   docker compose -f compose.development.yml logs postgres
    ```
 
-3. Verify connection from backend:
+3. Verify connection from Submarines:
    ```bash
-   docker compose exec submarines sh
+   docker compose -f compose.development.yml exec submarines-ingest sh
    # Inside container:
-   # Try connecting to postgres
+   # Check if postgres is reachable on port 5432
    ```
 
 ### Valkey connection issues
 
 ```bash
-docker compose logs valkey
-docker compose exec valkey valkey-cli ping
+docker compose -f compose.development.yml logs valkey
+docker compose -f compose.development.yml exec valkey valkey-cli --raw incr ping
 ```
 
 ### Flagship (Laravel) issues
@@ -398,18 +540,21 @@ docker compose exec valkey valkey-cli ping
 1. Check Laravel application logs:
 
    ```bash
-   docker compose logs flagship
+   docker compose -f compose.development.yml logs flagship
+   # Or check mounted logs
+   tail -f logs/flagship/laravel.log
    ```
 
 2. Access Laravel container:
 
    ```bash
-   docker compose exec flagship bash
+   docker compose -f compose.development.yml exec flagship bash
    php artisan about  # Show Laravel environment info
    ```
 
 3. Check frontend build:
    ```bash
+   # Inside flagship container
    npm run build  # Production build
    npm run dev    # Development with hot reload
    ```
@@ -419,13 +564,24 @@ docker compose exec valkey valkey-cli ping
 1. Check if Vite dev server is running:
 
    ```bash
-   docker compose logs flagship | grep vite
+   docker compose -f compose.development.yml logs flagship | grep vite
    ```
 
 2. Ensure Submarines API is accessible:
    ```bash
    curl http://localhost:8080/health
    ```
+
+### Valkey Streams issues
+
+Check stream lag (how many messages are waiting to be processed):
+
+```bash
+docker compose -f compose.development.yml exec valkey valkey-cli \
+  --raw XPENDING nodepulse:metrics:stream nodepulse-workers
+```
+
+If lag is high, consider scaling digest workers.
 
 ## Production Deployment
 
