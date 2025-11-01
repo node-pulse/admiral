@@ -1,0 +1,62 @@
+---
+# Ansible Playbook: Complete Process Monitoring Setup
+#
+# Usage:
+#   ansible-playbook playbooks/prometheus/deploy-process-monitoring.yml -i inventory.yml
+#
+# This playbook orchestrates:
+# 1. Upgrade Node Pulse Agent to latest version (with process_exporter support)
+# 2. Deploy process_exporter on target servers
+# 3. Enable process_exporter in agent configuration
+#
+# Prerequisites:
+# - Node Pulse Agent must be already installed (use deploy-agent.yml first)
+# - Target servers must be accessible via SSH
+# - User must have sudo privileges
+#
+# This is a wrapper playbook that composes multiple modular playbooks.
+
+- name: Step 1 - Upgrade Node Pulse Agent to latest version
+  import_playbook: ../nodepulse/upgrade-agent.yml
+
+- name: Step 2 - Deploy process_exporter
+  import_playbook: deploy-process-exporter.yml
+
+- name: Step 3 - Enable process_exporter in agent
+  import_playbook: ../nodepulse/enable-exporter.yml
+  vars:
+    exporter_name: process_exporter
+    exporter_endpoint: "http://127.0.0.1:9256/metrics"
+    exporter_interval: "15s"
+    exporter_timeout: "3s"
+
+- name: Display final summary
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Show completion message
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════════╗
+          ║  ✓ Process Monitoring Setup Complete on {{ inventory_hostname }}
+          ╚════════════════════════════════════════════════════════════════╝
+
+          What was deployed:
+          1. ✓ Node Pulse Agent upgraded to latest version
+          2. ✓ process_exporter installed and running
+          3. ✓ Agent configured to scrape process_exporter
+
+          Verification:
+          1. Check agent: systemctl status nodepulse
+          2. Check exporter: systemctl status process_exporter
+          3. View metrics: curl http://localhost:9256/metrics | head -20
+          4. Check agent logs: journalctl -u nodepulse -n 50 --no-pager
+
+          Database verification (on admiral):
+          Wait 60 seconds, then run:
+            docker exec node-pulse-postgres psql -U admiral -d node_pulse_admiral \\
+              -c "SELECT COUNT(*), MAX(timestamp) FROM admiral.process_snapshots;"
+
+          Expected result:
+          - Row count should be > 0
+          - Timestamp should be recent (within last minute)

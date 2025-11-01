@@ -13,11 +13,11 @@
 # Prerequisites:
 # - Target servers must be accessible via SSH
 # - User must have sudo privileges
-# - Firewall: Allow localhost:9256 (no external access needed)
 #
-# After deployment:
-# - Configure nodepulse agent to scrape http://127.0.0.1:9256/metrics
-# - Verify metrics: curl http://localhost:9256/metrics
+# Note:
+# - This playbook ONLY deploys process_exporter
+# - To enable in agent, use: playbooks/nodepulse/enable-exporter.yml
+# - Or use wrapper: playbooks/prometheus/deploy-process-monitoring.yml
 
 - name: Deploy process_exporter to servers
   hosts: all
@@ -32,14 +32,14 @@
     - name: Display process_exporter status
       debug:
         msg: |
-          ✓ process_exporter deployed successfully!
+          ✓ process_exporter deployed successfully on {{ inventory_hostname }}!
 
           Metrics endpoint: http://127.0.0.1:9256/metrics
           Service status: systemctl status process_exporter
           View metrics: curl http://localhost:9256/metrics | grep namedprocess
 
           Next steps:
-          1. Configure nodepulse agent to scrape process_exporter
-          2. Restart nodepulse agent
-          3. Verify data flowing to admiral database
+          1. Enable in agent: ansible-playbook playbooks/nodepulse/enable-exporter.yml -i inventory.yml \
+               -e exporter_name=process_exporter -e exporter_endpoint=http://127.0.0.1:9256/metrics
+          2. Verify data in database: SELECT COUNT(*) FROM admiral.process_snapshots;
       tags: ['always']

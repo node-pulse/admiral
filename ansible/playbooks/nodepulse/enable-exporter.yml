@@ -1,0 +1,151 @@
+---
+# Ansible Playbook: Enable Exporter in Node Pulse Agent Configuration
+#
+# Usage:
+#   ansible-playbook playbooks/nodepulse/enable-exporter.yml -i inventory.yml \
+#     -e exporter_name=process_exporter \
+#     -e exporter_endpoint=http://127.0.0.1:9256/metrics
+#
+#   # With custom interval and timeout:
+#   ansible-playbook playbooks/nodepulse/enable-exporter.yml -i inventory.yml \
+#     -e exporter_name=postgres_exporter \
+#     -e exporter_endpoint=http://127.0.0.1:9187/metrics \
+#     -e exporter_interval=30s \
+#     -e exporter_timeout=5s
+#
+# This playbook:
+# 1. Reads existing nodepulse.yml configuration
+# 2. Adds exporter to exporters list if not already present
+# 3. Backs up old config
+# 4. Writes updated config
+# 5. Restarts nodepulse agent
+#
+# Prerequisites:
+# - Node Pulse Agent must be installed
+# - Exporter must be already deployed and accessible
+
+- name: Enable Exporter in Node Pulse Agent
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  vars:
+    agent_config_file: "/etc/nodepulse/nodepulse.yml"
+    # Required parameters (must be passed via -e):
+    exporter_name: "{{ exporter_name }}"
+    exporter_endpoint: "{{ exporter_endpoint }}"
+    # Optional parameters with defaults:
+    exporter_interval: "{{ exporter_interval | default('15s') }}"
+    exporter_timeout: "{{ exporter_timeout | default('3s') }}"
+
+  tasks:
+    - name: Validate required parameters
+      fail:
+        msg: "Missing required parameter: {{ item }}"
+      when: vars[item] is not defined or vars[item] == ""
+      loop:
+        - exporter_name
+        - exporter_endpoint
+
+    - name: Check if nodepulse config exists
+      stat:
+        path: "{{ agent_config_file }}"
+      register: config_file
+
+    - name: Fail if config doesn't exist
+      fail:
+        msg: "nodepulse config not found at {{ agent_config_file }}. Deploy agent first."
+      when: not config_file.stat.exists
+
+    - name: Read current configuration
+      slurp:
+        src: "{{ agent_config_file }}"
+      register: current_config
+
+    - name: Parse YAML configuration
+      set_fact:
+        config_data: "{{ current_config.content | b64decode | from_yaml }}"
+
+    - name: Check if exporter already exists
+      set_fact:
+        has_exporter: "{{ config_data.exporters | selectattr('name', 'equalto', exporter_name) | list | length > 0 }}"
+
+    - name: Skip if exporter already configured
+      debug:
+        msg: "⚠ {{ exporter_name }} is already configured in {{ agent_config_file }}"
+      when: has_exporter
+
+    - name: Add exporter to exporters list
+      set_fact:
+        updated_config: >-
+          {{
+            config_data | combine({
+              'exporters': config_data.exporters + [{
+                'name': exporter_name,
+                'enabled': true,
+                'endpoint': exporter_endpoint,
+                'interval': exporter_interval,
+                'timeout': exporter_timeout
+              }]
+            })
+          }}
+      when: not has_exporter
+
+    - name: Backup current configuration
+      copy:
+        src: "{{ agent_config_file }}"
+        dest: "{{ agent_config_file }}.backup-{{ ansible_date_time.iso8601_basic_short }}"
+        remote_src: yes
+        mode: "0640"
+      when: not has_exporter
+
+    - name: Write updated configuration
+      copy:
+        content: "{{ updated_config | to_yaml }}"
+        dest: "{{ agent_config_file }}"
+        owner: nodepulse
+        group: nodepulse
+        mode: "0640"
+      when: not has_exporter
+      register: config_updated
+
+    - name: Restart nodepulse agent
+      systemd:
+        name: nodepulse
+        state: restarted
+        enabled: yes
+      when: config_updated is changed
+
+    - name: Wait for service to stabilize
+      wait_for:
+        timeout: 3
+      when: config_updated is changed
+
+    - name: Verify service is running
+      systemd:
+        name: nodepulse
+      register: service_status
+      when: config_updated is changed
+
+    - name: Display status
+      debug:
+        msg: |
+          {% if has_exporter %}
+          ⚠ {{ exporter_name }} already enabled on {{ inventory_hostname }}
+          {% else %}
+          ✓ {{ exporter_name }} enabled on {{ inventory_hostname }}
+
+          Configuration:
+          - Exporter: {{ exporter_name }}
+          - Endpoint: {{ exporter_endpoint }}
+          - Interval: {{ exporter_interval }}
+          - Timeout: {{ exporter_timeout }}
+          - Service status: {{ service_status.status.ActiveState | default('N/A') }}
+
+          Backup: {{ agent_config_file }}.backup-{{ ansible_date_time.iso8601_basic_short }}
+
+          Next steps:
+          1. Wait 30 seconds for scraping to start
+          2. Check logs: journalctl -u nodepulse -n 50 --no-pager
+          3. Verify metrics in dashboard
+          {% endif %}

@@ -143,8 +143,10 @@ export default function CreateDeployment() {
                 const traverse = (nodes: any[]) => {
                     for (const node of nodes) {
                         if (node.type === 'file') {
+                            // Use the path which includes directory/filename
+                            // e.g., "nodepulse/deploy-agent.yml"
                             playbooks.push({
-                                name: node.title || node.name,
+                                name: node.path, // Use full path as display name
                                 file_name: node.name,
                                 path: node.path,
                                 description: node.description,

@@ -1,45 +1,35 @@
 ---
+# Ansible Playbook: Upgrade Node Pulse Agent to Latest Version
+#
+# Usage:
+#   ansible-playbook playbooks/nodepulse/upgrade-agent.yml -i inventory.yml
+#
+#   # Upgrade to specific version:
+#   ansible-playbook playbooks/nodepulse/upgrade-agent.yml -i inventory.yml -e agent_version=0.1.11
+#
+# This playbook:
+# 1. Checks current agent version
+# 2. Downloads latest version from GitHub releases
+# 3. Backs up current binary
+# 4. Replaces binary with new version
+# 5. Restarts agent service
+#
+# Prerequisites:
+# - Node Pulse Agent must be already installed
+# - Agent must be running as systemd service
+
 - name: Upgrade Node Pulse Agent
   hosts: all
   become: yes
   gather_facts: yes
 
   vars:
-    # Agent version (GitHub release tag) - REQUIRED for upgrades
-    agent_version: "{{ agent_version | mandatory }}"
-
-    # GitHub repository configuration
+    agent_version: "{{ agent_version | default('latest') }}"
+    agent_install_dir: "/opt/nodepulse"
     agent_github_owner: "node-pulse"
     agent_github_repo: "agent"
 
-    # Download URL (GitHub Releases)
-    # For "latest" version, GitHub provides a special redirect URL
-    # Otherwise, use specific version tag (e.g., v0.1.6 or 0.1.6)
-    agent_download_url: "https://github.com/{{ agent_github_owner }}/{{ agent_github_repo }}/releases/{{ 'latest/download' if agent_version == 'latest' else 'download/v' + agent_version }}"
-
-    # Installation paths
-    agent_install_dir: "/opt/nodepulse"
-    agent_config_dir: "/etc/nodepulse"
-    agent_data_dir: "/var/lib/nodepulse"
-
-  pre_tasks:
-    - name: Display upgrade information
-      debug:
-        msg: |
-          Upgrading Node Pulse Agent on {{ inventory_hostname }}
-          Target Version: {{ agent_version }}
-
-    - name: Ensure server is reachable
-      wait_for_connection:
-        timeout: 30
-      register: connection_test
-      ignore_errors: yes
-
-    - name: Fail if server is unreachable
-      fail:
-        msg: "Server {{ inventory_hostname }} is unreachable"
-      when: connection_test is failed
-
+  tasks:
     - name: Check if agent is installed
       stat:
         path: "{{ agent_install_dir }}/nodepulse"
@@ -62,20 +52,17 @@
       debug:
         msg: "Current version: {{ current_version.stdout | default('unknown') }}"
 
-  tasks:
     - name: Stop nodepulse service
       systemd:
         name: nodepulse
         state: stopped
-      register: service_stopped
 
     - name: Backup current binary
       copy:
         src: "{{ agent_install_dir }}/nodepulse"
-        dest: "{{ agent_install_dir }}/nodepulse.backup"
+        dest: "{{ agent_install_dir }}/nodepulse.backup-{{ ansible_date_time.iso8601_basic_short }}"
         remote_src: yes
         mode: "0755"
-      when: agent_binary.stat.exists
 
     - name: Detect CPU architecture
       set_fact:
@@ -91,59 +78,56 @@
         msg: "Unsupported architecture: {{ ansible_architecture }}"
       when: agent_arch == 'unknown'
 
-    - name: Get latest release tag if using 'latest'
+    - name: Get latest release info if using 'latest'
       uri:
         url: "https://api.github.com/repos/{{ agent_github_owner }}/{{ agent_github_repo }}/releases/latest"
         return_content: yes
       register: latest_release
       when: agent_version == 'latest'
 
-    - name: Extract version from tag_name (remove 'v' prefix)
+    - name: Extract version from tag_name
       set_fact:
         resolved_version: "{{ latest_release.json.tag_name | regex_replace('^v', '') }}"
       when: agent_version == 'latest'
 
-    - name: Use specified version as-is (remove 'v' prefix if present)
+    - name: Use specified version
       set_fact:
         resolved_version: "{{ agent_version | regex_replace('^v', '') }}"
       when: agent_version != 'latest'
 
-    - name: Determine archive filename
+    - name: Set download URL
       set_fact:
         archive_filename: "nodepulse-{{ resolved_version }}-linux-{{ agent_arch }}.tar.gz"
-        archive_url: "{{ agent_download_url }}/nodepulse-{{ resolved_version }}-linux-{{ agent_arch }}.tar.gz"
+        download_url: "https://github.com/{{ agent_github_owner }}/{{ agent_github_repo }}/releases/download/v{{ resolved_version }}/nodepulse-{{ resolved_version }}-linux-{{ agent_arch }}.tar.gz"
+        checksum_url: "https://github.com/{{ agent_github_owner }}/{{ agent_github_repo }}/releases/download/v{{ resolved_version }}/checksums.txt"
 
     - name: Download checksums file
       get_url:
-        url: "{{ agent_download_url }}/checksums.txt"
+        url: "{{ checksum_url }}"
         dest: "/tmp/nodepulse-checksums.txt"
         mode: "0644"
         force: yes
-        timeout: 30
       register: checksum_download
       retries: 3
       delay: 5
-      until: checksum_download is succeeded
 
-    - name: Extract expected checksum for our archive
+    - name: Extract expected checksum
       shell: "grep '{{ archive_filename }}' /tmp/nodepulse-checksums.txt | awk '{print $1}'"
       register: expected_checksum
       changed_when: false
 
-    - name: Download Node Pulse agent archive
+    - name: Download agent archive
       get_url:
-        url: "{{ archive_url }}"
+        url: "{{ download_url }}"
         dest: "/tmp/{{ archive_filename }}"
         checksum: "sha256:{{ expected_checksum.stdout }}"
         mode: "0644"
         force: yes
-        timeout: 120
       register: download_result
       retries: 3
       delay: 5
-      until: download_result is succeeded
 
-    - name: Extract agent archive to temporary location
+    - name: Extract agent archive
       unarchive:
         src: "/tmp/{{ archive_filename }}"
         dest: "/tmp"
@@ -158,67 +142,50 @@
         group: nodepulse
         mode: "0755"
 
-    - name: Clean up extracted files
+    - name: Clean up temporary files
       file:
         path: "/tmp/{{ item }}"
         state: absent
       loop:
         - nodepulse
+        - "{{ archive_filename }}"
+        - nodepulse-checksums.txt
         - README.md
         - nodepulse.yml
       ignore_errors: yes
 
-    - name: Clean up downloaded archive and checksums
-      file:
-        path: "/tmp/{{ item }}"
-        state: absent
-      loop:
-        - "{{ archive_filename }}"
-        - nodepulse-checksums.txt
-
-    - name: Verify binary is executable
+    - name: Verify new version
       command: "{{ agent_install_dir }}/nodepulse --version"
-      register: new_version_check
+      register: new_version
       changed_when: false
-      failed_when: new_version_check.rc != 0
 
     - name: Start nodepulse service
       systemd:
         name: nodepulse
         state: started
-      register: service_started
+        enabled: yes
 
     - name: Wait for service to be active
       wait_for:
-        timeout: 10
-      when: service_started.changed
+        timeout: 5
 
-    - name: Check service status
+    - name: Verify service is running
       systemd:
         name: nodepulse
       register: service_status
 
-  post_tasks:
     - name: Display upgrade summary
       debug:
         msg: |
           ✓ Agent upgraded successfully on {{ inventory_hostname }}
-          ✓ Old version: {{ current_version.stdout | default('unknown') }}
-          ✓ New version: {{ new_version_check.stdout }}
-          ✓ Service is {{ service_status.status.ActiveState }}
-          ✓ Backup saved at {{ agent_install_dir }}/nodepulse.backup
 
-    - name: Verify agent is reporting metrics
-      pause:
-        prompt: |
+          Old version: {{ current_version.stdout | default('unknown') }}
+          New version: {{ new_version.stdout }}
+          Service status: {{ service_status.status.ActiveState }}
 
-          Upgrade completed. Please verify:
-          1. Check dashboard for new metrics from {{ inventory_hostname }}
-          2. Verify timestamp alignment in charts
-          3. If upgrade failed, restore backup:
-             systemctl stop nodepulse
-             cp {{ agent_install_dir }}/nodepulse.backup {{ agent_install_dir }}/nodepulse
-             systemctl start nodepulse
+          Backup saved at: {{ agent_install_dir }}/nodepulse.backup-{{ ansible_date_time.iso8601_basic_short }}
 
-          Press Enter to continue...
-      when: inventory_hostname == ansible_play_hosts[0]
+          To rollback:
+            systemctl stop nodepulse
+            cp {{ agent_install_dir }}/nodepulse.backup-* {{ agent_install_dir }}/nodepulse
+            systemctl start nodepulse
