@@ -178,15 +178,10 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 		}
 
 	case "process_exporter":
-		// Process_exporter sends a different payload structure
-		// Need to re-parse from the payload
-		var processPayload struct {
-			Snapshot *handlers.ProcessExporterSnapshot `json:"snapshot"`
-		}
-
+		// Process_exporter sends individual ProcessSnapshot (not wrapped)
 		// Re-marshal and unmarshal to get the correct type
-		// This is a workaround since payload.Snapshot is typed as MetricSnapshot
-		payloadBytes, _ := json.Marshal(map[string]interface{}{
+		// This is needed since payload.Snapshot is typed as MetricSnapshot
+		payloadBytes, _ := json.Marshal(map[string]any{
 			"server_id":     payload.ServerID,
 			"exporter_name": payload.ExporterName,
 			"snapshot":      payload.Snapshot,
@@ -197,13 +192,13 @@ func processPrometheusMessage(db *database.DB, payloadJSON string) error {
 			return fmt.Errorf("failed to parse process_exporter payload: %w", err)
 		}
 
-		var processSnapshot handlers.ProcessExporterSnapshot
+		var processSnapshot handlers.ProcessSnapshot
 		if err := json.Unmarshal(rawPayload["snapshot"], &processSnapshot); err != nil {
 			return fmt.Errorf("failed to parse process snapshot: %w", err)
 		}
 
-		// Insert process snapshots
-		if err := insertProcessSnapshots(tx, serverID, &processSnapshot); err != nil {
+		// Insert single process snapshot
+		if err := insertProcessSnapshot(tx, serverID, &processSnapshot); err != nil {
 			return err
 		}
 
@@ -349,12 +344,8 @@ func updateServerLastSeen(tx *sql.Tx, serverID string) error {
 	return nil
 }
 
-// insertProcessSnapshots inserts multiple process snapshots into the process_snapshots table
-func insertProcessSnapshots(tx *sql.Tx, serverID string, snapshot *handlers.ProcessExporterSnapshot) error {
-	if len(snapshot.Processes) == 0 {
-		return nil // Nothing to insert
-	}
-
+// insertProcessSnapshot inserts a single process snapshot into the process_snapshots table
+func insertProcessSnapshot(tx *sql.Tx, serverID string, snapshot *handlers.ProcessSnapshot) error {
 	query := `
 		INSERT INTO admiral.process_snapshots (
 			server_id,
@@ -366,28 +357,19 @@ func insertProcessSnapshots(tx *sql.Tx, serverID string, snapshot *handlers.Proc
 		) VALUES ($1, $2, $3, $4, $5, $6)
 	`
 
-	stmt, err := tx.Prepare(query)
+	_, err := tx.Exec(
+		query,
+		serverID,
+		snapshot.Timestamp,
+		snapshot.Name,
+		snapshot.NumProcs,
+		snapshot.CPUSecondsTotal,
+		snapshot.MemoryBytes,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	// Insert each process snapshot
-	for _, process := range snapshot.Processes {
-		_, err := stmt.Exec(
-			serverID,
-			snapshot.Timestamp,
-			process.Name,
-			process.NumProcs,
-			process.CPUSecondsTotal,
-			process.MemoryBytes,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert process %s: %w", process.Name, err)
-		}
+		return fmt.Errorf("failed to insert process %s: %w", snapshot.Name, err)
 	}
 
-	log.Printf("[DEBUG] Inserted %d process snapshots for server %s", len(snapshot.Processes), serverID)
 	return nil
 }
 

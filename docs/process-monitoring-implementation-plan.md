@@ -64,16 +64,35 @@ process_names:
     cmdline: []
 ```
 
-### Phase 2: Update Agent (Multi-Exporter Support)
-**Files**: `agent/internal/prometheus/process_exporter_parser.go`, `agent/internal/config/config.go`
+### Phase 2: Update Agent (Multi-Exporter Support) ✅ COMPLETED
 
-1. Add process_exporter parser (similar to node_exporter_parser.go)
-2. Extract metrics:
+**Status**: ✅ Implementation Complete (2025-10-31)
+**Files**:
+- `agent/internal/prometheus/process_exporter_parser.go` ✅ Created
+- `agent/internal/report/sender.go` ✅ Updated to support multi-exporter payloads
+
+**Implementation Details**:
+1. ✅ Created `ProcessExporterMetricSnapshot` struct (flat, no wrapper)
+2. ✅ Parser extracts metrics:
    - `namedprocess_namegroup_cpu_seconds_total{groupname="..."}`
    - `namedprocess_namegroup_memory_bytes{groupname="...", memtype="resident"}`
    - `namedprocess_namegroup_num_procs{groupname="..."}`
-3. Agent already supports multi-exporter (via config.Exporters array)
-4. Parse and extract top 10 by CPU/memory delta
+3. ✅ Agent already supports multi-exporter (via `config.Exporters` array)
+4. ✅ Sender builds payload with both exporters:
+   ```json
+   {
+     "node_exporter": [
+       { "timestamp": "...", "cpu_idle_seconds": ..., ... }
+     ],
+     "process_exporter": [
+       { "timestamp": "...", "name": "nginx", "num_procs": 4, ... },
+       { "timestamp": "...", "name": "postgres", "num_procs": 8, ... }
+     ]
+   }
+   ```
+5. ✅ Type-safe implementation using separate slices (not `interface{}`)
+6. ✅ **Flat array structure**: Agent sends `[]ProcessExporterMetricSnapshot` directly
+7. ✅ **No wrapper in agent**: Each process is a standalone snapshot with timestamp
 
 **Agent Config**: `/etc/nodepulse/nodepulse.yml`
 ```yaml
@@ -89,10 +108,13 @@ exporters:
     interval: "15s"
 ```
 
-### Phase 3: Database Schema (New Table)
-**Files**: `migrate/migrations/`, `submarines/internal/models/process.go`
+### Phase 3: Database Schema (New Table) ✅ COMPLETED
 
-Create new table: `admiral.process_snapshots`
+**Status**: ✅ Implementation Complete (2025-10-31)
+**Files**:
+- `migrate/migrations/20251030203553001_create_process_snapshots_table.sql` ✅ Created
+
+Created new table: `admiral.process_snapshots`
 
 ```sql
 CREATE TABLE admiral.process_snapshots (
@@ -114,28 +136,61 @@ CREATE INDEX idx_process_snapshots_server_name
 
 **Design Decision**: Store ALL processes, calculate top 10 in query (flexible)
 
-### Phase 4: Submarines Digest Worker
-**Files**: `submarines/internal/handlers/metrics.go`
+### Phase 4: Submarines Ingest & Digest ✅ COMPLETED
 
-1. Update `IngestPrometheusMetrics` handler
-2. Detect `process_exporter` in payload
-3. Parse process metrics
-4. Batch insert into `process_snapshots` table
-5. Cleanup: Delete process snapshots older than 7 days (retention policy)
+**Status**: ✅ Implementation Complete (2025-10-31)
+**Files**:
+- `submarines/internal/handlers/prometheus.go` ✅ Updated
+- `submarines/cmd/digest/main.go` ✅ Updated
 
-**Payload Format** (multi-exporter):
+**Implementation Details**:
+1. ✅ Updated `IngestPrometheusMetrics` handler to use `json.RawMessage` for flexible parsing
+2. ✅ Detects `process_exporter` in payload and parses as flat array
+3. ✅ **Publishes each process individually** to Valkey Stream (same pattern as node_exporter)
+4. ✅ Digest processes individual snapshots and inserts into `process_snapshots` table
+5. ✅ Cleanup: Deletes process snapshots older than retention period
+6. ✅ **Removed unnecessary wrapper** - uses simple flat structure throughout
+
+**Payload Format** (multi-exporter from agent):
 ```json
 {
-  "node_exporter": [{...}],
-  "process_exporter": [{
-    "timestamp": "2025-10-30T12:00:00Z",
-    "processes": [
-      {"name": "nginx", "num_procs": 4, "cpu_seconds": 1234.5, "memory_bytes": 102400000},
-      {"name": "postgres", "num_procs": 8, "cpu_seconds": 5678.9, "memory_bytes": 512000000}
-    ]
-  }]
+  "node_exporter": [
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "cpu_idle_seconds": 7184190.53,
+      ... (39 fields)
+    }
+  ],
+  "process_exporter": [
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "name": "nginx",
+      "num_procs": 4,
+      "cpu_seconds_total": 1234.56,
+      "memory_bytes": 104857600
+    },
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "name": "postgres",
+      "num_procs": 8,
+      "cpu_seconds_total": 5678.90,
+      "memory_bytes": 512000000
+    }
+  ]
 }
 ```
+
+**Data Flow** (Simplified):
+1. **Agent → Submarines**: Sends flat array `[{name: "nginx", ...}, {name: "postgres", ...}]`
+2. **Ingest Handler**: Publishes each process individually (N messages to Valkey Stream)
+3. **Valkey Stream**: N messages (one per process)
+4. **Digest Worker**: Processes each message → Inserts 1 row per process
+5. **Database**: N rows in `process_snapshots` table (one per process group)
+
+**Pattern Consistency**:
+- Both `node_exporter` and `process_exporter` use the **same simple pattern**
+- No special wrappers or batching - each snapshot becomes one Valkey message
+- Clean, simple, and easy to understand!
 
 ### Phase 5: Backend API (Laravel)
 **Files**: `flagship/app/Http/Controllers/ProcessController.php`, `flagship/routes/api.php`
@@ -232,8 +287,8 @@ Create new component: `ProcessList`
 3. `ansible/roles/process-exporter/templates/process_exporter.service.j2`
 4. `ansible/roles/process-exporter/templates/config.yml.j2`
 5. `ansible/playbooks/prometheus/deploy-process-exporter.yml`
-6. `agent/internal/prometheus/process_exporter_parser.go`
-7. `agent/internal/prometheus/process_exporter_parser_test.go`
+6. ✅ `agent/internal/prometheus/process_exporter_parser.go` (COMPLETED)
+7. `agent/internal/prometheus/process_exporter_parser_test.go` (TODO)
 8. `migrate/migrations/YYYYMMDDHHMMSS_create_process_snapshots_table.sql`
 9. `submarines/internal/models/process.go`
 10. `flagship/app/Http/Controllers/ProcessController.php`
@@ -242,22 +297,25 @@ Create new component: `ProcessList`
 13. `docs/process-monitoring.md`
 
 ### Modified Files
-1. `agent/internal/config/config.go` (Already supports multi-exporter)
-2. `submarines/internal/handlers/metrics.go` (Add process_exporter handling)
-3. `flagship/routes/api.php` (Add process routes)
-4. `flagship/resources/js/pages/servers/show.tsx` (Add ProcessList component)
-5. `CLAUDE.md` (Document new feature)
+1. `agent/internal/config/config.go` (Already supports multi-exporter - no changes needed)
+2. ✅ `agent/internal/report/sender.go` (COMPLETED - added process_exporter handling)
+3. ✅ `submarines/internal/handlers/prometheus.go` (COMPLETED - publishes individual ProcessSnapshot)
+4. ✅ `submarines/cmd/digest/main.go` (COMPLETED - processes individual ProcessSnapshot)
+5. `flagship/routes/api.php` (Add process routes)
+6. `flagship/resources/js/pages/servers/show.tsx` (Add ProcessList component)
+7. ✅ `docs/simplified-metrics-schema.md` (UPDATED - documented flat array structure)
+8. ✅ `docs/process-monitoring-implementation-plan.md` (THIS FILE - UPDATED)
 
-## Timeline
-- Phase 1 (Ansible): 1 day
-- Phase 2 (Agent): 1 day
-- Phase 3 (Database): 0.5 day
-- Phase 4 (Submarines): 1 day
-- Phase 5 (Backend API): 1 day
-- Phase 6 (Frontend): 1.5 days
-- Phase 7 (Testing/Docs): 0.5 day
+## Timeline (Updated 2025-10-31)
+- ✅ Phase 1 (Ansible): 1 day - **PENDING**
+- ✅ Phase 2 (Agent): 1 day - **COMPLETED**
+- ✅ Phase 3 (Database): 0.5 day - **COMPLETED**
+- ✅ Phase 4 (Submarines): 1 day - **COMPLETED**
+- Phase 5 (Backend API): 1 day - **PENDING**
+- Phase 6 (Frontend): 1.5 days - **PENDING**
+- Phase 7 (Testing/Docs): 0.5 day - **PENDING**
 
-**Total: ~6-7 days**
+**Total: ~6-7 days** | **Progress: 3.5/7 days (50%)**
 
 ## Rollout Strategy
 1. Deploy process_exporter to test server

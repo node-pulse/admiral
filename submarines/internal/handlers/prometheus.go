@@ -84,18 +84,13 @@ type MetricSnapshot struct {
 }
 
 // ProcessSnapshot represents a single process group metric snapshot from process_exporter
+// Agent sends a flat array of these directly: [ProcessSnapshot, ProcessSnapshot, ...]
 type ProcessSnapshot struct {
 	Timestamp       time.Time `json:"timestamp"`
 	Name            string    `json:"name"`              // Process name (groupname)
 	NumProcs        int       `json:"num_procs"`         // Number of processes
 	CPUSecondsTotal float64   `json:"cpu_seconds_total"` // Total CPU time (counter)
 	MemoryBytes     int64     `json:"memory_bytes"`      // Resident memory (RSS)
-}
-
-// ProcessExporterSnapshot represents the full payload from process_exporter
-type ProcessExporterSnapshot struct {
-	Timestamp time.Time         `json:"timestamp"`
-	Processes []ProcessSnapshot `json:"processes"`
 }
 
 type PrometheusHandler struct {
@@ -165,8 +160,9 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
-	// Parse Phase 2 grouped payload: { "node_exporter": [...], "postgres_exporter": [...] }
-	var groupedPayload map[string][]MetricSnapshot
+	// Parse Phase 2 grouped payload using json.RawMessage for flexibility
+	// Supports: { "node_exporter": [...], "process_exporter": [...] }
+	var groupedPayload map[string]json.RawMessage
 	if err := c.ShouldBindJSON(&groupedPayload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": fmt.Sprintf("invalid JSON format: %v", err),
@@ -197,33 +193,80 @@ func (h *PrometheusHandler) IngestPrometheusMetrics(c *gin.Context) {
 	totalPublished := 0
 	messageIDs := []string{}
 
-	for exporterName, snapshots := range groupedPayload {
-		for _, snapshot := range snapshots {
-			// Create payload for Valkey Stream
-			payload := MetricSnapshotPayload{
-				ServerID:     serverID.String(),
-				ExporterName: exporterName,
-				Snapshot:     &snapshot,
+	for exporterName, rawSnapshots := range groupedPayload {
+		switch exporterName {
+		case "node_exporter":
+			// Parse node_exporter snapshots (array of MetricSnapshot)
+			var snapshots []MetricSnapshot
+			if err := json.Unmarshal(rawSnapshots, &snapshots); err != nil {
+				log.Printf("ERROR: Failed to parse node_exporter payload: %v", err)
+				continue
 			}
 
-			payloadJSON, err := json.Marshal(payload)
-			if err != nil {
-				log.Printf("ERROR: Failed to marshal snapshot payload: %v", err)
-				continue // Skip this snapshot, try next
+			for _, snapshot := range snapshots {
+				payload := MetricSnapshotPayload{
+					ServerID:     serverID.String(),
+					ExporterName: exporterName,
+					Snapshot:     &snapshot,
+				}
+
+				payloadJSON, err := json.Marshal(payload)
+				if err != nil {
+					log.Printf("ERROR: Failed to marshal node_exporter snapshot: %v", err)
+					continue
+				}
+
+				messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
+					"type":    "snapshot",
+					"payload": string(payloadJSON),
+				})
+				if err != nil {
+					log.Printf("ERROR: Failed to publish to stream: %v", err)
+					continue
+				}
+
+				messageIDs = append(messageIDs, messageID)
+				totalPublished++
 			}
 
-			// Publish to Valkey Stream
-			messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
-				"type":    "snapshot",
-				"payload": string(payloadJSON),
-			})
-			if err != nil {
-				log.Printf("ERROR: Failed to publish to stream: %v", err)
-				continue // Skip this snapshot, try next
+		case "process_exporter":
+			// Parse process_exporter snapshots (flat array of ProcessSnapshot)
+			var processSnapshots []ProcessSnapshot
+			if err := json.Unmarshal(rawSnapshots, &processSnapshots); err != nil {
+				log.Printf("ERROR: Failed to parse process_exporter payload: %v", err)
+				continue
 			}
 
-			messageIDs = append(messageIDs, messageID)
-			totalPublished++
+			// Publish each process snapshot individually (same as node_exporter pattern)
+			for _, processSnapshot := range processSnapshots {
+				// Create payload structure that digest can parse
+				payloadMap := map[string]any{
+					"server_id":     serverID.String(),
+					"exporter_name": exporterName,
+					"snapshot":      processSnapshot,
+				}
+
+				payloadJSON, err := json.Marshal(payloadMap)
+				if err != nil {
+					log.Printf("ERROR: Failed to marshal process_exporter snapshot: %v", err)
+					continue
+				}
+
+				messageID, err := h.valkey.PublishToStream(MetricsStreamKey, map[string]string{
+					"type":    "snapshot",
+					"payload": string(payloadJSON),
+				})
+				if err != nil {
+					log.Printf("ERROR: Failed to publish to stream: %v", err)
+					continue
+				}
+
+				messageIDs = append(messageIDs, messageID)
+				totalPublished++
+			}
+
+		default:
+			log.Printf("WARN: Unknown exporter type: %s", exporterName)
 		}
 	}
 

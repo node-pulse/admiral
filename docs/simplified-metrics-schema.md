@@ -369,6 +369,88 @@ SAVINGS: 98.6% reduction (8.6GB → 120MB per server per month)
 
 ---
 
+## Process Monitoring Support (✅ Implemented)
+
+### Process Exporter Integration
+The agent now supports `process_exporter` for per-process monitoring:
+
+**Agent Payload Format** (Flat Array Structure):
+```json
+{
+  "node_exporter": [
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "cpu_idle_seconds": 7184190.53,
+      ... (39 fields)
+    }
+  ],
+  "process_exporter": [
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "name": "nginx",
+      "num_procs": 4,
+      "cpu_seconds_total": 1234.56,
+      "memory_bytes": 104857600
+    },
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "name": "postgres",
+      "num_procs": 8,
+      "cpu_seconds_total": 5678.90,
+      "memory_bytes": 512000000
+    },
+    {
+      "timestamp": "2025-10-30T12:00:00Z",
+      "name": "systemd",
+      "num_procs": 1,
+      "cpu_seconds_total": 45.23,
+      "memory_bytes": 15728640
+    }
+  ]
+}
+```
+
+**Note**: The agent sends a **flat array** of `ProcessExporterMetricSnapshot` objects. Each process snapshot has its own timestamp and is published individually to Valkey Stream (same pattern as node_exporter).
+
+**Database Schema** (`admiral.process_snapshots`):
+```sql
+CREATE TABLE admiral.process_snapshots (
+    id BIGSERIAL PRIMARY KEY,
+    server_id TEXT NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+    process_name TEXT NOT NULL,           -- Command name (e.g., "nginx", "postgres")
+    num_procs INTEGER NOT NULL,            -- Number of processes in this group
+    cpu_seconds_total DOUBLE PRECISION,    -- Total CPU time consumed (counter)
+    memory_bytes BIGINT,                   -- Resident memory (RSS) in bytes
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_process_snapshots_lookup
+    ON admiral.process_snapshots(server_id, timestamp DESC);
+CREATE INDEX idx_process_snapshots_server_name
+    ON admiral.process_snapshots(server_id, process_name, timestamp DESC);
+```
+
+**Key Design**:
+- **Agent sends flat array**: Each process becomes one `ProcessExporterMetricSnapshot` in the array
+- **Ingest handler**: Publishes each process snapshot individually to Valkey Stream
+- **Digest worker**: Processes each snapshot and inserts one row per process
+- **Database storage**: Each snapshot → one row in `process_snapshots` table
+- **CPU calculation**: Uses counter deltas with LAG window function
+- **Memory**: Instantaneous RSS value
+- **Retention**: 7 days for process snapshots
+
+**Data Flow** (Simple & Clean):
+1. **Agent**: Sends `[{name: "nginx", ...}, {name: "postgres", ...}]` (flat array)
+2. **Ingest**: Publishes each process individually (N messages to Valkey Stream)
+3. **Digest**: Processes each message → Inserts 1 row
+4. **Database**: N rows (one per process group)
+
+**Pattern Consistency**:
+- `node_exporter`: 1 snapshot → 1 Valkey message → 1 DB row
+- `process_exporter`: N snapshots → N Valkey messages → N DB rows
+- **Both use the same simple pattern** - no special wrapping needed!
+
 ## Next Steps (Agent Integration)
 
 The final step is to integrate the agent parser with the actual agent scraping loop:
