@@ -1,0 +1,45 @@
+---
+# Ansible Playbook: Deploy process_exporter to servers
+#
+# Usage:
+#   ansible-playbook playbooks/prometheus/deploy-process-exporter.yml -i inventory.yml
+#
+# This playbook:
+# 1. Installs process_exporter on target servers
+# 2. Configures process grouping by command name
+# 3. Sets up systemd service (localhost:9256)
+# 4. Verifies metrics endpoint is accessible
+#
+# Prerequisites:
+# - Target servers must be accessible via SSH
+# - User must have sudo privileges
+# - Firewall: Allow localhost:9256 (no external access needed)
+#
+# After deployment:
+# - Configure nodepulse agent to scrape http://127.0.0.1:9256/metrics
+# - Verify metrics: curl http://localhost:9256/metrics
+
+- name: Deploy process_exporter to servers
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - role: process-exporter
+      tags: ['process-exporter']
+
+  post_tasks:
+    - name: Display process_exporter status
+      debug:
+        msg: |
+          ✓ process_exporter deployed successfully!
+
+          Metrics endpoint: http://127.0.0.1:9256/metrics
+          Service status: systemctl status process_exporter
+          View metrics: curl http://localhost:9256/metrics | grep namedprocess
+
+          Next steps:
+          1. Configure nodepulse agent to scrape process_exporter
+          2. Restart nodepulse agent
+          3. Verify data flowing to admiral database
+      tags: ['always']
