@@ -10,17 +10,22 @@
 
 This feature enables users to upload custom Ansible playbooks through the Flagship web UI. It provides a middle-ground between system-provided playbooks (Tier 1) and a full web-based YAML editor (Tier 3).
 
+Users can upload either:
+1. **Simple playbooks** - Single `.yml` file with inline tasks
+2. **Playbook packages** - ZIP archive containing playbook + templates + files
+
 ### Goals
 
 1. **Enable customization** - Users can run their own automation tasks beyond built-in playbooks
 2. **Maintain simplicity** - Upload via web form, no Git integration required
 3. **Ensure safety** - Basic validation prevents syntax errors
 4. **Support backup** - Users can export/download their playbooks anytime
+5. **Support templates** - Allow template files for configuration management
 
 ### Non-Goals
 
 - Advanced YAML editor with syntax highlighting (Tier 3)
-- Custom role uploads (playbooks only)
+- Full Ansible role support with complex directory structures (Phase 3+)
 - Git integration (Phase 5)
 - Complex validation/sandboxing (users are trusted)
 
@@ -112,11 +117,15 @@ CREATE TABLE admiral.playbooks (
     description TEXT,
     tags TEXT[],  -- For categorization: ["backup", "security", "client-abc"]
 
+    -- Upload type
+    is_package BOOLEAN DEFAULT false,  -- True if ZIP upload (has templates/files)
+
     -- Content storage (for backup/versioning)
-    content TEXT NOT NULL,  -- Full YAML content
+    content TEXT NOT NULL,  -- Full YAML content (main playbook.yml)
 
     -- Filesystem location
-    file_path TEXT NOT NULL,  -- e.g., "/var/lib/nodepulse/playbooks/user_123/custom-deploy.yml"
+    file_path TEXT NOT NULL,  -- Simple: "/path/to/playbook.yml" | Package: "/path/to/package-dir/"
+    playbook_entry_point TEXT,  -- For packages: relative path to main playbook (e.g., "playbook.yml")
 
     -- Versioning
     version INTEGER DEFAULT 1,
@@ -160,21 +169,35 @@ WHERE is_active = true;
 
 ```
 /var/lib/nodepulse/playbooks/
-├── system/                     # Built-in playbooks (is_system=true)
+├── system/                           # Built-in playbooks (is_system=true)
 │   ├── deploy-agent-mtls.yml
 │   ├── deploy-node-exporter.yml
 │   └── security-hardening.yml
 │
-├── user_1/                     # User-uploaded playbooks
-│   ├── custom-backup.yml       # Original filename
-│   ├── deploy-app.yml
-│   └── .metadata.json          # User playbook metadata cache
+├── user_1/                           # User-uploaded playbooks
+│   ├── custom-backup.yml             # Simple playbook (single file)
+│   ├── deploy-app.yml                # Simple playbook
+│   │
+│   ├── nginx-setup/                  # Playbook package (extracted ZIP)
+│   │   ├── playbook.yml              # Main playbook
+│   │   ├── templates/
+│   │   │   ├── nginx.conf.j2
+│   │   │   └── site.conf.j2
+│   │   └── files/
+│   │       └── index.html
+│   │
+│   └── wordpress-deploy/             # Another playbook package
+│       ├── playbook.yml
+│       ├── templates/
+│       │   └── wp-config.php.j2
+│       └── files/
+│           └── .htaccess
 │
 ├── user_2/
 │   ├── client-a-maintenance.yml
 │   └── client-b-deploy.yml
 │
-└── shared/                     # Future: shared playbooks (Phase 3)
+└── shared/                           # Future: shared playbooks (Phase 3)
     └── community-wordpress-setup.yml
 ```
 
@@ -184,15 +207,27 @@ WHERE is_active = true;
 
 ### Basic Validation (Phase 1)
 
+**File Upload Validation**
+- Simple playbook: `.yml` or `.yaml` file only
+- Package: `.zip` file containing valid structure
+- Max file size: 1MB (simple) or 5MB (package)
+
 **YAML Syntax Check**
 - Must be valid YAML (no parse errors)
 - Required top-level keys: `name`, `hosts`, `tasks` (or `roles`)
 - No empty task lists
 
+**Package Structure Validation** (for ZIP uploads)
+- Must contain a main playbook file (e.g., `playbook.yml`)
+- Optional: `templates/` directory for Jinja2 templates
+- Optional: `files/` directory for static files
+- No executable files allowed (.sh, .bin, .exe)
+- Total extracted size must not exceed 10MB
+
 **Ansible Structure Check**
 ```python
 # Pseudo-code validation
-def validate_playbook(yaml_content):
+def validate_playbook(yaml_content, package_files=None):
     # 1. Parse YAML
     try:
         data = yaml.safe_load(yaml_content)
@@ -211,7 +246,17 @@ def validate_playbook(yaml_content):
         if "tasks" not in play and "roles" not in play:
             return {"valid": False, "error": "Each play must have 'tasks' or 'roles'"}
 
-    # 4. Scan for hardcoded secrets (basic regex check)
+    # 4. Validate template references (for packages)
+    if package_files:
+        template_refs = extract_template_references(yaml_content)
+        for ref in template_refs:
+            if ref not in package_files:
+                return {
+                    "valid": False,
+                    "error": f"Referenced template not found in package: {ref}"
+                }
+
+    # 5. Scan for hardcoded secrets (basic regex check)
     secrets_found = scan_for_secrets(yaml_content)
     if secrets_found:
         return {
@@ -315,18 +360,41 @@ Authorization: Bearer {token}
 Content-Type: multipart/form-data
 
 Form Data:
-  - file: playbook.yml (required)
+  - file: playbook.yml OR package.zip (required)
   - name: string (optional - auto-detected from playbook)
   - description: string (optional)
   - tags: string[] (optional)
+  - entry_point: string (optional - for packages, defaults to "playbook.yml")
 
-Response: 201 Created
+Response: 201 Created (Simple Playbook)
 {
   "message": "Playbook uploaded successfully",
   "playbook": {
     "id": "new-uuid",
     "name": "Custom Backup Playbook",
+    "is_package": false,
     "file_path": "/var/lib/nodepulse/playbooks/user_123/custom-backup.yml"
+  },
+  "validation": {
+    "valid": true,
+    "warnings": []
+  }
+}
+
+Response: 201 Created (Package)
+{
+  "message": "Playbook package uploaded successfully",
+  "playbook": {
+    "id": "new-uuid",
+    "name": "Nginx Setup",
+    "is_package": true,
+    "file_path": "/var/lib/nodepulse/playbooks/user_123/nginx-setup/",
+    "playbook_entry_point": "playbook.yml",
+    "package_contents": {
+      "playbook": "playbook.yml",
+      "templates": ["nginx.conf.j2", "site.conf.j2"],
+      "files": ["index.html"]
+    }
   },
   "validation": {
     "valid": true,
@@ -428,23 +496,32 @@ Response: 200 OK
 
 **UI Components**:
 
-1. **File Upload Area**
+1. **Upload Type Selector**
+   - Radio buttons: "Simple Playbook" or "Playbook Package"
+   - Shows appropriate instructions for each type
+
+2. **File Upload Area**
    - Drag-and-drop zone
    - File picker button
-   - Accepts `.yml`, `.yaml` files only
-   - Max file size: 1MB
+   - Simple mode: Accepts `.yml`, `.yaml` files (max 1MB)
+   - Package mode: Accepts `.zip` files (max 5MB)
 
-2. **Metadata Form**
+3. **Package Configuration** (shown only for ZIP uploads)
+   - Entry point selector (dropdown of .yml files found in ZIP)
+   - Package contents preview (tree view of extracted files)
+
+4. **Metadata Form**
    - Name (auto-filled from playbook, editable)
    - Description (optional textarea)
    - Tags (multi-select dropdown + custom input)
 
-3. **Validation Preview**
+5. **Validation Preview**
    - Real-time YAML validation
    - Syntax highlighting (read-only preview)
+   - Package structure validation (for ZIPs)
    - Warning/error messages
 
-4. **Upload Button**
+6. **Upload Button**
    - Disabled until validation passes
    - Shows progress indicator
    - Success/error toast notifications
@@ -672,6 +749,8 @@ export default function UploadPlaybook() {
 
 ### How to Upload a Custom Playbook
 
+#### Option 1: Simple Playbook (Single File)
+
 **Step 1: Prepare Your Playbook**
 
 Create a valid Ansible playbook in YAML format:
@@ -698,15 +777,90 @@ Create a valid Ansible playbook in YAML format:
         format: gz
 ```
 
-**Step 2: Upload via Web UI**
+**Step 2: Upload**
 
 1. Navigate to **Dashboard → Playbooks → Upload**
-2. Drag and drop your `.yml` file or click "Choose File"
-3. Review the validation results
-4. Add description and tags (optional)
-5. Click "Upload Playbook"
+2. Select "Simple Playbook"
+3. Drag and drop your `.yml` file or click "Choose File"
+4. Review validation results
+5. Add description and tags (optional)
+6. Click "Upload Playbook"
 
-**Step 3: Execute Your Playbook**
+#### Option 2: Playbook Package (With Templates/Files)
+
+**Step 1: Create Package Structure**
+
+Organize your playbook with templates and files:
+
+```
+nginx-setup/
+├── playbook.yml              # Main playbook
+├── templates/
+│   ├── nginx.conf.j2         # Jinja2 template
+│   └── site.conf.j2
+└── files/
+    └── index.html            # Static file
+```
+
+**Example playbook.yml with templates:**
+
+```yaml
+---
+- name: Setup Nginx
+  hosts: webservers
+  become: yes
+
+  vars:
+    server_name: example.com
+    web_root: /var/www/html
+
+  tasks:
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Deploy nginx config
+      template:
+        src: templates/nginx.conf.j2  # Relative path within package
+        dest: /etc/nginx/nginx.conf
+      notify: restart nginx
+
+    - name: Deploy site config
+      template:
+        src: templates/site.conf.j2
+        dest: /etc/nginx/sites-available/{{ server_name }}
+
+    - name: Copy index page
+      copy:
+        src: files/index.html  # Relative path within package
+        dest: "{{ web_root }}/index.html"
+
+  handlers:
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted
+```
+
+**Step 2: Create ZIP Archive**
+
+```bash
+cd nginx-setup/
+zip -r nginx-setup.zip playbook.yml templates/ files/
+```
+
+**Step 3: Upload Package**
+
+1. Navigate to **Dashboard → Playbooks → Upload**
+2. Select "Playbook Package"
+3. Upload your ZIP file
+4. Select entry point (defaults to `playbook.yml`)
+5. Review package contents preview
+6. Add description and tags
+7. Click "Upload Package"
+
+#### Execute Your Playbook
 
 1. Go to **Dashboard → Playbooks**
 2. Click on your uploaded playbook
@@ -715,12 +869,25 @@ Create a valid Ansible playbook in YAML format:
 5. Review variables (if any)
 6. Click "Run Playbook"
 
-**Step 4: View Results**
+#### View Results
 
 1. Monitor execution in real-time
 2. View output logs per server
 3. Check success/failure status
 4. Download full execution logs
+
+#### Backup and Restore
+
+**Export all playbooks:**
+1. Go to **Dashboard → Playbooks**
+2. Click "Export All"
+3. Download ZIP file containing all your playbooks and metadata
+
+**Import playbooks:**
+1. Go to **Dashboard → Playbooks**
+2. Click "Import"
+3. Upload previously exported ZIP file
+4. Review import results
 
 ---
 
@@ -928,7 +1095,7 @@ test('user can upload and execute playbook', async ({ page }) => {
 ## FAQ
 
 ### Q: Can I upload Ansible roles?
-**A**: Not in Phase 1. Only playbooks (`.yml` files) are supported. Role support is planned for future phases.
+**A**: Not in the traditional sense. You can upload playbook packages (ZIP files) with templates and files, but not full role directory structures. This covers most use cases without the complexity of role management.
 
 ### Q: How do I use variables in custom playbooks?
 **A**: You can define variables in your playbook using `vars:` section, or pass them during execution via the web UI.
@@ -953,6 +1120,17 @@ test('user can upload and execute playbook', async ({ page }) => {
 
 ### Q: Can I use Ansible Galaxy roles in my playbooks?
 **A**: Not automatically in Phase 1. You'll need to pre-install roles on the Admiral server. Automatic Galaxy role installation is planned for Phase 3.
+
+### Q: What's the difference between a simple playbook and a package?
+**A**:
+- **Simple playbook**: Single `.yml` file with all tasks defined inline. Good for straightforward automation.
+- **Package**: ZIP containing playbook + templates + files. Use when you need Jinja2 templates or static files.
+
+### Q: Can I use the `template` module in simple playbooks?
+**A**: No. The `template` module requires template files to exist on disk. Use playbook packages instead, or use the `copy` module with inline `content:` for simple templates.
+
+### Q: How do I reference templates in a package?
+**A**: Use relative paths from the package root. Example: `src: templates/nginx.conf.j2` or `src: files/index.html`.
 
 ---
 

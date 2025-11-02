@@ -27,43 +27,58 @@ To stay focused on our mission, we explicitly choose NOT to:
 
 ## Roadmap Phases
 
-### Phase 1: MVP (Current - Completed)
+### Phase 1: MVP (Completed ✅)
 
 **Core Ansible Integration**
 
 - ✅ Dynamic inventory from PostgreSQL
-- ✅ Agent deployment automation
-- ✅ SSH key management with encryption
-- ✅ Real-time deployment tracking
-- ✅ Web UI for deployments
+- ✅ Agent deployment automation (deploy, upgrade, rollback, uninstall)
+- ✅ SSH key management with encryption (master key encryption)
+- ✅ Real-time deployment tracking via Valkey Streams
+- ✅ Web UI for deployments (React + Inertia.js)
 - ✅ Multi-server parallel execution (100 concurrent connections)
+- ✅ Simplified metrics architecture (agent-side parsing, 98% bandwidth reduction)
+- ✅ SSH WebSocket terminal access
+- ✅ Public status pages and badges
 
 **Why**: Provides the foundation for automated agent management across VPS fleets without manual SSH access.
 
-### Phase 2: Post-MVP (Next 1-2 months)
+**Completed**: October 2025
+
+### Phase 2: Post-MVP (Current - November 2025 onwards)
 
 #### 2.1 Playbook Library & Templates
 
 **User-Writable Playbooks (3-Tier Approach)**
 
-**Tier 1: Built-in Playbooks** (Immediate)
+**Tier 1: Built-in Playbooks** (Partially Complete)
 
-- Security hardening (fail2ban, SSH key-only, firewall rules, automatic updates)
-- Server maintenance (cleanup, log rotation, package updates)
-- Monitoring setup (node_exporter, custom metrics)
-- Docker installation and configuration
-- Web server setup (Nginx, Caddy)
+- ✅ Node Pulse agent deployment (deploy-agent-mtls.yml, deploy-agent-no-mtls.yml)
+- ✅ Agent lifecycle management (upgrade, rollback, uninstall)
+- ✅ Monitoring setup (node_exporter deployment)
+- 🔄 Security hardening (fail2ban, SSH key-only, firewall rules, automatic updates) - Planned
+- 🔄 Server maintenance (cleanup, log rotation, package updates) - Planned
+- 🔄 Docker installation and configuration - Planned
+- 🔄 Web server setup (Nginx, Caddy) - Planned
 
 **Why**: Most users need common tasks automated. Pre-built playbooks reduce complexity and provide immediate value.
 
-**Tier 2: Playbook Templates** (Short-term)
+**Tier 2: Custom Playbook Upload** (Short-term - In Planning)
 
-- Marketplace of community-contributed playbooks
+- Upload custom playbooks via web UI
+- Support for simple playbooks (single .yml file) and packages (ZIP with templates/files)
+- YAML validation and basic security scanning
+- Version control for playbook history
+- Backup/export functionality
+- **Status**: [Spec complete](./ansible-reference/custom-playbooks.md), ready for implementation
+
+**Future - Playbook Marketplace**:
+- Community-contributed playbooks
 - One-click deployment from templates
 - Fork and customize templates
-- Version control for playbook history
+- Star/favorite system
 
-**Why**: Enables users to benefit from community knowledge without writing YAML from scratch.
+**Why**: Users need to run custom automation beyond built-in playbooks. Upload via web UI provides immediate value without Git complexity.
 
 **Tier 3: Custom Playbook Editor** (Long-term)
 
@@ -77,6 +92,8 @@ To stay focused on our mission, we explicitly choose NOT to:
 
 #### 2.2 Scheduled Deployments
 
+**Status**: Planned (Q1 2026)
+
 **Features:**
 
 - Cron-like scheduling for recurring playbooks
@@ -86,7 +103,11 @@ To stay focused on our mission, we explicitly choose NOT to:
 
 **Why**: Infrastructure maintenance should be automated. Users shouldn't need to remember to run security updates or backups.
 
+**Dependencies**: Custom playbook upload (Tier 2) must be complete first
+
 #### 2.3 Deployment Workflows
+
+**Status**: Planned (Q2 2026)
 
 **Features:**
 
@@ -97,9 +118,15 @@ To stay focused on our mission, we explicitly choose NOT to:
 
 **Why**: Complex operations require orchestration. Workflows prevent manual errors and ensure consistency.
 
-### Phase 3: Growth Features (3-6 months)
+**Dependencies**: Scheduled deployments (2.2) should be complete first
+
+### Phase 3: Growth Features (Q2-Q3 2026)
+
+**Timeline**: 3-6 months after Phase 2 completion
 
 #### 3.1 Advanced Inventory Management
+
+**Status**: Planned
 
 **Features:**
 
@@ -147,7 +174,9 @@ To stay focused on our mission, we explicitly choose NOT to:
 
 **Why**: Teams need delegation without full admin access. Approval workflows prevent unauthorized changes.
 
-### Phase 4: Advanced Features (6-12 months)
+### Phase 4: Advanced Features (Q4 2026 - Q2 2027)
+
+**Timeline**: 6-12 months from now
 
 #### 4.1 Credential Vault
 
@@ -209,7 +238,9 @@ To stay focused on our mission, we explicitly choose NOT to:
 
 **Why**: Gathering facts from 100+ servers is slow. Cached facts enable instant filtering and compliance reporting.
 
-### Phase 5: Scale & Growth Features (12+ months)
+### Phase 5: Scale & Growth Features (Q3 2027+)
+
+**Timeline**: 12+ months from now
 
 _For users who've succeeded and grown their infrastructure_
 
@@ -294,6 +325,60 @@ _For freelancers and small agencies managing client infrastructure_
 5. **Security by Default**: Secure configurations out of the box
 6. **Performance Matters**: Optimize for 50-500 server deployments from day one
 7. **Avoid Enterprise Bloat**: If a feature only makes sense at 1000+ servers, we don't build it
+
+---
+
+## Current Focus (November 2025)
+
+### Immediate Priorities
+
+**1. Custom Playbook Upload (Tier 2) - Phase 2.1**
+- **Status**: Specification complete
+- **Timeline**: 4-5 weeks implementation
+- **Spec**: [docs/ansible-reference/custom-playbooks.md](./ansible-reference/custom-playbooks.md)
+- **Next Steps**:
+  1. Database migration for `admiral.playbooks` table
+  2. Laravel backend (Models, Services, Controllers)
+  3. React upload UI components
+  4. Integration with existing deployment system
+  5. Testing and documentation
+
+**2. Built-in Security Playbooks (Tier 1) - Phase 2.1**
+- **Status**: Planned
+- **Timeline**: 2-3 weeks after custom playbook upload
+- **Features**:
+  - SSH hardening playbook
+  - Firewall configuration (UFW)
+  - fail2ban deployment
+  - Automatic security updates
+
+**3. Documentation & Examples**
+- **Status**: Ongoing
+- **Focus**:
+  - User guide for custom playbook creation
+  - Example playbooks repository
+  - Video tutorials for common workflows
+
+### Recently Completed (October 2025)
+
+- ✅ Simplified metrics architecture (98% bandwidth reduction)
+- ✅ SSH WebSocket terminal access
+- ✅ Public status pages and badges
+- ✅ Agent deployment automation via Ansible
+- ✅ Real-time deployment tracking via Valkey Streams
+
+### On Hold / Deprioritized
+
+- **Playbook Marketplace**: Deferred until custom upload is stable and user feedback collected
+- **Full Role Support**: Not needed for MVP; packages (ZIP uploads) cover most use cases
+- **Git Integration**: Phase 5 feature; too complex for current user base
+
+---
+
+## Revision History
+
+- **2025-11-01**: Updated Phase 1 completion status, detailed Phase 2 progress, added custom playbook upload spec
+- **2025-10-30**: Initial roadmap created
 
 ---
 
