@@ -191,11 +191,12 @@ jobs:
           curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
           sha256sum -c node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
 
-          # Extract
-          tar xzf node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz
+          # Extract to /opt/admiral
+          sudo mkdir -p /opt/admiral
+          sudo tar xzf node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz -C /opt/admiral --strip-components=1
 
           # Enter directory
-          cd node-pulse-admiral-${{ steps.version.outputs.VERSION }}
+          cd /opt/admiral
 
           # Run deployment
           sudo ./deploy.sh
@@ -282,10 +283,11 @@ jobs:
             ### 🚀 Quick Deployment
 
             ```bash
-            # Download and extract
+            # Download and extract to /opt/admiral
             curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz
-            tar xzf node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz
-            cd node-pulse-admiral-${{ steps.version.outputs.VERSION }}
+            sudo mkdir -p /opt/admiral
+            sudo tar xzf node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz -C /opt/admiral --strip-components=1
+            cd /opt/admiral
 
             # Deploy (interactive - no manual .env editing needed)
             sudo ./deploy.sh
