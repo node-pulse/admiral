@@ -29,8 +29,8 @@ CERTS_DIR="$SECRETS_DIR/certs"
 MASTER_KEY_PATH="$SECRETS_DIR/master.key"
 CA_CERT_PATH="$CERTS_DIR/ca.crt"
 
-# Submarines API URL (internal Docker network)
-SUBMARINES_URL="${SUBMARINES_API_URL:-http://submarines-ingest:8080}"
+# Submarines ingest API URL (hardcoded - Docker service name)
+SUBMARINES_URL="http://submarines-ingest:8080"
 
 # Default CA settings
 CA_NAME="${CA_NAME:-Node Pulse Production CA}"

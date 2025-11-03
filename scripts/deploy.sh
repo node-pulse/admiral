@@ -350,11 +350,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${CYAN}REDIS_HOST, REDIS_PORT, REDIS_PASSWORD auto-set from Valkey config${NC}"
     echo ""
 
-    # Submarines API endpoint
-    prompt_config "SUBMARINES_API_URL" "http://submarines-ingest:8080" "Submarines API endpoint for server-side calls"
-
-    echo ""
-
     # Mail
     prompt_config "MAIL_MAILER" "log" "Mail driver (smtp/log/etc)"
     prompt_config "MAIL_FROM_ADDRESS" "noreply@nodepulse.local" "Mail from address"
@@ -654,7 +649,6 @@ APP_KEY=${CONFIG[APP_KEY]}
 APP_URL=${CONFIG[APP_URL]}
 APP_LOCALE=${CONFIG[APP_LOCALE]}
 APP_FALLBACK_LOCALE=${CONFIG[APP_FALLBACK_LOCALE]}
-APP_FAKER_LOCALE=${CONFIG[APP_FAKER_LOCALE]}
 APP_MAINTENANCE_DRIVER=${CONFIG[APP_MAINTENANCE_DRIVER]}
 
 # Logging
@@ -678,9 +672,6 @@ REDIS_CLIENT=${CONFIG[REDIS_CLIENT]}
 REDIS_HOST=\${VALKEY_HOST}
 REDIS_PORT=\${VALKEY_PORT}
 REDIS_PASSWORD=\${VALKEY_PASSWORD}
-
-# Submarines API endpoint (server-side calls)
-SUBMARINES_API_URL=${CONFIG[SUBMARINES_API_URL]}
 
 # Mail (optional, defaults to log)
 MAIL_MAILER=${CONFIG[MAIL_MAILER]}
