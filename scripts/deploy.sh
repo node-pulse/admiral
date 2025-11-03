@@ -230,11 +230,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     echo ""
 
-    # Digest worker
-    prompt_config "DIGEST_ID" "digest-1" "Digest worker ID"
-
-    echo ""
-
     # =============================================================================
     # Flagship Configuration (Laravel Dashboard)
     # =============================================================================
@@ -646,9 +641,6 @@ GIN_MODE=${CONFIG[GIN_MODE]}
 
 # Security
 JWT_SECRET=${CONFIG[JWT_SECRET]}
-
-# Digest worker
-DIGEST_ID=${CONFIG[DIGEST_ID]}
 
 # =============================================================================
 # Flagship Configuration (Laravel Dashboard)
