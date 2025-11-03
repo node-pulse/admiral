@@ -105,7 +105,6 @@ export function TerminalWorkspace({
         onClose();
     };
 
-    const activeSession = sessions.find((s) => s.id === activeSessionId);
     const pipSession = sessions.find((s) => s.id === pipSessionId);
 
     if (!isOpen) return null;
@@ -295,27 +294,39 @@ export function TerminalWorkspace({
 
                     {/* Terminal Area */}
                     <div className="TerminalArea relative flex flex-1 flex-col">
-                        {activeSession ? (
-                            <div className="SSHTerminal flex-1 overflow-y-auto p-4">
-                                <SSHTerminal
-                                    key={activeSession.id}
-                                    serverId={activeSession.server.id}
-                                    server={activeSession.server}
-                                    serverConnected={activeSession.isConnected}
-                                    setServerConnected={(connected) =>
-                                        updateSessionStatus(
-                                            activeSession.id,
-                                            connected,
-                                        )
-                                    }
-                                    onConnectionChange={(connected) =>
-                                        updateSessionStatus(
-                                            activeSession.id,
-                                            connected,
-                                        )
-                                    }
-                                />
-                            </div>
+                        {sessions.length > 0 ? (
+                            <>
+                                {sessions.map((session) => (
+                                    <div
+                                        key={session.id}
+                                        className={cn(
+                                            'SSHTerminal flex-1 overflow-y-auto p-4',
+                                            session.id !== activeSessionId &&
+                                                'hidden',
+                                        )}
+                                    >
+                                        <SSHTerminal
+                                            serverId={session.server.id}
+                                            server={session.server}
+                                            serverConnected={
+                                                session.isConnected
+                                            }
+                                            setServerConnected={(connected) =>
+                                                updateSessionStatus(
+                                                    session.id,
+                                                    connected,
+                                                )
+                                            }
+                                            onConnectionChange={(connected) =>
+                                                updateSessionStatus(
+                                                    session.id,
+                                                    connected,
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                ))}
+                            </>
                         ) : (
                             <div className="flex flex-1 items-center justify-center text-muted-foreground">
                                 <div className="text-center">
