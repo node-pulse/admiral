@@ -6,7 +6,7 @@
 set -e
 
 VERSION="${1:-latest}"
-RELEASE_DIR="node-pulse-${VERSION}"
+RELEASE_DIR="node-pulse-admiral-${VERSION}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
@@ -85,18 +85,18 @@ cat > "release/$RELEASE_DIR/DEPLOYMENT.md" << EOF
 
 \`\`\`bash
 # If using GitHub release (automated):
-curl -LO https://github.com/YOUR_ORG/YOUR_REPO/releases/download/v${VERSION}/node-pulse-${VERSION}.tar.gz
-curl -LO https://github.com/YOUR_ORG/YOUR_REPO/releases/download/v${VERSION}/node-pulse-${VERSION}.tar.gz.sha256
-sha256sum -c node-pulse-${VERSION}.tar.gz.sha256
+curl -LO https://github.com/YOUR_ORG/YOUR_REPO/releases/download/v${VERSION}/node-pulse-admiral-${VERSION}.tar.gz
+curl -LO https://github.com/YOUR_ORG/YOUR_REPO/releases/download/v${VERSION}/node-pulse-admiral-${VERSION}.tar.gz.sha256
+sha256sum -c node-pulse-admiral-${VERSION}.tar.gz.sha256
 
 # Or if using local build:
 # Just extract the tarball you created
 
 # Extract
-tar xzf node-pulse-${VERSION}.tar.gz
+tar xzf node-pulse-admiral-${VERSION}.tar.gz
 
 # Enter directory
-cd node-pulse-${VERSION}
+cd node-pulse-admiral-${VERSION}
 
 # Run deployment
 sudo ./deploy.sh
@@ -180,11 +180,11 @@ EOF
 echo ""
 echo "Creating tarball..."
 cd release
-tar czf "node-pulse-${VERSION}.tar.gz" "$RELEASE_DIR/"
+tar czf "node-pulse-admiral-${VERSION}.tar.gz" "$RELEASE_DIR/"
 
 # Create checksums
 echo "Generating checksum..."
-sha256sum "node-pulse-${VERSION}.tar.gz" > "node-pulse-${VERSION}.tar.gz.sha256"
+sha256sum "node-pulse-admiral-${VERSION}.tar.gz" > "node-pulse-admiral-${VERSION}.tar.gz.sha256"
 
 # Show results
 echo ""
@@ -195,27 +195,27 @@ echo ""
 echo "Location: $PROJECT_ROOT/release/"
 echo ""
 echo "Files:"
-ls -lh "node-pulse-${VERSION}.tar.gz"
-ls -lh "node-pulse-${VERSION}.tar.gz.sha256"
+ls -lh "node-pulse-admiral-${VERSION}.tar.gz"
+ls -lh "node-pulse-admiral-${VERSION}.tar.gz.sha256"
 echo ""
 echo "Archive contents:"
-tar -tzf "node-pulse-${VERSION}.tar.gz" | head -20
-if [ $(tar -tzf "node-pulse-${VERSION}.tar.gz" | wc -l) -gt 20 ]; then
+tar -tzf "node-pulse-admiral-${VERSION}.tar.gz" | head -20
+if [ $(tar -tzf "node-pulse-admiral-${VERSION}.tar.gz" | wc -l) -gt 20 ]; then
     echo "... (and more)"
 fi
 echo ""
 echo "Checksum:"
-cat "node-pulse-${VERSION}.tar.gz.sha256"
+cat "node-pulse-admiral-${VERSION}.tar.gz.sha256"
 echo ""
 echo -e "${YELLOW}================================================${NC}"
 echo -e "${YELLOW}Deployment Options${NC}"
 echo -e "${YELLOW}================================================${NC}"
 echo ""
 echo "Option 1: Deploy to remote server"
-echo "  scp node-pulse-${VERSION}.tar.gz user@server:~/"
+echo "  scp node-pulse-admiral-${VERSION}.tar.gz user@server:~/"
 echo "  ssh user@server"
-echo "  tar xzf node-pulse-${VERSION}.tar.gz"
-echo "  cd node-pulse-${VERSION}"
+echo "  tar xzf node-pulse-admiral-${VERSION}.tar.gz"
+echo "  cd node-pulse-admiral-${VERSION}"
 echo "  sudo ./deploy.sh"
 echo ""
 echo "Option 2: Local testing with unregistry"
@@ -227,7 +227,7 @@ echo "  docker pussh node-pulse-migrate:latest user@test-server"
 echo "  # ... (repeat for all services)"
 echo ""
 echo "Option 3: Test locally"
-echo "  cd release/node-pulse-${VERSION}"
+echo "  cd release/node-pulse-admiral-${VERSION}"
 echo "  # Modify compose.yml to use local images or localhost:5000/"
 echo "  sudo ./deploy.sh"
 echo ""

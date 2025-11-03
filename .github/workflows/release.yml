@@ -154,27 +154,27 @@ jobs:
       - name: Prepare release artifacts
         run: |
           # Create release directory
-          mkdir -p release/node-pulse-${{ steps.version.outputs.VERSION }}
+          mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}
 
           # Copy essential deployment files
-          cp compose.yml release/node-pulse-${{ steps.version.outputs.VERSION }}/
-          cp .env.example release/node-pulse-${{ steps.version.outputs.VERSION }}/
-          cp scripts/deploy.sh release/node-pulse-${{ steps.version.outputs.VERSION }}/
-          cp scripts/setup-mtls.sh release/node-pulse-${{ steps.version.outputs.VERSION }}/
+          cp compose.yml release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
+          cp .env.example release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
+          cp scripts/deploy.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
+          cp scripts/setup-mtls.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
 
           # Copy Caddy configuration (rename prod to Caddyfile for production use)
-          mkdir -p release/node-pulse-${{ steps.version.outputs.VERSION }}/caddy
-          cp caddy/Caddyfile.prod release/node-pulse-${{ steps.version.outputs.VERSION }}/caddy/Caddyfile
+          mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/caddy
+          cp caddy/Caddyfile.prod release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/caddy/Caddyfile
 
           # Copy Ansible playbooks (needed at runtime for custom playbooks)
-          cp -r ansible release/node-pulse-${{ steps.version.outputs.VERSION }}/ansible
+          cp -r ansible release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/ansible
 
           # Copy documentation
-          cp README.md release/node-pulse-${{ steps.version.outputs.VERSION }}/
-          cp LICENSE release/node-pulse-${{ steps.version.outputs.VERSION }}/ || true
+          cp README.md release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
+          cp LICENSE release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/ || true
 
           # Create deployment instructions
-          cat > release/node-pulse-${{ steps.version.outputs.VERSION }}/DEPLOYMENT.md << 'EOF'
+          cat > release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/DEPLOYMENT.md << 'EOF'
           # Node Pulse Admiral - Deployment Instructions
 
           ## Version: ${{ steps.version.outputs.VERSION }}
@@ -185,17 +185,17 @@ jobs:
 
           ```bash
           # Download latest release
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz
 
           # Verify checksum (optional but recommended)
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
-          sha256sum -c node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+          sha256sum -c node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
 
           # Extract
-          tar xzf node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
+          tar xzf node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz
 
           # Enter directory
-          cd node-pulse-${{ steps.version.outputs.VERSION }}
+          cd node-pulse-admiral-${{ steps.version.outputs.VERSION }}
 
           # Run deployment
           sudo ./deploy.sh
@@ -256,10 +256,10 @@ jobs:
 
           # Create tarball
           cd release
-          tar czf node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz node-pulse-${{ steps.version.outputs.VERSION }}/
+          tar czf node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
 
           # Create checksums
-          sha256sum node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz > node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+          sha256sum node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz > node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -274,8 +274,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
-            release/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+            release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz
+            release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
           body: |
             ## Node Pulse Admiral v${{ steps.version.outputs.VERSION }}
 
@@ -283,9 +283,9 @@ jobs:
 
             ```bash
             # Download and extract
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
-            tar xzf node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz
-            cd node-pulse-${{ steps.version.outputs.VERSION }}
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz
+            tar xzf node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz
+            cd node-pulse-admiral-${{ steps.version.outputs.VERSION }}
 
             # Deploy (interactive - no manual .env editing needed)
             sudo ./deploy.sh
@@ -310,7 +310,7 @@ jobs:
 
             ```bash
             # Verify checksum
-            sha256sum -c node-pulse-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+            sha256sum -c node-pulse-admiral-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

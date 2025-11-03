@@ -124,17 +124,17 @@ PostgreSQL (:5432) - admiral.metrics + admiral.process_snapshots
 
 ```bash
 # Download latest release
-curl -LO https://github.com/node-pulse/admiral/releases/latest/download/node-pulse-latest.tar.gz
+curl -LO https://github.com/node-pulse/admiral/releases/latest/download/node-pulse-admiral-latest.tar.gz
 
 # Verify checksum (optional but recommended)
-curl -LO https://github.com/node-pulse/admiral/releases/latest/download/node-pulse-latest.tar.gz.sha256
-sha256sum -c node-pulse-latest.tar.gz.sha256
+curl -LO https://github.com/node-pulse/admiral/releases/latest/download/node-pulse-admiral-latest.tar.gz.sha256
+sha256sum -c node-pulse-admiral-latest.tar.gz.sha256
 
 # Extract
-tar xzf node-pulse-latest.tar.gz
+tar xzf node-pulse-admiral-latest.tar.gz
 
-# Enter the extracted directory (e.g., node-pulse-1.0.0/)
-cd node-pulse-*
+# Enter the extracted directory (e.g., node-pulse-admiral-0.8.7/)
+cd node-pulse-admiral-*
 
 # Run interactive deployment
 sudo ./deploy.sh
