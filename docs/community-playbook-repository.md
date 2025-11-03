@@ -3,7 +3,7 @@
 **Status**: Phase 2.5 - Planned
 **Target**: Post-MVP (After custom playbook upload feature)
 **Created**: 2025-11-02
-**Updated**: 2025-11-02
+**Updated**: 2025-11-03
 
 ---
 
@@ -18,6 +18,18 @@ Enable users to install pre-built Ansible playbooks from a community-maintained 
 3. **Quality Assurance** - CI-validated playbooks with standardized metadata
 4. **Contribution Model** - PR-based workflow (like Homebrew)
 5. **Minimal Infrastructure** - No complex marketplace, GitHub is the source of truth
+6. **Self-contained and Zero Dependency** - Playbooks must work standalone without external dependencies
+
+### Core Principles
+
+**Self-contained and Zero External Dependencies**
+- Every playbook must be completely self-contained within its directory
+- You can use code from Ansible Galaxy roles/collections, but must include a local copy in your playbook directory
+- No external fetching - we only download files from this GitHub repository
+- No `requirements.yml` files (Admiral doesn't run `ansible-galaxy install`)
+- All templates, files, roles, and tasks must be included in the playbook package
+- Users should be able to download and execute immediately without fetching external dependencies
+- This ensures reliability, predictability, ease of maintenance, and full code review
 
 ### Non-Goals
 
@@ -25,6 +37,7 @@ Enable users to install pre-built Ansible playbooks from a community-maintained 
 - Paid/commercial playbooks
 - User ratings/reviews (Phase 3+)
 - Automatic updates (Phase 3+)
+- External Ansible Galaxy dependencies
 
 ---
 
@@ -1398,6 +1411,52 @@ jobs:
 
           exit $EXIT_CODE
 
+      - name: Validate zero external dependencies (self-contained)
+        run: |
+          EXIT_CODE=0
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            echo "Checking $dir for external dependencies..."
+
+            # Check for requirements.yml (Ansible Galaxy automatic fetching)
+            if [ -f "$dir/requirements.yml" ]; then
+              echo "❌ Found requirements.yml in $dir"
+              echo "   Playbooks must not use external dependency fetching."
+              echo "   If you need Galaxy role code, copy it into your playbook directory (e.g., roles/)."
+              EXIT_CODE=1
+            fi
+
+            # Check for meta/main.yml with external dependencies
+            if [ -f "$dir/meta/main.yml" ]; then
+              # Parse and check for external dependencies (roles not in local directory)
+              if grep -q "dependencies:" "$dir/meta/main.yml" 2>/dev/null; then
+                # Check if dependencies reference external roles (namespace.role format)
+                if grep -qE "dependencies:.*[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+" "$dir/meta/main.yml" 2>/dev/null; then
+                  echo "❌ External role dependencies found in meta/main.yml"
+                  echo "   Copy external role code into your playbook directory instead."
+                  EXIT_CODE=1
+                fi
+              fi
+            fi
+
+            # Check playbook content for external collection requirements
+            entry_point=$(jq -r '.entry_point' "$dir/manifest.json")
+
+            if grep -q "collections:" "$dir/$entry_point" 2>/dev/null; then
+              echo "⚠️  Collections declaration found in $dir/$entry_point"
+              echo "   Ensure collection code is included in your playbook directory (not fetched externally)."
+              # Don't fail - collections might be included locally
+            fi
+
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo "✅ Playbook $dir has zero external dependencies"
+            fi
+
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          exit $EXIT_CODE
+
       - name: Summary
         if: always()
         run: |
@@ -1527,6 +1586,10 @@ Before submitting a PR, ensure:
 - [ ] Playbook passes ansible-lint (warnings acceptable)
 - [ ] Category is valid
 - [ ] Version follows semantic versioning
+- [ ] **No `requirements.yml` file** (we don't fetch external dependencies)
+- [ ] **No external role/collection references** in `meta/main.yml` (copy code locally instead)
+- [ ] All templates, files, roles, and collections are in the playbook directory
+- [ ] If using Galaxy code, it's copied locally and credited in README
 
 ### Run Validation Locally
 
@@ -1539,17 +1602,23 @@ ansible-playbook --syntax-check m/your-app/playbook.yml
 
 # Run linter
 ansible-lint m/your-app/playbook.yml
+
+# Check for external dependencies (must return nothing)
+find m/your-app -name "requirements.yml"
+grep -r "collections:" m/your-app/playbook.yml
+grep -rE "role:\s+[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+" m/your-app/playbook.yml
 ```
 
 ## Playbook Best Practices
 
-1. **Idempotency** - Playbooks should be safe to run multiple times
-2. **Error Handling** - Use `failed_when` and `changed_when` appropriately
-3. **Variables** - Use sensible defaults, document all variables
-4. **Templates** - Use Jinja2 templates for configuration files
-5. **Security** - Never hardcode secrets, use variables marked as `secret: true`
-6. **Health Checks** - Include verification tasks
-7. **Documentation** - Add `README.md` with usage examples
+1. **Self-Contained** - **CRITICAL**: No external dependency fetching. All code must be in your playbook directory. You can use Galaxy role/collection code, but copy it locally into `roles/` or `library/` directories. No `requirements.yml` files.
+2. **Idempotency** - Playbooks should be safe to run multiple times
+3. **Error Handling** - Use `failed_when` and `changed_when` appropriately
+4. **Variables** - Use sensible defaults, document all variables
+5. **Templates** - Use Jinja2 templates for configuration files
+6. **Security** - Never hardcode secrets, use variables marked as `secret: true`
+7. **Health Checks** - Include verification tasks
+8. **Documentation** - Add `README.md` with usage examples and credit any Galaxy roles you've copied
 
 ## Example Playbook
 
@@ -1847,6 +1916,22 @@ MIT - See [LICENSE](./LICENSE) for details
 
 ### Q: What happens if GitHub is down?
 **A**: You can still execute installed playbooks. Browsing/installing new playbooks requires GitHub access.
+
+### Q: Can I use Ansible Galaxy roles or collections in my playbook?
+**A**: Yes, but you must explicitly make a local copy and include it in your playbook directory. We do not fetch anything from external sources - only files from this GitHub repository are downloaded. This means:
+- Copy the role/collection code directly into your playbook directory (e.g., `roles/` or `library/`)
+- Include all necessary files in your `manifest.json` structure
+- Ensure all code is part of your playbook package
+- No `requirements.yml` files (we don't run `ansible-galaxy install`)
+
+This approach ensures reliability (no broken external dependencies), security (all code is reviewed), and offline capability while still letting you leverage existing Ansible code.
+
+**Benefits for Community Sharing:**
+- **Easy to grab and go** - Download one directory, run one playbook
+- **Easy to understand** - Everything needed is right there
+- **Easy to modify** - Users can customize without breaking other playbooks
+- **Easy to contribute** - No need to coordinate dependencies with other contributors
+- **Easy to maintain** - Each playbook owner manages only their own code
 
 ---
 
