@@ -9,7 +9,7 @@
 # ------------------------------------------------------------
 # Admin Dashboard (Flagship - Laravel)
 # ------------------------------------------------------------
-{$ADMIN_DOMAIN} {
+{$FLAGSHIP_DOMAIN} {
     # Enable gzip compression
     encode gzip
 

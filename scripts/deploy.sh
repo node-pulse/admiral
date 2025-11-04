@@ -180,8 +180,14 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    prompt_config "VALKEY_HOST" "valkey" "Valkey hostname (Docker service name)"
-    prompt_config "VALKEY_PORT" "6379" "Valkey port"
+    # Hardcoded values (Docker Compose service names)
+    CONFIG["VALKEY_HOST"]="valkey"
+    CONFIG["VALKEY_PORT"]="6379"
+
+    echo -e "${CYAN}VALKEY_HOST set to 'valkey' (Docker service name)${NC}"
+    echo -e "${CYAN}VALKEY_PORT set to '6379' (default Redis port)${NC}"
+    echo ""
+
     prompt_config "VALKEY_PASSWORD" "$(generate_secret)" "Valkey password (auto-generated)" "true"
 
     echo ""
@@ -194,16 +200,19 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    # Database connection
-    prompt_config "DB_HOST" "postgres" "Database hostname (Docker service name)"
-    prompt_config "DB_PORT" "5432" "Database port"
-    prompt_config "DB_SSLMODE" "disable" "Database SSL mode (disable/require/verify-full)"
+    # Hardcoded values (Docker Compose service names and defaults)
+    CONFIG["DB_HOST"]="postgres"
+    CONFIG["DB_PORT"]="5432"
+    CONFIG["DB_SSLMODE"]="disable"
 
     # These reference PostgreSQL values
     CONFIG["DB_USER"]="${CONFIG[POSTGRES_USER]}"
     CONFIG["DB_PASSWORD"]="${CONFIG[POSTGRES_PASSWORD]}"
     CONFIG["DB_NAME"]="${CONFIG[POSTGRES_DB]}"
 
+    echo -e "${CYAN}DB_HOST set to 'postgres' (Docker service name)${NC}"
+    echo -e "${CYAN}DB_PORT set to '5432' (default PostgreSQL port)${NC}"
+    echo -e "${CYAN}DB_SSLMODE set to 'disable' (internal Docker network)${NC}"
     echo -e "${CYAN}DB_USER, DB_PASSWORD, DB_NAME auto-set from PostgreSQL config${NC}"
     echo ""
 
@@ -244,7 +253,11 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     CONFIG["APP_ENV"]="production"
     prompt_config "APP_DEBUG" "false" "Enable debug mode (true/false)"
     prompt_config "APP_KEY" "$(generate_laravel_key)" "Laravel encryption key (auto-generated)" "true"
-    prompt_config "APP_URL" "http://localhost:3000" "Application URL"
+    prompt_config "APP_DOMAIN" "admiral.example.com" "Dashboard Application domain (without https://)"
+
+    # Construct APP_URL from domain
+    CONFIG["APP_URL"]="https://${CONFIG[APP_DOMAIN]}"
+
     prompt_config "APP_LOCALE" "en" "Application locale"
     prompt_config "APP_FALLBACK_LOCALE" "en" "Fallback locale"
     prompt_config "APP_FAKER_LOCALE" "en_US" "Faker locale for testing"
@@ -377,7 +390,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo "  4) None (skip CAPTCHA configuration)"
     echo ""
 
-    read -p "Select option [1-4] (default: 4): " captcha_choice
+    read -p "Select option [1-4] (recommend: 1; default: 4): " captcha_choice
     captcha_choice="${captcha_choice:-4}"
 
     case "$captcha_choice" in
@@ -470,9 +483,10 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    prompt_config "ADMIN_DOMAIN" "admin.localhost" "Admin dashboard domain (Flagship)"
-    prompt_config "INGEST_DOMAIN" "ingest.localhost" "Ingest API domain (Submarines)"
-    prompt_config "STATUS_DOMAIN" "status.localhost" "Status pages domain"
+    # Use APP_DOMAIN as default for FLAGSHIP_DOMAIN
+    prompt_config "FLAGSHIP_DOMAIN" "${CONFIG[APP_DOMAIN]}" "Dashboard application domain (aka Flagship)"
+    prompt_config "INGEST_DOMAIN" "ingest.example.com" "Ingest API domain (aka Submarines Ingest)"
+    prompt_config "STATUS_DOMAIN" "status.example.com" "Status page domain"
 
     echo ""
 
@@ -480,7 +494,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     # Admin User Registration
     # =============================================================================
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Admin User Registration${NC}"
+    echo -e "${GREEN}Dashboard Admin User Registration${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     echo "Create the initial admin user for the dashboard."
@@ -536,6 +550,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         echo "  App Name:   ${CONFIG[APP_NAME]}"
         echo "  App Env:    ${CONFIG[APP_ENV]} (hardcoded, production-only)"
         echo "  App Debug:  ${CONFIG[APP_DEBUG]}"
+        echo "  App Domain: ${CONFIG[APP_DOMAIN]}"
         echo "  App URL:    ${CONFIG[APP_URL]}"
         echo "  App Key:    ${CONFIG[APP_KEY]:0:12}****"
         echo ""
@@ -550,9 +565,9 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         echo ""
 
         echo -e "${GREEN}Production Domains (Caddy):${NC}"
-        echo "  Admin:   ${CONFIG[ADMIN_DOMAIN]}"
-        echo "  Ingest:  ${CONFIG[INGEST_DOMAIN]}"
-        echo "  Status:  ${CONFIG[STATUS_DOMAIN]}"
+        echo "  Flagship: ${CONFIG[FLAGSHIP_DOMAIN]}"
+        echo "  Ingest:   ${CONFIG[INGEST_DOMAIN]}"
+        echo "  Status:   ${CONFIG[STATUS_DOMAIN]}"
         echo ""
 
         echo -e "${GREEN}Admin User:${NC}"
@@ -646,6 +661,7 @@ APP_NAME="${CONFIG[APP_NAME]}"
 APP_ENV=production  # Hardcoded - this is a production-only deployment script
 APP_DEBUG=${CONFIG[APP_DEBUG]}
 APP_KEY=${CONFIG[APP_KEY]}
+APP_DOMAIN=${CONFIG[APP_DOMAIN]}
 APP_URL=${CONFIG[APP_URL]}
 APP_LOCALE=${CONFIG[APP_LOCALE]}
 APP_FALLBACK_LOCALE=${CONFIG[APP_FALLBACK_LOCALE]}
@@ -708,7 +724,7 @@ RECAPTCHA_V3_SCORE_THRESHOLD=${CONFIG[RECAPTCHA_V3_SCORE_THRESHOLD]}
 # =============================================================================
 # Production Domain Configuration (Caddy)
 # =============================================================================
-ADMIN_DOMAIN=${CONFIG[ADMIN_DOMAIN]}
+FLAGSHIP_DOMAIN=${CONFIG[FLAGSHIP_DOMAIN]}
 INGEST_DOMAIN=${CONFIG[INGEST_DOMAIN]}
 STATUS_DOMAIN=${CONFIG[STATUS_DOMAIN]}
 

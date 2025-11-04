@@ -200,7 +200,7 @@ services:
       - .env
     environment:
       # Domain configuration (use env vars for flexibility)
-      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin.localhost}
+      FLAGSHIP_DOMAIN: ${FLAGSHIP_DOMAIN:-admin.localhost}
       INGEST_DOMAIN: ${INGEST_DOMAIN:-ingest.localhost}
       STATUS_DOMAIN: ${STATUS_DOMAIN:-status.localhost}
     ports:
