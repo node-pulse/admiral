@@ -79,7 +79,7 @@ print_header() {
 }
 
 print_step() {
-    echo -e "${CYAN}[$1/6] $2...${NC}"
+    echo -e "${CYAN}[$1/9] $2...${NC}"
 }
 
 print_success() {
@@ -96,7 +96,7 @@ print_warning() {
 
 # Step 1: Check prerequisites
 check_prerequisites() {
-    print_step "1/7" "Checking prerequisites"
+    print_step "1/9" "Checking prerequisites"
 
     # Check if running inside Docker or can access Submarines
     if ! command -v curl &> /dev/null; then
@@ -126,7 +126,7 @@ check_prerequisites() {
 
 # Step 2: Check master key
 check_master_key() {
-    print_step "2/7" "Checking master encryption key"
+    print_step "2/9" "Checking master encryption key"
 
     if [[ -f "$MASTER_KEY_PATH" ]]; then
         KEY_LENGTH=$(wc -c < "$MASTER_KEY_PATH" | tr -d ' ')
@@ -161,7 +161,7 @@ check_master_key() {
 
 # Step 3: Check if CA exists
 check_ca_exists() {
-    print_step "3/7" "Checking for existing Certificate Authority"
+    print_step "3/9" "Checking for existing Certificate Authority"
 
     # Try to get active CA from Submarines API
     CA_CHECK=$(curl -sf "${SUBMARINES_URL}/internal/ca/active" 2>/dev/null || echo "")
@@ -194,7 +194,7 @@ check_ca_exists() {
 
 # Step 4: Create CA
 create_ca() {
-    print_step "4/7" "Creating self-signed Certificate Authority"
+    print_step "4/9" "Creating self-signed Certificate Authority"
 
     # Call Submarines API to create CA
     RESPONSE=$(curl -sf -X POST "${SUBMARINES_URL}/internal/ca/create" \
@@ -233,7 +233,7 @@ create_ca() {
 
 # Step 5: Export CA certificate
 export_ca_certificate() {
-    print_step "5/7" "Exporting CA certificate"
+    print_step "5/9" "Exporting CA certificate"
 
     # Move temporary file to final location
     if [[ -f "$CA_CERT_PATH.tmp" ]]; then
@@ -249,9 +249,78 @@ export_ca_certificate() {
     return 0
 }
 
-# Step 6: Verify setup
+# Step 6: Enable mTLS in compose.yml
+enable_mtls_in_compose() {
+    print_step "6/9" "Enabling mTLS in compose.yml"
+
+    COMPOSE_FILE="$PROJECT_ROOT/compose.yml"
+
+    if [[ ! -f "$COMPOSE_FILE" ]]; then
+        print_error "compose.yml not found at $COMPOSE_FILE"
+        return 1
+    fi
+
+    # Check if already uncommented
+    if grep -q "^[[:space:]]*- ./secrets/certs/ca.crt:/certs/ca.crt:ro" "$COMPOSE_FILE"; then
+        print_success "CA cert mount already enabled in compose.yml"
+        echo ""
+        return 0
+    fi
+
+    # Uncomment the CA cert mount line
+    sed -i.bak 's|^[[:space:]]*# - \./secrets/certs/ca\.crt:/certs/ca\.crt:ro|      - ./secrets/certs/ca.crt:/certs/ca.crt:ro|' "$COMPOSE_FILE"
+
+    if grep -q "^[[:space:]]*- ./secrets/certs/ca.crt:/certs/ca.crt:ro" "$COMPOSE_FILE"; then
+        print_success "Enabled CA cert mount in compose.yml"
+        rm -f "$COMPOSE_FILE.bak"
+    else
+        print_error "Failed to uncomment CA cert mount"
+        mv "$COMPOSE_FILE.bak" "$COMPOSE_FILE" 2>/dev/null
+        return 1
+    fi
+
+    echo ""
+    return 0
+}
+
+# Step 7: Enable mTLS in Caddyfile.prod
+enable_mtls_in_caddyfile() {
+    print_step "7/9" "Enabling mTLS in Caddyfile.prod"
+
+    CADDYFILE="$PROJECT_ROOT/caddy/Caddyfile.prod"
+
+    if [[ ! -f "$CADDYFILE" ]]; then
+        print_error "Caddyfile.prod not found at $CADDYFILE"
+        return 1
+    fi
+
+    # Check if already uncommented
+    if grep -q "^[[:space:]]*tls {" "$CADDYFILE"; then
+        print_success "mTLS tls block already enabled in Caddyfile.prod"
+        echo ""
+        return 0
+    fi
+
+    # Uncomment the tls block (lines 61-66)
+    # This is a multi-line uncomment, so we use sed with line numbers
+    sed -i.bak '61,66 s/^[[:space:]]*# /    /' "$CADDYFILE"
+
+    if grep -q "^[[:space:]]*tls {" "$CADDYFILE"; then
+        print_success "Enabled mTLS tls block in Caddyfile.prod"
+        rm -f "$CADDYFILE.bak"
+    else
+        print_error "Failed to uncomment mTLS tls block"
+        mv "$CADDYFILE.bak" "$CADDYFILE" 2>/dev/null
+        return 1
+    fi
+
+    echo ""
+    return 0
+}
+
+# Step 8: Verify setup
 verify_setup() {
-    print_step "6/7" "Verifying setup"
+    print_step "8/9" "Verifying setup"
 
     # Check if CA certificate exists
     if [[ ! -f "$CA_CERT_PATH" ]]; then
@@ -272,51 +341,40 @@ verify_setup() {
     return 0
 }
 
-# Step 7: Rebuild submarines with mTLS
-rebuild_submarines() {
-    print_step "7/7" "Rebuilding submarines with mTLS enabled"
+# Step 9: Restart Caddy
+restart_caddy() {
+    print_step "9/9" "Restarting Caddy with mTLS enabled"
 
     # Check if docker compose is available
     if ! command -v docker &> /dev/null; then
-        print_error "Docker not found - cannot complete setup"
+        print_error "Docker not found - cannot restart Caddy"
         echo ""
-        print_error "mTLS setup requires rebuilding submarines-ingest with production Dockerfile."
-        print_error "Please install Docker and run this script again."
+        print_warning "Please restart Caddy manually:"
+        echo "  docker compose restart caddy"
         return 1
     fi
 
     # Check if compose.yml exists
     if [[ ! -f "$PROJECT_ROOT/compose.yml" ]]; then
         print_error "compose.yml not found in $PROJECT_ROOT"
-        echo ""
-        print_error "Cannot rebuild submarines-ingest without compose.yml"
         return 1
     fi
 
-    # Rebuild submarines-ingest (MANDATORY - no skipping)
     echo ""
-    echo -e "${CYAN}Building submarines-ingest with mTLS enabled (this may take a few minutes)...${NC}"
+    echo -e "${CYAN}Restarting Caddy to load mTLS configuration...${NC}"
     echo ""
 
-    if docker compose -f "$PROJECT_ROOT/compose.yml" build submarines-ingest; then
-        print_success "Rebuild complete"
+    if docker compose -f "$PROJECT_ROOT/compose.yml" restart caddy; then
+        print_success "Caddy restarted successfully"
         echo ""
-
-        # Restart services (MANDATORY)
-        echo -e "${CYAN}Restarting submarines-ingest service...${NC}"
-        if docker compose -f "$PROJECT_ROOT/compose.yml" up -d submarines-ingest; then
-            print_success "Service restarted with mTLS enabled"
-        else
-            print_error "Failed to restart service"
-            echo ""
-            print_error "Please restart manually:"
-            echo "  docker compose up -d submarines-ingest"
-            return 1
-        fi
+        print_success "mTLS is now enabled on the ingest domain"
+        echo ""
+        print_warning "Note: Caddy will validate client certificates for agent connections"
     else
-        print_error "Rebuild failed"
+        print_error "Failed to restart Caddy"
         echo ""
-        print_error "mTLS setup incomplete. Please fix the build errors and try again."
+        print_error "Please restart manually:"
+        echo "  docker compose restart caddy"
         return 1
     fi
 
@@ -324,23 +382,28 @@ rebuild_submarines() {
     return 0
 }
 
+
 # Display success summary
 display_success_summary() {
     echo ""
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "  ${GREEN}✓ mTLS Bootstrap Complete!${NC}"
+    echo -e "  ${GREEN}✓ mTLS Setup Complete!${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "  ${GREEN}✓${NC} CA Name: ${CA_NAME}"
-    echo -e "  ${GREEN}✓${NC} Certificate: ${CA_CERT_PATH}"
+    echo -e "${GREEN}What was configured:${NC}"
+    echo -e "  ${GREEN}✓${NC} Created CA: ${CA_NAME}"
+    echo -e "  ${GREEN}✓${NC} Exported certificate: ${CA_CERT_PATH}"
+    echo -e "  ${GREEN}✓${NC} Enabled CA cert mount in compose.yml"
+    echo -e "  ${GREEN}✓${NC} Enabled mTLS validation in Caddyfile.prod"
+    echo -e "  ${GREEN}✓${NC} Restarted Caddy with mTLS enabled"
     echo ""
     echo -e "${YELLOW}Next Steps:${NC}"
-    echo "  1. Deploy agents with certificates:"
-    echo -e "     ${CYAN}ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent.yml${NC}"
+    echo "  1. Deploy agents with mTLS certificates:"
+    echo -e "     ${CYAN}ansible-playbook ansible/playbooks/nodepulse/deploy-agent-mtls.yml -i inventory.yml${NC}"
     echo ""
-    echo "  2. Monitor mTLS status in admin UI:"
-    echo -e "     ${CYAN}System Settings > Security > mTLS Authentication${NC}"
+    echo "  2. Monitor mTLS status in admin dashboard"
     echo ""
+    echo -e "${CYAN}Note: Agents without valid client certificates will be rejected at the Caddy level.${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 }
@@ -354,8 +417,10 @@ main() {
     check_ca_exists || exit 0
     create_ca || exit 1
     export_ca_certificate || exit 1
+    enable_mtls_in_compose || exit 1
+    enable_mtls_in_caddyfile || exit 1
     verify_setup || exit 1
-    rebuild_submarines || exit 1
+    restart_caddy || exit 1
 
     display_success_summary
     exit 0

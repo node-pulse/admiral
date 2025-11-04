@@ -89,9 +89,10 @@ RUN delgroup dialout 2>/dev/null || true \
     && addgroup -g ${GID} -S laravel \
     && adduser -u ${UID} -S laravel -G laravel
 
-# Configure PHP-FPM to run as laravel user
+# Configure PHP-FPM to run as laravel user and listen on all interfaces
 RUN sed -i "s/user = www-data/user = laravel/g" /usr/local/etc/php-fpm.d/www.conf \
     && sed -i "s/group = www-data/group = laravel/g" /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i "s/listen = 127.0.0.1:9000/listen = 0.0.0.0:9000/g" /usr/local/etc/php-fpm.d/www.conf \
     && echo "php_admin_flag[log_errors] = on" >> /usr/local/etc/php-fpm.d/www.conf
 
 # Set working directory
