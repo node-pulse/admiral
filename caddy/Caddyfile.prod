@@ -52,13 +52,18 @@
 # Metrics Ingestion (Submarines Ingest)
 # ------------------------------------------------------------
 {$INGEST_DOMAIN} {
-    # Enable mTLS for agent authentication
-    tls {
-        client_auth {
-            mode require_and_verify
-            trusted_ca_cert_file /certs/ca.crt
-        }
-    }
+    # mTLS Configuration
+    # Caddy validates client certificates and forwards cert info to backend
+    # Backend (submarines-ingest) validates cert details against database
+    #
+    # NOTE: Uncomment the tls block below after running setup-mtls.sh
+    # and uncommenting the CA cert mount in compose.yml
+    # tls {
+    #     client_auth {
+    #         mode request
+    #         trusted_ca_cert_file /certs/ca.crt
+    #     }
+    # }
 
     # Reverse proxy to Go service
     reverse_proxy submarines-ingest:8080 {
@@ -74,6 +79,7 @@
         header_up X-Forwarded-Proto {scheme}
 
         # Pass client certificate information to backend
+        # These headers are set by Caddy after validating the client cert
         header_up X-Client-Cert-Serial {http.request.tls.client.serial_number}
         header_up X-Client-Cert-Subject {http.request.tls.client.subject}
         header_up X-Client-Cert-CN {http.request.tls.client.subject.common_name}

@@ -211,10 +211,12 @@ services:
       # Caddyfile configuration (production)
       - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
 
-      # mTLS CA certificate (for agent authentication)
-      - ./secrets/certs/ca.crt:/certs/ca.crt:ro
+      # mTLS CA certificate for client cert validation
+      # NOTE: Commented out by default. Uncomment after running setup-mtls.sh
+      # - ./secrets/certs/ca.crt:/certs/ca.crt:ro
 
       # Caddy data (certificates, etc.) - bind mount for persistence
+      # Let's Encrypt certificates are stored here automatically
       - ./caddy_data:/data
       - ./caddy_config:/config
 

@@ -928,6 +928,18 @@ else
     exit 1
 fi
 
+echo ""
+
+# Check mTLS CA certificate (optional - for agent authentication)
+if [ -f "$PROJECT_ROOT/secrets/certs/ca.crt" ] && openssl x509 -in "$PROJECT_ROOT/secrets/certs/ca.crt" -noout &>/dev/null 2>&1; then
+    echo -e "${GREEN}✓ mTLS CA certificate found and valid${NC}"
+    echo -e "${YELLOW}  Remember to uncomment CA cert mount in compose.yml and tls block in Caddyfile.prod${NC}"
+else
+    echo -e "${YELLOW}⚠️  mTLS not configured (optional)${NC}"
+    echo -e "${CYAN}  mTLS provides secure client certificate authentication for agents.${NC}"
+    echo -e "${CYAN}  To set up mTLS later, run: ./setup-mtls.sh${NC}"
+fi
+
 # =============================================================================
 # Start services
 # =============================================================================
@@ -978,22 +990,12 @@ fi
 echo ""
 
 # =============================================================================
-# Show service status
-# =============================================================================
-echo ""
-docker compose ps
-
-# =============================================================================
 # Final summary
 # =============================================================================
 echo ""
 echo -e "${BLUE}================================================${NC}"
 echo -e "${GREEN}Deployment Complete!${NC}"
 echo -e "${BLUE}================================================${NC}"
-echo ""
-
-echo -e "${GREEN}Services Status:${NC}"
-docker compose ps
 echo ""
 
 echo -e "${GREEN}Access URLs:${NC}"
@@ -1052,10 +1054,11 @@ echo -e "${BLUE}Production Security Setup - mTLS (Optional)${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
-# Check if mTLS CA already exists
+# Check if mTLS CA already exists (and is not empty placeholder)
 CA_CERT_PATH="$PROJECT_ROOT/secrets/certs/ca.crt"
 
-if [ -f "$CA_CERT_PATH" ]; then
+if [ -f "$CA_CERT_PATH" ] && [ -s "$CA_CERT_PATH" ]; then
+    # File exists and is not empty = real CA certificate
     echo -e "${GREEN}✓ mTLS CA already configured${NC}"
     echo "  Certificate: $CA_CERT_PATH"
     echo ""
@@ -1063,6 +1066,7 @@ if [ -f "$CA_CERT_PATH" ]; then
     echo "  sudo ./setup-mtls.sh --force"
     echo ""
 else
+    # File doesn't exist or is empty placeholder
     echo -e "${CYAN}mTLS (mutual TLS) provides cryptographic authentication"
     echo "for all agents connecting to the ingest service."
     echo ""
@@ -1105,10 +1109,10 @@ else
         echo ""
         echo -e "${YELLOW}Skipping mTLS configuration${NC}"
         echo ""
-        echo "To configure mTLS later, run:"
+        echo "To enable mTLS later, run:"
         echo "  sudo ./setup-mtls.sh"
         echo ""
-        echo -e "${CYAN}Note: Agents can still connect without mTLS using server_id validation${NC}"
+        echo -e "${CYAN}Agents will connect without mTLS (server_id validation only)${NC}"
         echo ""
     fi
 fi
