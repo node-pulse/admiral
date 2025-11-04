@@ -208,8 +208,8 @@ services:
       - "443:443"
       - "443:443/udp" # HTTP/3
     volumes:
-      # Caddyfile configuration
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Caddyfile configuration (production)
+      - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
 
       # mTLS CA certificate (for agent authentication)
       - ./secrets/certs/ca.crt:/certs/ca.crt:ro

@@ -14,10 +14,22 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+# Project root is current working directory
+# In production, deploy.sh is extracted to the project root
+PROJECT_ROOT="$(pwd)"
+
 ENV_FILE="$PROJECT_ROOT/.env"
 ENV_EXAMPLE="$PROJECT_ROOT/.env.example"
+
+# Validate project root by checking for compose.yml
+if [ ! -f "$PROJECT_ROOT/compose.yml" ]; then
+    echo "Error: Cannot find compose.yml in: $PROJECT_ROOT"
+    echo ""
+    echo "Please cd to the project root directory before running this script:"
+    echo "  cd /path/to/admiral"
+    echo "  sudo ./deploy.sh"
+    exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -76,24 +88,43 @@ declare -A DEFAULTS
 declare -A DESCRIPTIONS
 
 # Load existing .env if it exists
+LOAD_EXISTING=false
 if [ -f "$ENV_FILE" ]; then
     echo -e "${YELLOW}Found existing .env file${NC}"
-    echo "Loading current values as defaults..."
     echo ""
+    read -p "Do you want to use existing .env configuration? (Y/n): " use_existing
 
-    # Parse existing .env file
-    while IFS='=' read -r key value; do
-        # Skip comments and empty lines
-        [[ "$key" =~ ^#.*$ ]] && continue
-        [[ -z "$key" ]] && continue
+    if [[ ! "$use_existing" =~ ^[Nn]$ ]]; then
+        LOAD_EXISTING=true
+        echo ""
+        echo "Loading current values as defaults..."
+        echo ""
 
-        # Remove quotes and trim whitespace
-        value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-        CONFIG["$key"]="$value"
-    done < "$ENV_FILE"
+        # Parse existing .env file
+        while IFS='=' read -r key value; do
+            # Skip comments and empty lines
+            [[ "$key" =~ ^#.*$ ]] && continue
+            [[ -z "$key" ]] && continue
 
-    echo -e "${GREEN}✓ Loaded existing configuration${NC}"
-    echo ""
+            # Remove quotes and trim whitespace
+            value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            CONFIG["$key"]="$value"
+        done < "$ENV_FILE"
+
+        echo -e "${GREEN}✓ Loaded existing configuration${NC}"
+        echo ""
+
+        # Skip to deployment
+        SKIP_CONFIG=true
+    else
+        # Backup existing .env
+        backup_file="$ENV_FILE.backup.$(date +%Y%m%d_%H%M%S)"
+        cp "$ENV_FILE" "$backup_file"
+        echo ""
+        echo -e "${GREEN}✓ Backed up existing .env to $backup_file${NC}"
+        echo -e "${CYAN}Starting fresh configuration...${NC}"
+        echo ""
+    fi
 fi
 
 # Function to prompt for input with default value and description
@@ -132,26 +163,7 @@ prompt_config() {
     CONFIG["$key"]="$value"
 }
 
-# Check if user wants to reconfigure
-RECONFIGURE=false
-if [ -f "$ENV_FILE" ]; then
-    read -p "Do you want to reconfigure all settings? (y/N): " reconfigure_input
-    if [[ "$reconfigure_input" =~ ^[Yy]$ ]]; then
-        RECONFIGURE=true
-        # Backup existing .env
-        backup_file="$ENV_FILE.backup.$(date +%Y%m%d_%H%M%S)"
-        cp "$ENV_FILE" "$backup_file"
-        echo -e "${GREEN}✓ Backed up existing .env to $backup_file${NC}"
-        echo ""
-    else
-        echo -e "${GREEN}Using existing .env file${NC}"
-        echo "Proceeding with deployment..."
-        echo ""
-        SKIP_CONFIG=true
-    fi
-fi
-
-# Configure environment variables
+# Configure environment variables (skip if using existing .env)
 if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${BLUE}================================================${NC}"
     echo -e "${BLUE}Environment Configuration${NC}"
@@ -320,18 +332,19 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         echo "  Permissions: 600 (owner read/write only)"
         echo ""
         echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "${YELLOW}⚠️  IMPORTANT: BACKUP THIS KEY!${NC}"
+        echo -e "${YELLOW}⚠️  IMPORTANT: BACKUP THIS KEY AFTER DEPLOYMENT!${NC}"
         echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo ""
         echo "This key encrypts all SSH private keys."
         echo "If lost, you will NOT be able to decrypt them!"
         echo ""
-        echo "Recommended backups:"
-        echo "  • Password manager"
+        echo "The deployment will show you the key location at the end."
+        echo "Recommended backup locations:"
+        echo "  • Password manager (1Password, Bitwarden, etc.)"
         echo "  • Encrypted USB drive"
-        echo "  • Secure cloud storage"
+        echo "  • Secure cloud storage (encrypted)"
         echo ""
-        read -p "Press Enter to continue after backing up the key..."
+        read -p "Press Enter to continue (you can backup the key after deployment completes)..."
     fi
 
     echo ""
@@ -848,14 +861,7 @@ if [ ! -f "$MASTER_KEY_FILE" ]; then
     echo "  Location: $MASTER_KEY_FILE"
     echo "  Format: 64-character hex (32 bytes for AES-256-CBC)"
     echo ""
-    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW}⚠️  IMPORTANT: BACKUP THIS KEY!${NC}"
-    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo "This key encrypts all SSH private keys."
-    echo "Store it securely in a password manager or encrypted backup."
-    echo ""
-    read -p "Press Enter to continue after backing up the key..."
+    echo -e "${YELLOW}Remember to backup this key after deployment!${NC}"
     echo ""
 else
     echo -e "${GREEN}✓ Master key file exists${NC}"
@@ -887,8 +893,12 @@ echo -e "${BLUE}Pulling Docker Images${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
-cd "$PROJECT_ROOT"
-docker compose pull
+# Pull images (compose.yml already validated at startup)
+if ! docker compose pull; then
+    echo -e "${YELLOW}⚠  Warning: Failed to pull some Docker images${NC}"
+    echo "This may be normal if images need to be built locally."
+    echo "Continuing with deployment..."
+fi
 
 # =============================================================================
 # Validate required files
@@ -906,13 +916,17 @@ if [ ! -f "$PROJECT_ROOT/compose.yml" ]; then
 fi
 echo -e "${GREEN}✓ compose.yml found${NC}"
 
-# Check Caddyfile
-if [ ! -f "$PROJECT_ROOT/caddy/Caddyfile" ]; then
-    echo -e "${RED}Error: caddy/Caddyfile not found${NC}"
-    echo -e "${YELLOW}Note: The release should include caddy/Caddyfile (production config)${NC}"
+# Check Caddyfile (production)
+if [ -f "$PROJECT_ROOT/caddy/Caddyfile.prod" ]; then
+    echo -e "${GREEN}✓ caddy/Caddyfile.prod found${NC}"
+else
+    echo -e "${RED}Error: caddy/Caddyfile.prod not found${NC}"
+    echo -e "${YELLOW}This is a production deployment script and requires Caddyfile.prod${NC}"
+    echo ""
+    echo "Current directory: $PROJECT_ROOT"
+    echo "Looking for: $PROJECT_ROOT/caddy/Caddyfile.prod"
     exit 1
 fi
-echo -e "${GREEN}✓ caddy/Caddyfile found${NC}"
 
 # =============================================================================
 # Start services
@@ -983,40 +997,19 @@ docker compose ps
 echo ""
 
 echo -e "${GREEN}Access URLs:${NC}"
-echo "  Flagship Dashboard:  http://localhost (via Caddy)"
-echo "  Submarines Ingest:   http://localhost:8080"
-echo "  Submarines Status:   http://localhost:8082"
-echo "  Vite Dev Server:     http://localhost:5173 (development)"
+echo "  Flagship Dashboard:  https://${CONFIG[FLAGSHIP_DOMAIN]}"
+echo "  Submarines Ingest:   https://${CONFIG[INGEST_DOMAIN]}"
+echo "  Submarines Status:   https://${CONFIG[STATUS_DOMAIN]}"
+echo ""
+echo -e "${CYAN}Note: Ensure DNS points to this server and Caddy has valid certificates${NC}"
 echo ""
 
 echo -e "${GREEN}Admin Login Credentials:${NC}"
 echo "  Email:    ${CONFIG[ADMIN_EMAIL]}"
-echo "  Password: (the password you entered during setup)"
+echo "  Password: ${CONFIG[ADMIN_PASSWORD]}"
 echo ""
-echo -e "${YELLOW}⚠️  Important: Please change your password after first login!${NC}"
+echo -e "${YELLOW}⚠️  Save these credentials - they won't be shown again!${NC}"
 echo ""
-
-echo -e "${GREEN}Useful Commands:${NC}"
-echo ""
-echo "  View all logs:"
-echo "    docker compose logs -f"
-echo ""
-echo "  View specific service logs:"
-echo "    docker compose logs -f submarines-ingest"
-echo "    docker compose logs -f submarines-digest"
-echo "    docker compose logs -f flagship"
-echo ""
-echo "  Restart services:"
-echo "    docker compose restart"
-echo ""
-echo "  Stop services:"
-echo "    docker compose down"
-echo ""
-echo "  Access PostgreSQL:"
-echo "    docker compose exec postgres psql -U ${CONFIG[POSTGRES_USER]:-admiral} -d ${CONFIG[POSTGRES_DB]:-node_pulse_admiral}"
-echo ""
-echo "  Access Valkey CLI:"
-echo "    docker compose exec valkey valkey-cli"
 echo ""
 
 echo -e "${YELLOW}Configuration Files:${NC}"
@@ -1032,68 +1025,98 @@ echo "  ⚠️  Database password: ${CONFIG[POSTGRES_PASSWORD]:0:4}****"
 echo "  ⚠️  File permissions set to 600 (owner read/write only)"
 echo ""
 
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${YELLOW}🔑 IMPORTANT: Backup Your Master Key!${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo "Your SSH encryption master key is located at:"
+echo "  $MASTER_KEY_FILE"
+echo ""
+echo "To view and backup the key, run:"
+echo "  sudo cat $MASTER_KEY_FILE"
+echo ""
+echo "Store it securely in:"
+echo "  • Password manager (recommended)"
+echo "  • Encrypted USB drive"
+echo "  • Secure cloud storage"
+echo ""
+echo "⚠️  WITHOUT THIS KEY, YOU CANNOT DECRYPT SSH PRIVATE KEYS!"
+echo ""
+
 # =============================================================================
-# Production mTLS Setup (MANDATORY)
+# Production mTLS Setup (Optional)
 # =============================================================================
 echo ""
 echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}Production Security Setup - mTLS${NC}"
+echo -e "${BLUE}Production Security Setup - mTLS (Optional)${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
-# Check if CA already exists
-CA_EXISTS=false
-SUBMARINES_URL="http://submarines-ingest:8080"
+# Check if mTLS CA already exists
+CA_CERT_PATH="$PROJECT_ROOT/secrets/certs/ca.crt"
 
-if curl -sf "${SUBMARINES_URL}/internal/ca/active" 2>/dev/null | grep -q '"is_active":true'; then
-    CA_EXISTS=true
+if [ -f "$CA_CERT_PATH" ]; then
     echo -e "${GREEN}✓ mTLS CA already configured${NC}"
-    echo "  Skipping mTLS setup (CA already exists)"
+    echo "  Certificate: $CA_CERT_PATH"
     echo ""
-    echo "  To renew/rotate the CA, run:"
-    echo "    ./scripts/setup-mtls.sh --force"
+    echo "To renew/rotate the CA, run:"
+    echo "  sudo ./setup-mtls.sh --force"
     echo ""
 else
-    echo -e "${YELLOW}⚠️  IMPORTANT: Production deployments REQUIRE mTLS${NC}"
-    echo ""
-    echo "mTLS (mutual TLS) provides cryptographic authentication"
+    echo -e "${CYAN}mTLS (mutual TLS) provides cryptographic authentication"
     echo "for all agents connecting to the ingest service."
     echo ""
-    echo "This is a build-time architectural decision:"
-    echo "  • Development builds: No mTLS (for testing)"
-    echo "  • Production builds: mTLS enforced (always strict)"
-    echo ""
-    echo -e "${CYAN}Setting up mTLS now...${NC}"
+    echo "Production builds have mTLS support built-in."
+    echo "You can configure it now or skip and configure later."
     echo ""
 
-    if [ -f "$PROJECT_ROOT/scripts/setup-mtls.sh" ]; then
-        bash "$PROJECT_ROOT/scripts/setup-mtls.sh"
+    read -p "Do you want to configure mTLS now? (y/N): " setup_mtls
 
-        if [ $? -eq 0 ]; then
-            echo ""
-            echo -e "${GREEN}✓ mTLS setup complete${NC}"
-            echo ""
+    if [[ "$setup_mtls" =~ ^[Yy]$ ]]; then
+        echo ""
+        echo -e "${CYAN}Setting up mTLS...${NC}"
+        echo ""
+
+        # Look for setup-mtls.sh in project root
+        if [ -f "$PROJECT_ROOT/setup-mtls.sh" ]; then
+            bash "$PROJECT_ROOT/setup-mtls.sh"
+
+            if [ $? -eq 0 ]; then
+                echo ""
+                echo -e "${GREEN}✓ mTLS setup complete${NC}"
+                echo ""
+            else
+                echo ""
+                echo -e "${RED}✗ mTLS setup failed${NC}"
+                echo ""
+                echo -e "${YELLOW}You can run setup-mtls.sh manually later:${NC}"
+                echo "  sudo ./setup-mtls.sh"
+                echo ""
+            fi
         else
+            echo -e "${YELLOW}⚠  setup-mtls.sh not found in: $PROJECT_ROOT${NC}"
             echo ""
-            echo -e "${RED}✗ mTLS setup failed${NC}"
+            echo "To configure mTLS later:"
+            echo "  1. Ensure setup-mtls.sh is in the project root"
+            echo "  2. Run: sudo ./setup-mtls.sh"
             echo ""
-            echo -e "${YELLOW}You must run setup-mtls.sh manually before deploying agents:${NC}"
-            echo "  ./scripts/setup-mtls.sh"
-            echo ""
-            exit 1
         fi
     else
-        echo -e "${RED}✗ setup-mtls.sh not found${NC}"
-        echo "  Expected location: $PROJECT_ROOT/scripts/setup-mtls.sh"
         echo ""
-        exit 1
+        echo -e "${YELLOW}Skipping mTLS configuration${NC}"
+        echo ""
+        echo "To configure mTLS later, run:"
+        echo "  sudo ./setup-mtls.sh"
+        echo ""
+        echo -e "${CYAN}Note: Agents can still connect without mTLS using server_id validation${NC}"
+        echo ""
     fi
 fi
 
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo "  1. Configure your agents to send metrics with mTLS certificates"
-echo "  2. Access the Flagship dashboard at http://localhost"
+echo "  1. Configure your agents to send metrics"
+echo "  2. Access the Flagship dashboard at https://${CONFIG[FLAGSHIP_DOMAIN]}"
 echo "  3. Update domain DNS to point to this server"
 echo "  4. Review logs for any startup issues"
 echo ""

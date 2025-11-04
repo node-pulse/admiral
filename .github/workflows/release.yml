@@ -162,9 +162,9 @@ jobs:
           cp scripts/deploy.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
           cp scripts/setup-mtls.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
 
-          # Copy Caddy configuration (rename prod to Caddyfile for production use)
+          # Copy Caddy configuration (keep as Caddyfile.prod)
           mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/caddy
-          cp caddy/Caddyfile.prod release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/caddy/Caddyfile
+          cp caddy/Caddyfile.prod release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/caddy/Caddyfile.prod
 
           # Copy Ansible playbooks (needed at runtime for custom playbooks)
           cp -r ansible release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/ansible
