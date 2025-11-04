@@ -216,11 +216,15 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${CYAN}DB_USER, DB_PASSWORD, DB_NAME auto-set from PostgreSQL config${NC}"
     echo ""
 
-    # Server settings
-    prompt_config "PORT" "8080" "Submarines API port"
-    prompt_config "INGEST_PORT" "${CONFIG[PORT]}" "Ingest service port (typically same as PORT)"
-    prompt_config "STATUS_PORT" "8082" "Status service port"
-    prompt_config "GIN_MODE" "release" "Gin mode (debug/release)"
+    # Server settings (hardcoded - matches compose.yml port mappings)
+    CONFIG["PORT"]="8080"
+    CONFIG["INGEST_PORT"]="8080"
+    CONFIG["STATUS_PORT"]="8082"
+    CONFIG["GIN_MODE"]="release"
+
+    echo -e "${CYAN}PORT set to '8080' (Submarines Ingest, matches compose.yml)${NC}"
+    echo -e "${CYAN}STATUS_PORT set to '8082' (Submarines Status, matches compose.yml)${NC}"
+    echo -e "${CYAN}GIN_MODE set to 'release' (production mode)${NC}"
 
     echo ""
 
@@ -229,15 +233,15 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     echo ""
 
-    # Certificate Configuration
-    echo -e "${CYAN}Certificate Configuration:${NC}"
-    prompt_config "CERT_VALIDITY_DAYS" "180" "Certificate validity period (days)"
+    # Certificate Configuration (hardcoded for production)
+    CONFIG["CERT_VALIDITY_DAYS"]="180"
+
+    echo -e "${CYAN}CERT_VALIDITY_DAYS set to '180' (6 months, production default)${NC}"
+    echo ""
 
     # Note: mTLS is build-time decision, not runtime toggle
     # Production Dockerfiles always build with mTLS enabled
     # Development Dockerfiles always build without mTLS
-
-    echo ""
 
     # =============================================================================
     # Flagship Configuration (Laravel Dashboard)
@@ -248,7 +252,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo ""
 
     # App settings
-    prompt_config "APP_NAME" "NodePulse Flagship" "Application name"
+    prompt_config "APP_NAME" "Node Pulse Admiral Flagship" "Application name"
     # APP_ENV is hardcoded to "production" - this is a production-only deployment script
     CONFIG["APP_ENV"]="production"
     prompt_config "APP_DEBUG" "false" "Enable debug mode (true/false)"
@@ -258,11 +262,14 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     # Construct APP_URL from domain
     CONFIG["APP_URL"]="https://${CONFIG[APP_DOMAIN]}"
 
-    prompt_config "APP_LOCALE" "en" "Application locale"
-    prompt_config "APP_FALLBACK_LOCALE" "en" "Fallback locale"
-    prompt_config "APP_FAKER_LOCALE" "en_US" "Faker locale for testing"
-    prompt_config "APP_MAINTENANCE_DRIVER" "file" "Maintenance mode driver"
+    # Hardcoded Laravel settings (standard defaults)
+    CONFIG["APP_LOCALE"]="en"
+    CONFIG["APP_FALLBACK_LOCALE"]="en"
+    CONFIG["APP_FAKER_LOCALE"]="en_US"
+    CONFIG["APP_MAINTENANCE_DRIVER"]="file"
 
+    echo -e "${CYAN}APP_LOCALE, APP_FALLBACK_LOCALE set to 'en' (English)${NC}"
+    echo -e "${CYAN}APP_MAINTENANCE_DRIVER set to 'file' (standard Laravel driver)${NC}"
     echo ""
 
     # =============================================================================
@@ -329,12 +336,14 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     echo ""
 
-    # Logging
-    prompt_config "LOG_CHANNEL" "stack" "Log channel (stack/single/daily)"
-    prompt_config "LOG_STACK" "single" "Log stack channels"
-    prompt_config "LOG_DEPRECATIONS_CHANNEL" "null" "Deprecations log channel"
+    # Logging configuration
+    CONFIG["LOG_CHANNEL"]="stack"
+    CONFIG["LOG_STACK"]="single"
+    CONFIG["LOG_DEPRECATIONS_CHANNEL"]="null"
+
     prompt_config "LOG_LEVEL" "info" "Log level (debug/info/warning/error)"
 
+    echo -e "${CYAN}LOG_CHANNEL set to 'stack', LOG_STACK set to 'single'${NC}"
     echo ""
 
     # Database connection (fixed to PostgreSQL)
@@ -348,25 +357,65 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${CYAN}DB_DATABASE and DB_USERNAME auto-set from PostgreSQL config${NC}"
     echo ""
 
-    # Sessions & Cache
-    prompt_config "SESSION_DRIVER" "redis" "Session driver (redis/file/database)"
-    prompt_config "SESSION_LIFETIME" "120" "Session lifetime in minutes"
-    prompt_config "CACHE_STORE" "redis" "Cache store (redis/file/database)"
-    prompt_config "QUEUE_CONNECTION" "redis" "Queue driver (redis/sync/database)"
-    prompt_config "REDIS_CLIENT" "phpredis" "Redis client (phpredis/predis)"
+    # Sessions & Cache (hardcoded - using Valkey/Redis for production)
+    CONFIG["SESSION_DRIVER"]="redis"
+    CONFIG["SESSION_LIFETIME"]="120"
+    CONFIG["CACHE_STORE"]="redis"
+    CONFIG["QUEUE_CONNECTION"]="redis"
+    CONFIG["REDIS_CLIENT"]="phpredis"
 
     # These reference Valkey values
     CONFIG["REDIS_HOST"]="${CONFIG[VALKEY_HOST]}"
     CONFIG["REDIS_PORT"]="${CONFIG[VALKEY_PORT]}"
     CONFIG["REDIS_PASSWORD"]="${CONFIG[VALKEY_PASSWORD]}"
 
+    echo -e "${CYAN}Sessions, Cache, Queue configured to use Redis (Valkey)${NC}"
     echo -e "${CYAN}REDIS_HOST, REDIS_PORT, REDIS_PASSWORD auto-set from Valkey config${NC}"
     echo ""
 
-    # Mail
-    prompt_config "MAIL_MAILER" "log" "Mail driver (smtp/log/etc)"
-    prompt_config "MAIL_FROM_ADDRESS" "noreply@nodepulse.local" "Mail from address"
-    CONFIG["MAIL_FROM_NAME"]="\${APP_NAME}"
+    # =============================================================================
+    # Mail Configuration (Optional)
+    # =============================================================================
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}Mail Configuration (Optional)${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    echo -e "${CYAN}Configure email delivery?${NC}"
+    echo "  1) Log only (no emails sent, for testing)"
+    echo "  2) SMTP (configure mail server)"
+    echo ""
+
+    read -p "Select option [1-2] (default: 1): " mail_choice
+    mail_choice="${mail_choice:-1}"
+
+    case "$mail_choice" in
+        2)
+            CONFIG["MAIL_MAILER"]="smtp"
+            echo ""
+            prompt_config "MAIL_HOST" "smtp.example.com" "SMTP host"
+            prompt_config "MAIL_PORT" "587" "SMTP port (587 for TLS, 465 for SSL)"
+            prompt_config "MAIL_USERNAME" "" "SMTP username"
+            prompt_config "MAIL_PASSWORD" "" "SMTP password" "true"
+            prompt_config "MAIL_ENCRYPTION" "tls" "Encryption (tls/ssl/null)"
+            prompt_config "MAIL_FROM_ADDRESS" "noreply@example.com" "From email address"
+            CONFIG["MAIL_FROM_NAME"]="\${APP_NAME}"
+            echo ""
+            echo -e "${GREEN}✓ SMTP mail configured${NC}"
+            ;;
+        1|*)
+            CONFIG["MAIL_MAILER"]="log"
+            CONFIG["MAIL_HOST"]=""
+            CONFIG["MAIL_PORT"]=""
+            CONFIG["MAIL_USERNAME"]=""
+            CONFIG["MAIL_PASSWORD"]=""
+            CONFIG["MAIL_ENCRYPTION"]=""
+            CONFIG["MAIL_FROM_ADDRESS"]="noreply@nodepulse.local"
+            CONFIG["MAIL_FROM_NAME"]="\${APP_NAME}"
+            echo ""
+            echo -e "${GREEN}✓ Mail set to 'log' driver (emails logged, not sent)${NC}"
+            ;;
+    esac
 
     echo ""
 
@@ -539,11 +588,8 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         echo ""
 
         echo -e "${GREEN}Submarines (Go-Gin):${NC}"
-        echo "  Port:       ${CONFIG[PORT]}"
-        echo "  Ingest:     ${CONFIG[INGEST_PORT]}"
-        echo "  Status:     ${CONFIG[STATUS_PORT]}"
-        echo "  Gin Mode:   ${CONFIG[GIN_MODE]}"
         echo "  JWT Secret: ${CONFIG[JWT_SECRET]:0:8}****"
+        echo "  (Ports: 8080 ingest, 8082 status - hardcoded)"
         echo ""
 
         echo -e "${GREEN}Flagship (Laravel):${NC}"
@@ -568,6 +614,16 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         echo "  Flagship: ${CONFIG[FLAGSHIP_DOMAIN]}"
         echo "  Ingest:   ${CONFIG[INGEST_DOMAIN]}"
         echo "  Status:   ${CONFIG[STATUS_DOMAIN]}"
+        echo ""
+
+        echo -e "${GREEN}Mail Configuration:${NC}"
+        if [ "${CONFIG[MAIL_MAILER]}" = "smtp" ]; then
+            echo "  Driver:   SMTP"
+            echo "  Host:     ${CONFIG[MAIL_HOST]}:${CONFIG[MAIL_PORT]}"
+            echo "  From:     ${CONFIG[MAIL_FROM_ADDRESS]}"
+        else
+            echo "  Driver:   Log (emails not sent, for testing)"
+        fi
         echo ""
 
         echo -e "${GREEN}Admin User:${NC}"
@@ -689,8 +745,13 @@ REDIS_HOST=\${VALKEY_HOST}
 REDIS_PORT=\${VALKEY_PORT}
 REDIS_PASSWORD=\${VALKEY_PASSWORD}
 
-# Mail (optional, defaults to log)
+# Mail configuration
 MAIL_MAILER=${CONFIG[MAIL_MAILER]}
+MAIL_HOST=${CONFIG[MAIL_HOST]}
+MAIL_PORT=${CONFIG[MAIL_PORT]}
+MAIL_USERNAME=${CONFIG[MAIL_USERNAME]}
+MAIL_PASSWORD=${CONFIG[MAIL_PASSWORD]}
+MAIL_ENCRYPTION=${CONFIG[MAIL_ENCRYPTION]}
 MAIL_FROM_ADDRESS="${CONFIG[MAIL_FROM_ADDRESS]}"
 MAIL_FROM_NAME="${CONFIG[MAIL_FROM_NAME]}"
 

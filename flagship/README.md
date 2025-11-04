@@ -1,4 +1,4 @@
-# NodePulse Flagship - Laravel Dashboard
+# Node Pulse Admiral Flagship - Laravel Dashboard
 
 Laravel-based web dashboard for the NodePulse agent fleet management system.
 
@@ -55,6 +55,7 @@ php artisan serve --port=3000
 All configuration is in **`admiral/.env`** (single .env file for the entire stack).
 
 Laravel-specific variables:
+
 ```env
 # Laravel Configuration
 APP_ENV=production
@@ -63,6 +64,7 @@ APP_KEY=base64:...  # Generate: docker-compose run --rm flagship php artisan key
 ```
 
 Other required variables (shared with other services):
+
 ```env
 # PostgreSQL
 POSTGRES_USER=postgres
@@ -183,11 +185,13 @@ Flagship integrates with:
 ### Production URLs
 
 When using `caddy/Caddyfile.prod`, Flagship is accessible at:
+
 - `https://admin.yourdomain.com` (automatic HTTPS via Let's Encrypt)
 
 ### Development URLs
 
 When using `caddy/Caddyfile`, Flagship is accessible at:
+
 - `http://localhost` (HTTP only)
 
 ## License

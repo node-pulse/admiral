@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 NodePulse Flagship - Laravel Setup"
+echo "🚀 Node Pulse Admiral Flagship - Laravel Setup"
 echo "======================================"
 
 # Check if root .env exists
