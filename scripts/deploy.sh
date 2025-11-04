@@ -489,12 +489,12 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     prompt_config "ADMIN_NAME" "Administrator" "Admin user full name"
     prompt_config "ADMIN_EMAIL" "admin@example.com" "Admin user email (used for login)"
-    prompt_secure "ADMIN_PASSWORD" "Admin user password (min 8 characters)"
+    prompt_config "ADMIN_PASSWORD" "" "Admin user password (min 8 characters)" "true"
 
     # Validate password length
     while [[ ${#CONFIG["ADMIN_PASSWORD"]} -lt 8 ]]; do
         echo -e "${RED}Password must be at least 8 characters${NC}"
-        prompt_secure "ADMIN_PASSWORD" "Admin user password (min 8 characters)"
+        prompt_config "ADMIN_PASSWORD" "" "Admin user password (min 8 characters)" "true"
     done
 
     echo ""
