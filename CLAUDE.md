@@ -573,3 +573,4 @@ DIGEST_ID=digest-2 go run cmd/digest/main.go
 - **Status**: Development / MVP
 - **License**: MIT
 - use @compose.development.yml for any development stuff
+- this is my local computer. if you need to check anything in production server, give me the cmd, and i will run it for you in production server

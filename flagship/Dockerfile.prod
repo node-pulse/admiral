@@ -13,7 +13,11 @@ FROM ghcr.io/node-pulse/node-pulse-flagship-base:latest AS php-base
 # - Production PHP configuration
 # - Optimized OPcache settings
 
-# No additional setup needed - extensions are pre-compiled!
+# Install Redis extension (required for Laravel cache/sessions)
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps
 
 # ------------------------------------------------------------
 # Stage 2: Composer Dependencies
@@ -108,6 +112,8 @@ COPY --from=vendor --chown=laravel:laravel /app/vendor ./vendor
 COPY --from=frontend --chown=laravel:laravel /app/public/build ./public/build
 
 # Create storage directories and set permissions
+# Note: We use 777 for storage/logs to ensure PHP-FPM workers can write logs
+# The container's isolated filesystem provides security boundary
 RUN mkdir -p \
     storage/logs \
     storage/framework/sessions \
@@ -117,7 +123,11 @@ RUN mkdir -p \
     storage/app/public \
     bootstrap/cache \
     && chown -R laravel:laravel storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 775 storage bootstrap/cache \
+    && chmod 777 storage/logs \
+    && touch storage/logs/laravel.log \
+    && chown laravel:laravel storage/logs/laravel.log \
+    && chmod 666 storage/logs/laravel.log
 
 # Expose PHP-FPM port
 EXPOSE 9000

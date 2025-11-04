@@ -314,7 +314,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
             # Generate new key (64 character hex string for AES-256)
             new_master_key=$(openssl rand -hex 32)
             echo "$new_master_key" > "$MASTER_KEY_FILE"
-            chmod 600 "$MASTER_KEY_FILE"
+            chmod 644 "$MASTER_KEY_FILE"
             echo -e "${GREEN}✓ New master key generated${NC}"
             echo -e "${YELLOW}⚠️  All existing SSH keys will need to be re-imported!${NC}"
         fi
@@ -324,12 +324,12 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         # Generate new key (64 character hex string for AES-256)
         new_master_key=$(openssl rand -hex 32)
         echo "$new_master_key" > "$MASTER_KEY_FILE"
-        chmod 600 "$MASTER_KEY_FILE"
+        chmod 644 "$MASTER_KEY_FILE"
 
         echo -e "${GREEN}✓ Master key generated successfully${NC}"
         echo "  Location: $MASTER_KEY_FILE"
         echo "  Format: 64-character hex (32 bytes for AES-256-CBC)"
-        echo "  Permissions: 600 (owner read/write only)"
+        echo "  Permissions: 644 (readable by containers)"
         echo ""
         echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo -e "${YELLOW}⚠️  IMPORTANT: BACKUP THIS KEY AFTER DEPLOYMENT!${NC}"
@@ -855,7 +855,7 @@ if [ ! -f "$MASTER_KEY_FILE" ]; then
     # Generate new key (64 character hex string for AES-256)
     new_master_key=$(openssl rand -hex 32)
     echo "$new_master_key" > "$MASTER_KEY_FILE"
-    chmod 600 "$MASTER_KEY_FILE"
+    chmod 644 "$MASTER_KEY_FILE"
 
     echo -e "${GREEN}✓ Master key generated${NC}"
     echo "  Location: $MASTER_KEY_FILE"
@@ -869,9 +869,9 @@ else
 
     # Verify permissions
     PERMS=$(stat -f "%A" "$MASTER_KEY_FILE" 2>/dev/null || stat -c "%a" "$MASTER_KEY_FILE" 2>/dev/null)
-    if [ "$PERMS" != "600" ]; then
-        echo -e "${YELLOW}⚠  Fixing file permissions (should be 600)${NC}"
-        chmod 600 "$MASTER_KEY_FILE"
+    if [ "$PERMS" != "644" ]; then
+        echo -e "${YELLOW}⚠  Fixing file permissions (should be 644 for container access)${NC}"
+        chmod 644 "$MASTER_KEY_FILE"
         echo -e "${GREEN}✓ Permissions corrected${NC}"
     fi
 
