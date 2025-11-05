@@ -199,10 +199,13 @@ export function SSHTerminal({
         // Connect to WebSocket server
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-        // Use environment variable for production (proxied through Caddy)
-        // Falls back to direct port 6001 for local development
-        const wsBaseUrl = import.meta.env.VITE_SSH_WS_URL ||
-                          `${protocol}//${window.location.hostname}:6001`;
+        // Use current domain for WebSocket (proxied through Caddy in production)
+        // In production: wss://yourdomain.com/ssh/server-id (via Caddy proxy)
+        // In development: ws://localhost:6001/ssh/server-id (direct connection)
+        const isDev = window.location.port === '8000' || window.location.hostname === 'localhost';
+        const wsBaseUrl = isDev
+            ? `${protocol}//${window.location.hostname}:6001`
+            : `${protocol}//${window.location.host}`;
         const wsUrl = `${wsBaseUrl}/ssh/${serverId}`;
 
         const ws = new WebSocket(wsUrl);

@@ -436,11 +436,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     # Vite
     CONFIG["VITE_APP_NAME"]="\${APP_NAME}"
 
-    # SSH WebSocket URL (same as APP_URL for production)
-    CONFIG["VITE_SSH_WS_URL"]="${CONFIG[APP_URL]}"
-
-    echo -e "${CYAN}VITE_SSH_WS_URL set to \${APP_URL} (for SSH WebSocket proxy)${NC}"
-
     echo ""
 
     # =============================================================================
@@ -780,9 +775,6 @@ MAIL_FROM_NAME="${CONFIG[MAIL_FROM_NAME]}"
 
 # Vite
 VITE_APP_NAME="${CONFIG[VITE_APP_NAME]}"
-
-# SSH WebSocket URL (proxied through Caddy on same domain as APP_URL)
-VITE_SSH_WS_URL=${CONFIG[VITE_SSH_WS_URL]}
 
 # =============================================================================
 # CAPTCHA Configuration
