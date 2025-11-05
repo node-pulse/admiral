@@ -236,10 +236,8 @@ services:
     healthcheck:
       test:
         - CMD
-        - wget
-        - --no-verbose
-        - --tries=1
-        - --spider
+        - curl
+        - -f
         - http://127.0.0.1:8090
       interval: 30s
       timeout: 3s
