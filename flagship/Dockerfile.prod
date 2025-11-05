@@ -57,8 +57,8 @@ RUN apt-get update \
 # Copy package files
 COPY package*.json ./
 
-# Install Node dependencies
-RUN npm ci --only=production
+# Install ALL Node dependencies (including dev) for the build process
+RUN npm ci
 
 # Copy source files needed for build
 COPY --from=vendor /app/vendor ./vendor
