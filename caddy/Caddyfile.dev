@@ -14,8 +14,9 @@
 # Admin Dashboard (Flagship - Laravel)
 # ------------------------------------------------------------
 :8000 {
-    # Proxy to Laravel's built-in development server
-    reverse_proxy flagship:9000 {
+    # Proxy to Nginx running in the flagship container
+    # Nginx handles static files and passes PHP to PHP-FPM internally
+    reverse_proxy flagship:8090 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}

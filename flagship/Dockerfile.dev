@@ -1,22 +1,26 @@
 # Development Dockerfile for Laravel with Ansible
 # Includes development tools and hot reload capabilities
-# Clean PHP-FPM only - Caddy handles HTTP in separate container
+# Uses Nginx + PHP-FPM with supervisor
 
-# Use pre-compiled base image (much faster than building from scratch)
+# Use pre-compiled base image with Nginx + PHP-FPM
 FROM ghcr.io/node-pulse/node-pulse-flagship-base:latest
 
-# Base image already includes all Laravel extensions and tools
-# Just add development-specific tools
+# Base image already includes:
+# - PHP 8.3 FPM + Nginx on Debian
+# - All Laravel extensions
+# - Supervisor to manage both services
+# - Ansible, Python3, SSH tools
 
-# Install Node.js, Bash, and dev dependencies
-RUN apk add --no-cache \
-    bash \
+# Install Node.js and development dependencies
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get update \
+    && apt-get install -y \
     nodejs \
-    npm \
-    linux-headers \
-    $PHPIZE_DEPS
+    vim \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Xdebug for development (optional, comment out if not needed)
+# Install Xdebug for development
 RUN pecl install xdebug \
     && docker-php-ext-enable xdebug
 
@@ -27,7 +31,7 @@ RUN pecl install redis \
 # Configure PHP for development
 RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 
-# Configure Xdebug (optional)
+# Configure Xdebug
 RUN echo "xdebug.mode=debug,develop" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
     && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
     && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
@@ -36,18 +40,18 @@ RUN echo "xdebug.mode=debug,develop" >> /usr/local/etc/php/conf.d/docker-php-ext
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Create non-root user matching host UID/GID
-ARG UID=1000
-ARG GID=1000
-
-RUN delgroup dialout 2>/dev/null || true \
-    && addgroup -g ${GID} -S laravel \
-    && adduser -u ${UID} -S laravel -G laravel
+# Create laravel user
+RUN useradd -m -s /bin/bash laravel \
+    && usermod -a -G www-data laravel
 
 # Configure PHP-FPM to run as laravel user
 RUN sed -i "s/user = www-data/user = laravel/g" /usr/local/etc/php-fpm.d/www.conf \
     && sed -i "s/group = www-data/group = laravel/g" /usr/local/etc/php-fpm.d/www.conf \
     && echo "php_admin_flag[log_errors] = on" >> /usr/local/etc/php-fpm.d/www.conf
+
+# Update Nginx to run as laravel user
+RUN sed -i "s/user www-data;/user laravel;/g" /etc/nginx/nginx.conf || \
+    sed -i '1s/^/user laravel;\n/' /etc/nginx/nginx.conf
 
 # Set working directory
 WORKDIR /var/www/html
@@ -70,7 +74,7 @@ RUN composer install \
 # Copy package files for npm
 COPY --chown=laravel:laravel package*.json ./
 
-# Install Node dependencies (Alpine Linux amd64)
+# Install Node dependencies
 RUN npm ci
 
 # Copy the rest of the application
@@ -91,14 +95,12 @@ RUN mkdir -p \
     && chown -R laravel:laravel storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Expose PHP-FPM port
-EXPOSE 9000
+# Expose Nginx port
+EXPOSE 8090
 
-# Health check - verify PHP-FPM is listening on port 9000
+# Health check - verify both Nginx and PHP-FPM are running
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD pidof php-fpm || exit 1
+    CMD curl -f http://localhost:8090/ || exit 1
 
-# Run PHP-FPM as root (master process)
-# Worker processes will run as 'laravel' user (configured in www.conf at lines 66-68)
-# Note: Vite dev server is run separately via docker-compose command
-CMD ["php-fpm", "-F", "-R"]
+# Run supervisor to manage Nginx and PHP-FPM
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

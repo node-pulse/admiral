@@ -211,7 +211,7 @@ services:
     env_file:
       - .env
     ports:
-      - "9000:9000" # Laravel dev server (external:internal)
+      - "8090:8090" # Nginx server (external:internal)
       - "5173:5173" # Vite dev server
       - "9003:9003" # Xdebug port
     depends_on:
@@ -240,7 +240,7 @@ services:
         - --no-verbose
         - --tries=1
         - --spider
-        - http://127.0.0.1:9000
+        - http://127.0.0.1:8090
       interval: 30s
       timeout: 3s
       retries: 3
