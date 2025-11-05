@@ -10,6 +10,22 @@
 # Admin Dashboard (Flagship - Laravel)
 # ------------------------------------------------------------
 {$FLAGSHIP_DOMAIN} {
+    # SSH WebSocket proxy (must be before main reverse_proxy)
+    @sshws {
+        path /ssh/*
+    }
+    reverse_proxy @sshws submarines-sshws:6001 {
+        # WebSocket support
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
+
+        # Standard headers
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
     # Reverse proxy to Nginx running in the flagship container
     # Nginx handles static files and passes PHP to PHP-FPM internally
     reverse_proxy flagship:8090 {
