@@ -114,6 +114,10 @@ RUN mkdir -p \
     && touch storage/logs/php-fpm-slow.log storage/logs/php-fpm-error.log \
     && chown laravel:laravel storage/logs/php-fpm-*.log
 
+# Copy entrypoint script for Laravel caching at startup
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Note: Config/route/view caching is performed in entrypoint script (docker-entrypoint.sh)
 # Cannot cache during build because .env is only available at runtime
 # Caching at container startup provides production performance while allowing env var changes via restart

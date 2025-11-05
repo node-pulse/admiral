@@ -13,6 +13,12 @@ if [ ! -d "node_modules" ]; then
     npm ci
 fi
 
+# Create PHP-FPM socket directory with proper permissions
+echo "📁 Creating PHP-FPM socket directory..."
+mkdir -p /run/php
+chown laravel:laravel /run/php
+chmod 755 /run/php
+
 # Start Vite dev server in background
 echo "📦 Starting Vite dev server on port 5173..."
 npm run dev &
