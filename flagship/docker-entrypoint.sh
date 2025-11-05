@@ -20,5 +20,14 @@ chmod 664 /var/www/html/storage/logs/laravel.log
 # Add initialization message to verify it's working
 echo "[$(date)] Laravel storage initialized by entrypoint script" >> /var/www/html/storage/logs/laravel.log
 
+# Cache Laravel configuration for production performance
+# This runs every container start, so env var changes take effect after restart
+echo "[$(date)] Caching Laravel configuration..." >> /var/www/html/storage/logs/laravel.log
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan event:cache
+echo "[$(date)] Laravel caching complete" >> /var/www/html/storage/logs/laravel.log
+
 # Execute the main command (supervisor, which starts nginx + php-fpm)
 exec "$@"

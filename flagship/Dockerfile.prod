@@ -114,11 +114,9 @@ RUN mkdir -p \
     && touch storage/logs/php-fpm-slow.log storage/logs/php-fpm-error.log \
     && chown laravel:laravel storage/logs/php-fpm-*.log
 
-# Cache Laravel configuration for production
-RUN php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache \
-    && php artisan event:cache
+# Note: Config/route/view caching is performed in entrypoint script (docker-entrypoint.sh)
+# Cannot cache during build because .env is only available at runtime
+# Caching at container startup provides production performance while allowing env var changes via restart
 
 # Expose Nginx port
 EXPOSE 8090

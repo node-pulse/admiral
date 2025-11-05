@@ -19,7 +19,7 @@
         header_up X-Forwarded-Proto {scheme}
 
         # Health check
-        health_uri /
+        health_uri /health
         health_interval 10s
         health_timeout 3s
     }
