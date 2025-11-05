@@ -110,7 +110,9 @@ RUN mkdir -p \
     storage/app/public \
     bootstrap/cache \
     && chown -R laravel:laravel storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 775 storage bootstrap/cache \
+    && touch storage/logs/php-fpm-slow.log storage/logs/php-fpm-error.log \
+    && chown laravel:laravel storage/logs/php-fpm-*.log
 
 # Cache Laravel configuration for production
 RUN php artisan config:cache \
