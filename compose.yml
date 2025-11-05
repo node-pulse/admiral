@@ -166,6 +166,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
+    command: ["php-fpm", "-F", "-R"]
     expose:
       - "9000" # PHP-FPM port (not exposed to host, only to Caddy)
     depends_on:
@@ -178,6 +180,7 @@ services:
       submarines-ingest:
         condition: service_started
     volumes:
+      - ./flagship/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh:ro
       - ./logs/flagship:/var/www/html/storage/logs # Mount logs for persistence
       - ./secrets:/secrets:ro # Mount shared secrets directory (read-only)
     networks:

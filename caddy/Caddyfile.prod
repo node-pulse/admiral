@@ -3,41 +3,36 @@
 
 # Global options
 {
-
+    debug
 }
 
 # ------------------------------------------------------------
 # Admin Dashboard (Flagship - Laravel)
 # ------------------------------------------------------------
 {$FLAGSHIP_DOMAIN} {
+    # Always hand off to Laravel's front controller
+    rewrite * /index.php
+
+    # Reverse proxy to PHP-FPM with FastCGI transport
+    reverse_proxy flagship:9000 {
+        transport fastcgi {
+            split .php
+            root /var/www/html/public
+            env APP_ENV production
+            read_timeout 60s
+            write_timeout 60s
+        }
+    }
+
     # Enable gzip compression
     encode gzip
 
-    # PHP-FPM configuration
-    # Note: root is set inside PHP-FPM, so all requests (including static files) go through PHP
-    php_fastcgi flagship:9000 {
-        # Set document root (inside PHP-FPM container)
-        root /var/www/html/public
-
-        # Environment variables for PHP
-        env APP_ENV production
-
-        # Timeouts
-        read_timeout 60s
-        write_timeout 60s
-    }
-
     # Security headers
     header {
-        # XSS Protection
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
         X-XSS-Protection "1; mode=block"
-
-        # Referrer Policy
         Referrer-Policy "strict-origin-when-cross-origin"
-
-        # Remove server header
         -Server
     }
 
@@ -112,7 +107,7 @@
 # Status Pages (Submarines Status)
 # ------------------------------------------------------------
 {$STATUS_DOMAIN} {
-    reverse_proxy submarines-status:8082 {
+    reverse_proxy submarines-status:8081 {
         health_uri /health
         health_interval 10s
         health_timeout 3s

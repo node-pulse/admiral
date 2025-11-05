@@ -51,8 +51,8 @@ localhost:8080 {
 # ------------------------------------------------------------
 # Status Pages (Submarines Status)
 # ------------------------------------------------------------
-localhost:8082 {
-    reverse_proxy submarines-status:8082 {
+localhost:8081 {
+    reverse_proxy submarines-status:8081 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
     }
