@@ -17,5 +17,8 @@ chown -R laravel:laravel /var/www/html/storage
 chmod -R 775 /var/www/html/storage
 chmod 664 /var/www/html/storage/logs/laravel.log
 
-# Execute the main command
+# Add initialization message to verify it's working
+echo "[$(date)] Laravel storage initialized by entrypoint script" >> /var/www/html/storage/logs/laravel.log
+
+# Execute the main command (php-fpm)
 exec "$@"

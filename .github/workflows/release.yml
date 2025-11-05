@@ -166,6 +166,11 @@ jobs:
           mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/caddy
           cp caddy/Caddyfile.prod release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/caddy/Caddyfile.prod
 
+          # Copy Flagship entrypoint script
+          mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/flagship
+          cp flagship/docker-entrypoint.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/flagship/
+          chmod +x release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/flagship/docker-entrypoint.sh
+
           # Copy Ansible playbooks (needed at runtime for custom playbooks)
           cp -r ansible release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/ansible
 
@@ -221,6 +226,7 @@ jobs:
           - `setup-mtls.sh` - mTLS certificate bootstrap script
           - `.env.example` - Environment variables template
           - `caddy/` - Reverse proxy configuration
+          - `flagship/` - Flagship container initialization scripts
           - `ansible/` - Ansible playbooks (mounted at runtime, supports custom playbooks)
           - `DEPLOYMENT.md` - This file
 

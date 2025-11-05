@@ -43,3 +43,7 @@ submarines/digest
 submarines/ingest
 submarines/sshws
 submarines/status
+
+
+# debug
+debug*.sh

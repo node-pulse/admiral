@@ -59,6 +59,12 @@ echo "  - caddy/Caddyfile (production)"
 mkdir -p "release/$RELEASE_DIR/caddy"
 cp caddy/Caddyfile.prod "release/$RELEASE_DIR/caddy/Caddyfile"
 
+# Copy Flagship entrypoint script
+echo "  - flagship/docker-entrypoint.sh"
+mkdir -p "release/$RELEASE_DIR/flagship"
+cp flagship/docker-entrypoint.sh "release/$RELEASE_DIR/flagship/"
+chmod +x "release/$RELEASE_DIR/flagship/docker-entrypoint.sh"
+
 # Copy Ansible playbooks (needed at runtime for custom playbooks)
 echo "  - ansible/ (playbooks)"
 cp -r ansible "release/$RELEASE_DIR/ansible"
