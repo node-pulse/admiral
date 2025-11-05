@@ -14,7 +14,7 @@ builds:
 # Note: Ansible playbooks are now baked into Docker images, not shipped separately
 archives:
   - id: deployment-package
-    format: binary
+    formats: ['binary']  # Use 'formats' (plural) instead of deprecated 'format'
 
 # Generate checksums
 checksum:
