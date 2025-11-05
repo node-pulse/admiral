@@ -167,9 +167,9 @@ services:
     env_file:
       - .env
     entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
-    command: ["php-fpm", "-F", "-R"]
+    command: ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
     expose:
-      - "9000" # PHP-FPM port (not exposed to host, only to Caddy)
+      - "8090" # Nginx port (not exposed to host, only to Caddy)
     depends_on:
       postgres:
         condition: service_healthy

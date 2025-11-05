@@ -10,18 +10,18 @@
 # Admin Dashboard (Flagship - Laravel)
 # ------------------------------------------------------------
 {$FLAGSHIP_DOMAIN} {
-    # Always hand off to Laravel's front controller
-    rewrite * /index.php
+    # Reverse proxy to Nginx running in the flagship container
+    # Nginx handles static files and passes PHP to PHP-FPM internally
+    reverse_proxy flagship:8090 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
 
-    # Reverse proxy to PHP-FPM with FastCGI transport
-    reverse_proxy flagship:9000 {
-        transport fastcgi {
-            split .php
-            root /var/www/html/public
-            env APP_ENV production
-            read_timeout 60s
-            write_timeout 60s
-        }
+        # Health check
+        health_uri /
+        health_interval 10s
+        health_timeout 3s
     }
 
     # Enable gzip compression

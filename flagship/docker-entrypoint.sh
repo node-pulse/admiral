@@ -20,5 +20,5 @@ chmod 664 /var/www/html/storage/logs/laravel.log
 # Add initialization message to verify it's working
 echo "[$(date)] Laravel storage initialized by entrypoint script" >> /var/www/html/storage/logs/laravel.log
 
-# Execute the main command (php-fpm)
+# Execute the main command (supervisor, which starts nginx + php-fpm)
 exec "$@"
