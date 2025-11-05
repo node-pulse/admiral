@@ -228,14 +228,15 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${CYAN}DB_USER, DB_PASSWORD, DB_NAME auto-set from PostgreSQL config${NC}"
     echo ""
 
-    # Server settings (hardcoded - matches compose.yml port mappings)
-    CONFIG["PORT"]="8080"
-    CONFIG["INGEST_PORT"]="8080"
-    CONFIG["STATUS_PORT"]="8082"
+    # Server settings
+    # NOTE: Ports are hardcoded in each service's main.go (no env vars needed)
     CONFIG["GIN_MODE"]="release"
 
-    echo -e "${CYAN}PORT set to '8080' (Submarines Ingest, matches compose.yml)${NC}"
-    echo -e "${CYAN}STATUS_PORT set to '8082' (Submarines Status, matches compose.yml)${NC}"
+    echo -e "${CYAN}Ports hardcoded in service binaries:${NC}"
+    echo -e "${CYAN}  - Ingest:   8080${NC}"
+    echo -e "${CYAN}  - Status:   8081${NC}"
+    echo -e "${CYAN}  - SSH WS:   6001${NC}"
+    echo -e "${CYAN}  - Flagship: 8090 (Nginx)${NC}"
     echo -e "${CYAN}GIN_MODE set to 'release' (production mode)${NC}"
 
     echo ""
@@ -602,7 +603,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
         echo -e "${GREEN}Submarines (Go-Gin):${NC}"
         echo "  JWT Secret: ${CONFIG[JWT_SECRET]:0:8}****"
-        echo "  (Ports: 8080 ingest, 8082 status - hardcoded)"
+        echo "  Ports: 8080 ingest, 8081 status (hardcoded in binaries)"
         echo ""
 
         echo -e "${GREEN}Flagship (Laravel):${NC}"
@@ -713,9 +714,13 @@ DB_NAME=\${POSTGRES_DB}
 DB_SSLMODE=${CONFIG[DB_SSLMODE]}
 
 # Server settings
-PORT=${CONFIG[PORT]}
-INGEST_PORT=\${PORT}
-STATUS_PORT=${CONFIG[STATUS_PORT]}
+# NOTE: Ports are hardcoded in each service's main.go:
+# - submarines-ingest: 8080
+# - submarines-status: 8081
+# - submarines-sshws: 6001
+# - submarines-deployer: background worker (no port)
+# - submarines-digest: background worker (no port)
+# - flagship: 8090 (Nginx, hardcoded)
 GIN_MODE=${CONFIG[GIN_MODE]}
 
 # Security

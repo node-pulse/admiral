@@ -21,7 +21,6 @@ type Config struct {
 	ValkeyPassword string
 
 	// Server
-	Port    string
 	GinMode string
 
 	// JWT
@@ -59,7 +58,6 @@ func Load() *Config {
 		ValkeyPassword: getEnv("VALKEY_PASSWORD", ""),
 
 		// Server
-		Port:    getEnv("PORT", "8080"),
 		GinMode: getEnv("GIN_MODE", "debug"),
 
 		// JWT

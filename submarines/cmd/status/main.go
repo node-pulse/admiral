@@ -68,7 +68,8 @@ func main() {
 	})
 
 	// Start server
-	addr := ":" + cfg.Port
+	const port = "8081"
+	addr := ":" + port
 	log.Printf("Starting status (public status pages) service on %s", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

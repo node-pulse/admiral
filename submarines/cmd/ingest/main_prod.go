@@ -88,7 +88,8 @@ func main() {
 	}
 
 	// Start server
-	addr := ":" + cfg.Port
+	const port = "8080"
+	addr := ":" + port
 	log.Printf("Starting ingest service on %s (mTLS: ENABLED - Production Mode - STRICT enforcement)", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
