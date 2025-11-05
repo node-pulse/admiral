@@ -90,7 +90,6 @@ WORKDIR /var/www/html
 # Copy application from previous stages
 COPY --from=vendor --chown=laravel:laravel /app/vendor ./vendor
 COPY --from=frontend --chown=laravel:laravel /app/public/build ./public/build
-COPY --from=frontend --chown=laravel:laravel /app/public/hot ./public/hot
 
 # Copy application code
 COPY --chown=laravel:laravel . .
