@@ -22,10 +22,12 @@ echo "[$(date)] Laravel storage initialized by entrypoint script" >> /var/www/ht
 
 # Cache Laravel configuration for production performance
 # This runs every container start, so env var changes take effect after restart
+# NOTE: view:cache is DISABLED because it caches Inertia props (including Turnstile tokens)
+#       which causes "timeout-or-duplicate" errors from Cloudflare Turnstile
 echo "[$(date)] Caching Laravel configuration..." >> /var/www/html/storage/logs/laravel.log
 php artisan config:cache
 php artisan route:cache
-php artisan view:cache
+# php artisan view:cache  # DISABLED: Causes Turnstile token reuse
 php artisan event:cache
 echo "[$(date)] Laravel caching complete" >> /var/www/html/storage/logs/laravel.log
 
