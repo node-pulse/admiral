@@ -11,45 +11,52 @@
 # ------------------------------------------------------------
 {$FLAGSHIP_DOMAIN} {
     # SSH WebSocket proxy (must be before main reverse_proxy)
+    # Frontend connects to: wss://domain.com/ssh/:server_id
+    # Caddy proxies to: submarines-sshws:6001/ssh/:server_id (path preserved)
     @sshws {
         path /ssh/*
     }
-    reverse_proxy @sshws submarines-sshws:6001 {
-        # WebSocket support
-        header_up Connection {>Connection}
-        header_up Upgrade {>Upgrade}
+    handle @sshws {
+        reverse_proxy submarines-sshws:6001 {
+            # WebSocket support - use shorthand syntax for proper upgrade
+            header_up Connection {>Connection}
+            header_up Upgrade {>Upgrade}
 
-        # Standard headers
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
+            # Standard proxy headers
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
     }
 
-    # Reverse proxy to Nginx running in the flagship container
-    # Nginx handles static files and passes PHP to PHP-FPM internally
-    reverse_proxy flagship:8090 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
+    # Everything else goes to Flagship
+    handle {
+        # Enable gzip compression
+        encode gzip
 
-        # Health check
-        health_uri /health
-        health_interval 10s
-        health_timeout 3s
-    }
+        # Security headers
+        header {
+            X-Content-Type-Options "nosniff"
+            X-Frame-Options "SAMEORIGIN"
+            X-XSS-Protection "1; mode=block"
+            Referrer-Policy "strict-origin-when-cross-origin"
+            -Server
+        }
 
-    # Enable gzip compression
-    encode gzip
+        # Reverse proxy to Nginx running in the flagship container
+        # Nginx handles static files and passes PHP to PHP-FPM internally
+        reverse_proxy flagship:8090 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
 
-    # Security headers
-    header {
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "SAMEORIGIN"
-        X-XSS-Protection "1; mode=block"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        -Server
+            # Health check
+            health_uri /health
+            health_interval 10s
+            health_timeout 3s
+        }
     }
 
     # Logging
