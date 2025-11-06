@@ -42,7 +42,11 @@ func NewHandler(db *sql.DB, masterKey string) *Handler {
 // HandleWebSocket handles WebSocket connections for SSH
 func (h *Handler) HandleWebSocket(c *gin.Context) {
 	serverID := c.Param("server_id")
+	log.Printf("[SSH-WS] Incoming WebSocket request - Path: %s, ServerID: %s", c.Request.URL.Path, serverID)
+	log.Printf("[SSH-WS] Request headers - Upgrade: %s, Connection: %s", c.Request.Header.Get("Upgrade"), c.Request.Header.Get("Connection"))
+
 	if serverID == "" {
+		log.Printf("[SSH-WS] ERROR: server_id is empty")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "server_id is required"})
 		return
 	}
@@ -50,13 +54,14 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 	// Upgrade HTTP connection to WebSocket
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Printf("[SSH-WS] Failed to upgrade connection: %v", err)
+		log.Printf("[SSH-WS] Failed to upgrade connection for server %s: %v", serverID, err)
+		log.Printf("[SSH-WS] Request: %s %s from %s", c.Request.Method, c.Request.URL.Path, c.ClientIP())
 		return
 	}
 	defer ws.Close()
 
 	sessionID := fmt.Sprintf("ssh_%d", time.Now().UnixNano())
-	log.Printf("[%s] WebSocket connected for server %s", sessionID, serverID)
+	log.Printf("[%s] ✓ WebSocket successfully upgraded for server %s from %s", sessionID, serverID, c.ClientIP())
 
 	// Send initial connection message
 	h.sendMessage(ws, map[string]interface{}{

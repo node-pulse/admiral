@@ -18,9 +18,8 @@
     }
     handle @sshws {
         reverse_proxy submarines-sshws:6001 {
-            # WebSocket support - use shorthand syntax for proper upgrade
-            header_up Connection {>Connection}
-            header_up Upgrade {>Upgrade}
+            # WebSocket support - Caddy automatically handles WebSocket upgrades
+            # No need to explicitly set Upgrade/Connection headers
 
             # Standard proxy headers
             header_up Host {host}
