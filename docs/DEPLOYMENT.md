@@ -211,8 +211,11 @@ docker compose ps
 - **submarines-sshws** - SSH WebSocket terminal `:6001`
 - **postgres** - PostgreSQL 18 database `:5432`
 - **valkey** - Message buffer `:6379`
-- **flagship** - Laravel dashboard with PHP-FPM `:9000`
-- **caddy** - Reverse proxy with automatic HTTPS `:80/:443`
+- **flagship** - Laravel dashboard (Nginx + PHP-FPM architecture)
+  - Internal: Nginx serves static files on `:8090`, proxies PHP to PHP-FPM on `:9000`
+  - External: Accessed via Caddy reverse proxy
+- **caddy** - Edge reverse proxy with automatic HTTPS `:80/:443`
+  - Routes traffic to flagship (:8090), submarines services, SSH WebSocket
 
 **Background Workers:**
 

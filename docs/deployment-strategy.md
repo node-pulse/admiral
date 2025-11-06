@@ -24,6 +24,30 @@ This document outlines the multi-environment Docker Compose deployment strategy 
    - Developers use this for local development
    - Fast iteration with hot reload
 
+### Web Server Architecture
+
+The Flagship service uses a **layered architecture** for serving the Laravel application:
+
+```
+Internet/Browser
+    ↓
+Caddy (Edge Proxy)
+    ↓ Port 8090
+Nginx (Web Server) ← Inside flagship container
+    ↓ Port 9000
+PHP-FPM (PHP Process Manager) ← Inside flagship container
+    ↓
+Laravel Application
+```
+
+**Why this architecture?**
+
+- **Caddy**: Handles TLS termination, automatic HTTPS, and routes traffic between multiple services (flagship, submarines-ingest, submarines-status, submarines-sshws)
+- **Nginx**: Battle-tested PHP web server, serves static files efficiently, mature FastCGI implementation, Laravel-optimized configuration
+- **PHP-FPM**: Efficient PHP process management
+
+This is the industry-standard approach for production PHP applications, providing better performance, security, and reliability than alternatives like Caddy → PHP-FPM direct connection.
+
 ---
 
 ## Image Tagging Strategy

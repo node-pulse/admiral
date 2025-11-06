@@ -64,16 +64,19 @@
 │  └──────────┬───────────┘                     │       │
 │             │ Eloquent ORM queries            │       │
 │             ▼                                  │       │
-│  ┌──────────────────────┐                     │       │
-│  │  Flagship (Laravel)  │                     │       │
-│  │  :8000 (dev)         │                     │       │
-│  │  :9000 (php-fpm)     │                     │       │
-│  └──────────┬───────────┘                     │       │
-│             │                                  │       │
-│             ▼                                  ▼       │
-│  ┌────────────────────────────────────────────────┐   │
-│  │  Caddy Reverse Proxy :80/:443                  │   │
-│  └────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────┐           │       │
+│  │  Flagship (Laravel)              │           │       │
+│  │  ┌────────┐     ┌─────────────┐ │           │       │
+│  │  │ Nginx  │────▶│  PHP-FPM    │ │           │       │
+│  │  │ :8090  │     │  :9000      │ │           │       │
+│  │  └───┬────┘     └─────────────┘ │           │       │
+│  └──────┼───────────────────────────┘           │       │
+│         │ Serves static files + PHP             │       │
+│         ▼                                        ▼       │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  Caddy Reverse Proxy :80/:443                    │   │
+│  │  (TLS termination, routing to services)          │   │
+│  └──────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────┘
          ▲
          │ HTTPS
@@ -294,7 +297,8 @@ A more advanced **Node Pulse Envelope Protocol (NPI)** is being designed:
 ### Infrastructure
 
 - **Container**: Docker Compose
-- **Proxy**: Caddy 2
+- **Edge Proxy**: Caddy 2 (TLS termination, automatic HTTPS, service routing)
+- **Application Server**: Nginx (static files, PHP-FPM proxy for Flagship)
 - **Message Buffer**: Valkey Streams (Redis-compatible)
 
 ## Key Files

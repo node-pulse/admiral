@@ -90,19 +90,22 @@ PostgreSQL (:5432) - admiral.metrics + admiral.process_snapshots
 
 **Flagship (Laravel + React) - Management UI**
 
-- Web dashboard with real-time charts (:9000 dev, :8000 via Caddy)
+- Web dashboard with real-time charts
 - Server management and configuration
 - User authentication (Laravel Fortify)
 - API endpoints for metrics and processes
+- Served by Nginx (:8090) + PHP-FPM (:9000) inside container
+- Exposed via Caddy reverse proxy in production
 
 **Data Layer**
 
 - **PostgreSQL 18** - Admiral schema (metrics, servers, users, alerts)
 - **Valkey** - Message streams, caching, sessions (Redis-compatible)
 
-**Reverse Proxy**
+**Reverse Proxy & Web Server**
 
-- **Caddy** - Routes requests, automatic HTTPS in production
+- **Caddy** - Edge reverse proxy, TLS termination, automatic HTTPS, routes traffic between services
+- **Nginx** - Application server for Flagship (serves static files, proxies PHP requests to PHP-FPM)
 
 ## Roadmap
 
