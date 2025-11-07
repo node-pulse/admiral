@@ -329,7 +329,7 @@
         # Configure agent
         - name: Deploy agent configuration
           template:
-            src: nodepulse.yml.j2
+            src: templates/nodepulse.yml.j2
             dest: "{{ agent_config_dir }}/nodepulse.yml"
             owner: nodepulse
             group: nodepulse
@@ -337,7 +337,7 @@
 
         - name: Deploy agent systemd service
           template:
-            src: nodepulse.service.j2
+            src: templates/nodepulse.service.j2
             dest: /etc/systemd/system/nodepulse.service
             owner: root
             group: root
@@ -485,7 +485,7 @@
         # Configure and start
         - name: Deploy node_exporter systemd service
           template:
-            src: node_exporter.service.j2
+            src: templates/node_exporter.service.j2
             dest: /etc/systemd/system/node_exporter.service
             owner: root
             group: root
@@ -594,7 +594,7 @@
         # Configure and start
         - name: Deploy process_exporter configuration
           template:
-            src: process_exporter_config.yml.j2
+            src: templates/process_exporter_config.yml.j2
             dest: "{{ process_exporter_config_file }}"
             owner: "{{ process_exporter_user }}"
             group: "{{ process_exporter_group }}"
@@ -602,7 +602,7 @@
 
         - name: Deploy process_exporter systemd service
           template:
-            src: process_exporter.service.j2
+            src: templates/process_exporter.service.j2
             dest: /etc/systemd/system/process_exporter.service
             owner: root
             group: root
