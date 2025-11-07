@@ -66,6 +66,38 @@ func (c *Client) Close() {
 	c.client.Close()
 }
 
+// Ping checks if Valkey connection is alive
+func (c *Client) Ping(ctx context.Context) error {
+	cmd := c.client.Do(ctx, c.client.B().Ping().Build())
+	return cmd.Error()
+}
+
+// HealthCheck performs a more thorough health check (read/write test)
+func (c *Client) HealthCheck(ctx context.Context) error {
+	testKey := "health:check"
+	testValue := "ok"
+
+	// Try to write
+	if err := c.Set(ctx, testKey, testValue); err != nil {
+		return fmt.Errorf("valkey health check write failed: %w", err)
+	}
+
+	// Try to read
+	value, err := c.Get(ctx, testKey)
+	if err != nil {
+		return fmt.Errorf("valkey health check read failed: %w", err)
+	}
+
+	if value != testValue {
+		return fmt.Errorf("valkey health check value mismatch: expected %s, got %s", testValue, value)
+	}
+
+	// Clean up
+	c.Del(ctx, testKey)
+
+	return nil
+}
+
 // XAdd publishes a message to a Redis/Valkey Stream (NO auto-trimming to prevent data loss)
 func (c *Client) XAdd(ctx context.Context, stream string, values map[string]string) (string, error) {
 	// Build XADD command WITHOUT MAXLEN - we don't want to lose data
