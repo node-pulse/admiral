@@ -1,0 +1,261 @@
+---
+# ==============================================================================
+# Node Pulse Stack - Unified Uninstall Playbook
+# ==============================================================================
+#
+# This playbook removes the complete monitoring stack:
+#   - Node Pulse Agent
+#   - Prometheus Node Exporter
+#   - Prometheus Process Exporter
+#
+# Usage:
+#   # Uninstall everything:
+#   ansible-playbook -i inventory.yml uninstall.yml
+#
+#   # Uninstall specific components:
+#   ansible-playbook -i inventory.yml uninstall.yml --tags "nodepulse"
+#   ansible-playbook -i inventory.yml uninstall.yml --tags "node-exporter"
+#   ansible-playbook -i inventory.yml uninstall.yml --tags "process-exporter"
+#
+#   # Dry run (check what will be removed):
+#   ansible-playbook -i inventory.yml uninstall.yml --check
+#
+# WARNING: This will stop services and remove all data!
+#
+# ==============================================================================
+
+- name: Uninstall Node Pulse Monitoring Stack
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # Node Pulse Agent paths
+    agent_install_dir: "/opt/nodepulse"
+    agent_config_dir: "/etc/nodepulse"
+    agent_data_dir: "/var/lib/nodepulse"
+    agent_log_dir: "/var/log/nodepulse"
+
+    # Node Exporter paths
+    node_exporter_install_dir: "/opt/node_exporter"
+    node_exporter_bin_path: "/usr/local/bin/node_exporter"
+    node_exporter_config_dir: "/etc/node_exporter"
+    node_exporter_textfile_dir: "/var/lib/node_exporter"
+
+    # Process Exporter paths
+    process_exporter_install_dir: "/opt/process_exporter"
+    process_exporter_bin_path: "/usr/local/bin/process-exporter"
+    process_exporter_config_dir: "/etc/process_exporter"
+
+  # ===========================================================================
+  # Pre-uninstall Warning
+  # ===========================================================================
+
+  pre_tasks:
+    - name: Display uninstall warning
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════════╗
+          ║   ⚠️  WARNING: Uninstalling Node Pulse Stack                   ║
+          ╚════════════════════════════════════════════════════════════════╝
+
+          Target: {{ inventory_hostname }}
+
+          This will:
+            • Stop all monitoring services
+            • Remove Node Pulse Agent
+            • Remove Node Exporter
+            • Remove Process Exporter
+            • Delete all configuration files
+            • Delete all data and logs
+            • Remove system users
+
+          Press Ctrl+C now to cancel, or wait 10 seconds to proceed...
+      tags: always
+
+    - name: Pause for confirmation (10 seconds)
+      pause:
+        seconds: 10
+        prompt: "Starting uninstall in 10 seconds... (Press Ctrl+C to cancel)"
+      tags: always
+
+  # ===========================================================================
+  # Task 1: Uninstall Node Pulse Agent
+  # ===========================================================================
+
+  tasks:
+    - name: "▶ Uninstall Node Pulse Agent"
+      block:
+        - name: Stop nodepulse service
+          systemd:
+            name: nodepulse
+            state: stopped
+            enabled: no
+          ignore_errors: yes
+
+        - name: Remove nodepulse systemd service file
+          file:
+            path: /etc/systemd/system/nodepulse.service
+            state: absent
+
+        - name: Remove nodepulse logrotate configuration
+          file:
+            path: /etc/logrotate.d/nodepulse
+            state: absent
+
+        - name: Reload systemd daemon
+          systemd:
+            daemon_reload: yes
+
+        - name: Remove agent directories
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ agent_install_dir }}"
+            - "{{ agent_config_dir }}"
+            - "{{ agent_data_dir }}"
+            - "{{ agent_log_dir }}"
+
+        - name: Remove nodepulse user
+          user:
+            name: nodepulse
+            state: absent
+            remove: yes
+          ignore_errors: yes
+
+        - name: Display agent removal status
+          debug:
+            msg: "✓ Node Pulse Agent removed"
+      tags: nodepulse
+
+    # =========================================================================
+    # Task 2: Uninstall Prometheus Node Exporter
+    # =========================================================================
+
+    - name: "▶ Uninstall Prometheus Node Exporter"
+      block:
+        - name: Stop node_exporter service
+          systemd:
+            name: node_exporter
+            state: stopped
+            enabled: no
+          ignore_errors: yes
+
+        - name: Remove node_exporter systemd service file
+          file:
+            path: /etc/systemd/system/node_exporter.service
+            state: absent
+
+        - name: Reload systemd daemon
+          systemd:
+            daemon_reload: yes
+
+        - name: Remove node_exporter binary symlink
+          file:
+            path: "{{ node_exporter_bin_path }}"
+            state: absent
+
+        - name: Remove node_exporter directories
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ node_exporter_install_dir }}"
+            - "{{ node_exporter_config_dir }}"
+            - "{{ node_exporter_textfile_dir }}"
+
+        - name: Remove node_exporter user
+          user:
+            name: node_exporter
+            state: absent
+            remove: yes
+          ignore_errors: yes
+
+        - name: Remove node_exporter group
+          group:
+            name: node_exporter
+            state: absent
+          ignore_errors: yes
+
+        - name: Display node_exporter removal status
+          debug:
+            msg: "✓ Node Exporter removed"
+      tags: node-exporter
+
+    # =========================================================================
+    # Task 3: Uninstall Prometheus Process Exporter
+    # =========================================================================
+
+    - name: "▶ Uninstall Prometheus Process Exporter"
+      block:
+        - name: Stop process_exporter service
+          systemd:
+            name: process_exporter
+            state: stopped
+            enabled: no
+          ignore_errors: yes
+
+        - name: Remove process_exporter systemd service file
+          file:
+            path: /etc/systemd/system/process_exporter.service
+            state: absent
+
+        - name: Reload systemd daemon
+          systemd:
+            daemon_reload: yes
+
+        - name: Remove process_exporter binary symlink
+          file:
+            path: "{{ process_exporter_bin_path }}"
+            state: absent
+
+        - name: Remove process_exporter directories
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ process_exporter_install_dir }}"
+            - "{{ process_exporter_config_dir }}"
+
+        - name: Remove process_exporter user
+          user:
+            name: process_exporter
+            state: absent
+            remove: yes
+          ignore_errors: yes
+
+        - name: Remove process_exporter group
+          group:
+            name: process_exporter
+            state: absent
+          ignore_errors: yes
+
+        - name: Display process_exporter removal status
+          debug:
+            msg: "✓ Process Exporter removed"
+      tags: process-exporter
+
+  # ===========================================================================
+  # Post-uninstall Summary
+  # ===========================================================================
+
+  post_tasks:
+    - name: Display uninstall summary
+      debug:
+        msg: |
+
+          ╔════════════════════════════════════════════════════════════════╗
+          ║   ✅ Uninstall Complete                                        ║
+          ╚════════════════════════════════════════════════════════════════╝
+
+          Server: {{ ansible_hostname }}
+
+          Removed:
+            • Node Pulse Agent
+            • Node Exporter
+            • Process Exporter
+
+          All services stopped, files deleted, and users removed.
+
+      tags: always

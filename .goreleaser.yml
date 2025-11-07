@@ -113,7 +113,7 @@ release:
 
     - [Deployment Guide](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/{{ .Tag }}/README.md)
     - [mTLS Setup](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/{{ .Tag }}/docs/mtls-setup-guide.md)
-    - [Ansible Playbooks](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/{{ .Tag }}/flagship/ansible/playbooks/nodepulse/README.md)
+    - [Ansible Deployment Guide](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/{{ .Tag }}/ansible/README.md)
 
     ### 🐛 Issues & Support
 

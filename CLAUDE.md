@@ -417,21 +417,38 @@ logging:
 
 ### Deployment via Ansible
 
-Use the Ansible playbooks to deploy both node_exporter and the agent:
+Use the simplified Ansible playbooks to deploy the complete monitoring stack:
 
 ```bash
-# 1. Deploy node_exporter (must be deployed first)
-ansible-playbook ansible/playbooks/prometheus/deploy-node-exporter.yml -i inventory.yml
+# Deploy everything (Node Pulse Agent + node_exporter + process_exporter)
 
-# 2. Deploy Node Pulse Agent
 # Production (with mTLS):
-ansible-playbook ansible/playbooks/nodepulse/deploy-agent-mtls.yml -i inventory.yml
+ansible-playbook -i inventory.yml ansible/nodepulse/deploy.yml
 
 # Development (no mTLS):
-ansible-playbook ansible/playbooks/nodepulse/deploy-agent-no-mtls.yml -i inventory.yml
+ansible-playbook -i inventory.yml ansible/nodepulse/deploy.yml -e "tls_enabled=false"
+
+# Deploy only specific components:
+ansible-playbook -i inventory.yml ansible/nodepulse/deploy.yml --tags "nodepulse"
+ansible-playbook -i inventory.yml ansible/nodepulse/deploy.yml --tags "node-exporter"
+ansible-playbook -i inventory.yml ansible/nodepulse/deploy.yml --tags "process-exporter"
+
+# Update to specific version:
+ansible-playbook -i inventory.yml ansible/nodepulse/deploy.yml -e "agent_version=1.2.3"
+
+# Uninstall everything:
+ansible-playbook -i inventory.yml ansible/nodepulse/uninstall.yml
 ```
 
-See `ansible/playbooks/nodepulse/QUICK_START.md` for detailed deployment instructions.
+**Key Features:**
+- **Single playbook for everything** - nodepulse/deploy.yml installs and updates all components
+- **No roles complexity** - Pure playbooks with supporting template files
+- **Idempotent** - Safe to run multiple times
+- **Tagged components** - Deploy/update individually or all together
+- **Clean uninstall** - nodepulse/uninstall.yml removes everything
+- **Organized by purpose** - All Node Pulse playbooks in ansible/nodepulse/
+
+See `ansible/README.md` for detailed deployment instructions.
 
 ## API Endpoints
 

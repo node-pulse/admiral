@@ -174,7 +174,7 @@ Then modify \`compose.yml\` to use \`localhost:5000/\` prefix.
 ## Documentation
 
 - [mTLS Setup Guide](docs/mtls-setup-guide.md) - Available in full repository
-- [Deployment Playbooks](ansible/playbooks/nodepulse/README.md) - Available in full repository
+- [Ansible Deployment Guide](ansible/README.md) - Available in full repository
 
 ## Support
 

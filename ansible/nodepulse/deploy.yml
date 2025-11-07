@@ -1,0 +1,670 @@
+---
+# ==============================================================================
+# Node Pulse Stack - Unified Deployment Playbook
+# ==============================================================================
+#
+# This playbook deploys and updates the complete monitoring stack:
+#   - Node Pulse Agent (metrics collector with mTLS support)
+#   - Prometheus Node Exporter (system metrics)
+#   - Prometheus Process Exporter (process metrics)
+#
+# Usage:
+#   # Deploy everything (production with mTLS):
+#   ansible-playbook -i inventory.yml deploy.yml
+#
+#   # Deploy without mTLS (development):
+#   ansible-playbook -i inventory.yml deploy.yml -e "tls_enabled=false"
+#
+#   # Update to specific version:
+#   ansible-playbook -i inventory.yml deploy.yml -e "agent_version=1.2.3"
+#
+#   # Deploy only specific components:
+#   ansible-playbook -i inventory.yml deploy.yml --tags "nodepulse"
+#   ansible-playbook -i inventory.yml deploy.yml --tags "node-exporter"
+#   ansible-playbook -i inventory.yml deploy.yml --tags "process-exporter"
+#
+# Requirements:
+#   - Linux server (Ubuntu 22.04+, Debian 11+, RHEL 8+, Rocky Linux 8+)
+#   - Root/sudo access
+#   - Internet connectivity for downloads
+#   - For mTLS: certificates must be provided via extra vars
+#
+# ==============================================================================
+
+- name: Deploy Node Pulse Monitoring Stack
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # =========================================================================
+    # Global Configuration
+    # =========================================================================
+
+    # Node Pulse Agent
+    agent_version: "{{ agent_version | default('latest') }}"
+    agent_github_owner: "node-pulse"
+    agent_github_repo: "agent"
+    agent_install_dir: "/opt/nodepulse"
+    agent_config_dir: "/etc/nodepulse"
+    agent_data_dir: "/var/lib/nodepulse"
+    agent_log_dir: "/var/log/nodepulse"
+
+    # Ingest endpoint (required - passed from Laravel job or inventory)
+    ingest_endpoint: "{{ ingest_endpoint }}"
+
+    # Agent behavior
+    agent_interval: "{{ agent_interval | default('15s') }}"
+    agent_timeout: "{{ agent_timeout | default('5s') }}"
+
+    # mTLS configuration (production)
+    tls_enabled: "{{ tls_enabled | default(false) }}"
+
+    # Node Exporter
+    node_exporter_version: "{{ node_exporter_version | default('1.8.2') }}"
+    node_exporter_user: "node_exporter"
+    node_exporter_group: "node_exporter"
+    node_exporter_install_dir: "/opt/node_exporter"
+    node_exporter_bin_path: "/usr/local/bin/node_exporter"
+    node_exporter_config_dir: "/etc/node_exporter"
+    node_exporter_textfile_dir: "/var/lib/node_exporter/textfile_collector"
+    node_exporter_listen_address: "127.0.0.1"
+    node_exporter_listen_port: 9100
+    node_exporter_extra_flags: []
+    node_exporter_download_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+
+    # Filesystem collectors configuration
+    node_exporter_collector_filesystem_ignored_fs_types: "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
+    node_exporter_collector_filesystem_ignored_mount_points: "^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+)($|/)"
+
+    # Process Exporter
+    process_exporter_version: "{{ process_exporter_version | default('0.8.3') }}"
+    process_exporter_user: "process_exporter"
+    process_exporter_group: "process_exporter"
+    process_exporter_install_dir: "/opt/process_exporter"
+    process_exporter_bin_path: "/usr/local/bin/process-exporter"
+    process_exporter_config_dir: "/etc/process_exporter"
+    process_exporter_config_file: "/etc/process_exporter/config.yml"
+    process_exporter_listen_address: "127.0.0.1"
+    process_exporter_listen_port: 9256
+    process_exporter_download_url: "https://github.com/ncabatoff/process-exporter/releases/download/v{{ process_exporter_version }}/process-exporter-{{ process_exporter_version }}.linux-amd64.tar.gz"
+
+    # Process monitoring configuration (customize as needed)
+    process_exporter_process_names:
+      - name: "{{.Comm}}"
+        cmdline:
+          - '.+'
+
+  # ===========================================================================
+  # Pre-flight Checks
+  # ===========================================================================
+
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════════╗
+          ║   Node Pulse Stack Deployment                                  ║
+          ╚════════════════════════════════════════════════════════════════╝
+
+          Target: {{ inventory_hostname }} ({{ ansible_distribution }} {{ ansible_distribution_version }})
+          Components:
+            • Node Pulse Agent {{ agent_version }}
+            • Node Exporter {{ node_exporter_version }}
+            • Process Exporter {{ process_exporter_version }}
+
+          Configuration:
+            • Ingest Endpoint: {{ ingest_endpoint }}
+            • mTLS: {{ 'ENABLED' if tls_enabled else 'DISABLED' }}
+            • Agent Interval: {{ agent_interval }}
+      tags: always
+
+    - name: Ensure server is reachable
+      wait_for_connection:
+        timeout: 30
+      register: connection_test
+      ignore_errors: yes
+      tags: always
+
+    - name: Fail if server is unreachable
+      fail:
+        msg: "❌ Server {{ inventory_hostname }} is unreachable"
+      when: connection_test is failed
+      tags: always
+
+    - name: Check prerequisites (curl, tar, systemd)
+      package:
+        name:
+          - curl
+          - tar
+          - systemd
+        state: present
+      tags: always
+
+  # ===========================================================================
+  # Task 1: Deploy Node Pulse Agent
+  # ===========================================================================
+
+  tasks:
+    - name: "▶ Deploy Node Pulse Agent"
+      block:
+        # Create user and directories
+        - name: Create nodepulse system user
+          user:
+            name: nodepulse
+            system: yes
+            create_home: no
+            shell: /usr/sbin/nologin
+            comment: "Node Pulse Agent Service User"
+
+        - name: Create required directories for agent
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: nodepulse
+            group: nodepulse
+            mode: "0755"
+          loop:
+            - "{{ agent_install_dir }}"
+            - "{{ agent_config_dir }}"
+            - "{{ agent_data_dir }}"
+            - "{{ agent_log_dir }}"
+            - "{{ agent_data_dir }}/buffer"
+
+        # Download and install agent
+        - name: Detect CPU architecture
+          set_fact:
+            agent_arch: >-
+              {{
+                'amd64' if ansible_architecture == 'x86_64'
+                else 'arm64' if ansible_architecture == 'aarch64'
+                else 'unknown'
+              }}
+
+        - name: Fail if unsupported architecture
+          fail:
+            msg: |
+              ❌ UNSUPPORTED ARCHITECTURE: {{ ansible_architecture }}
+
+              Node Pulse Agent only supports 64-bit systems:
+                ✓ x86_64 (64-bit Intel/AMD)
+                ✓ aarch64 (64-bit ARM - AWS Graviton, etc.)
+
+              32-bit systems are NOT supported.
+          when: agent_arch == 'unknown'
+
+        - name: Get latest agent release tag
+          uri:
+            url: "https://api.github.com/repos/{{ agent_github_owner }}/{{ agent_github_repo }}/releases/latest"
+            return_content: yes
+          register: latest_agent_release
+          when: agent_version == 'latest'
+
+        - name: Extract agent version from tag
+          set_fact:
+            resolved_agent_version: "{{ latest_agent_release.json.tag_name | regex_replace('^v', '') }}"
+          when: agent_version == 'latest'
+
+        - name: Use specified agent version
+          set_fact:
+            resolved_agent_version: "{{ agent_version | regex_replace('^v', '') }}"
+          when: agent_version != 'latest'
+
+        - name: Set agent download URLs
+          set_fact:
+            agent_archive_filename: "nodepulse-{{ resolved_agent_version }}-linux-{{ agent_arch }}.tar.gz"
+            agent_download_base: "https://github.com/{{ agent_github_owner }}/{{ agent_github_repo }}/releases/{{ 'latest/download' if agent_version == 'latest' else 'download/v' + resolved_agent_version }}"
+
+        - name: Download agent checksums
+          get_url:
+            url: "{{ agent_download_base }}/checksums.txt"
+            dest: "/tmp/nodepulse-checksums.txt"
+            mode: "0644"
+            force: yes
+            timeout: 30
+          register: agent_checksum_download
+          retries: 3
+          delay: 5
+          until: agent_checksum_download is succeeded
+
+        - name: Extract expected checksum
+          shell: "grep '{{ agent_archive_filename }}' /tmp/nodepulse-checksums.txt | awk '{print $1}'"
+          register: agent_expected_checksum
+          changed_when: false
+
+        - name: Download Node Pulse agent
+          get_url:
+            url: "{{ agent_download_base }}/{{ agent_archive_filename }}"
+            dest: "/tmp/{{ agent_archive_filename }}"
+            checksum: "sha256:{{ agent_expected_checksum.stdout }}"
+            mode: "0644"
+            force: yes
+            timeout: 120
+          register: agent_download_result
+          retries: 3
+          delay: 5
+          until: agent_download_result is succeeded
+
+        - name: Extract agent archive
+          unarchive:
+            src: "/tmp/{{ agent_archive_filename }}"
+            dest: "/tmp"
+            remote_src: yes
+
+        - name: Install agent binary
+          copy:
+            src: "/tmp/nodepulse"
+            dest: "{{ agent_install_dir }}/nodepulse"
+            remote_src: yes
+            owner: nodepulse
+            group: nodepulse
+            mode: "0755"
+
+        - name: Clean up agent download files
+          file:
+            path: "/tmp/{{ item }}"
+            state: absent
+          loop:
+            - "{{ agent_archive_filename }}"
+            - nodepulse-checksums.txt
+            - nodepulse
+            - README.md
+            - nodepulse.yml
+          ignore_errors: yes
+
+        - name: Verify agent binary
+          command: "{{ agent_install_dir }}/nodepulse --version"
+          register: agent_version_check
+          changed_when: false
+
+        - name: Display agent version
+          debug:
+            msg: "✓ Installed Node Pulse Agent: {{ agent_version_check.stdout }}"
+
+        # Deploy certificates (if mTLS enabled)
+        - name: Deploy mTLS certificates
+          block:
+            - name: Verify certificate variables are provided
+              fail:
+                msg: "❌ Certificate variable {{ item }} is missing but required for mTLS"
+              when: vars[item] is not defined or vars[item] | length == 0
+              loop:
+                - ca_cert
+                - client_cert
+                - client_key
+
+            - name: Create certificates directory
+              file:
+                path: "{{ agent_config_dir }}/certs"
+                state: directory
+                owner: nodepulse
+                group: nodepulse
+                mode: "0750"
+
+            - name: Deploy CA certificate
+              copy:
+                content: "{{ ca_cert }}"
+                dest: "{{ agent_config_dir }}/certs/ca.crt"
+                owner: nodepulse
+                group: nodepulse
+                mode: "0644"
+
+            - name: Deploy client certificate
+              copy:
+                content: "{{ client_cert }}"
+                dest: "{{ agent_config_dir }}/certs/client.crt"
+                owner: nodepulse
+                group: nodepulse
+                mode: "0644"
+
+            - name: Deploy client private key
+              copy:
+                content: "{{ client_key }}"
+                dest: "{{ agent_config_dir }}/certs/client.key"
+                owner: nodepulse
+                group: nodepulse
+                mode: "0600"
+          when: tls_enabled | bool
+
+        # Configure agent
+        - name: Deploy agent configuration
+          template:
+            src: nodepulse.yml.j2
+            dest: "{{ agent_config_dir }}/nodepulse.yml"
+            owner: nodepulse
+            group: nodepulse
+            mode: "0640"
+
+        - name: Deploy agent systemd service
+          template:
+            src: nodepulse.service.j2
+            dest: /etc/systemd/system/nodepulse.service
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Create agent log rotation
+          copy:
+            dest: /etc/logrotate.d/nodepulse
+            owner: root
+            group: root
+            mode: "0644"
+            content: |
+              {{ agent_log_dir }}/*.log {
+                  daily
+                  rotate 7
+                  compress
+                  delaycompress
+                  missingok
+                  notifempty
+                  create 0640 nodepulse nodepulse
+                  sharedscripts
+                  postrotate
+                      systemctl reload nodepulse > /dev/null 2>&1 || true
+                  endscript
+              }
+
+        # Start agent service
+        - name: Reload systemd daemon
+          systemd:
+            daemon_reload: yes
+
+        - name: Enable and start nodepulse service
+          systemd:
+            name: nodepulse
+            enabled: yes
+            state: restarted
+
+        - name: Wait for agent to be ready
+          wait_for:
+            timeout: 10
+
+        - name: Check agent service status
+          systemd:
+            name: nodepulse
+          register: nodepulse_status
+
+        - name: Display agent status
+          debug:
+            msg: |
+              ✅ Node Pulse Agent deployed successfully
+              Status: {{ nodepulse_status.status.ActiveState }}
+              PID: {{ nodepulse_status.status.MainPID | default('N/A') }}
+              mTLS: {{ 'ENABLED' if tls_enabled else 'DISABLED' }}
+      tags: nodepulse
+
+    # =========================================================================
+    # Task 2: Deploy Prometheus Node Exporter
+    # =========================================================================
+
+    - name: "▶ Deploy Prometheus Node Exporter"
+      block:
+        # Create user and directories
+        - name: Create node_exporter system group
+          group:
+            name: "{{ node_exporter_group }}"
+            system: yes
+            state: present
+
+        - name: Create node_exporter system user
+          user:
+            name: "{{ node_exporter_user }}"
+            group: "{{ node_exporter_group }}"
+            system: yes
+            create_home: no
+            shell: /usr/sbin/nologin
+            comment: "Node Exporter Service User"
+            state: present
+
+        - name: Create node_exporter directories
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: "{{ node_exporter_user }}"
+            group: "{{ node_exporter_group }}"
+            mode: "0755"
+          loop:
+            - "{{ node_exporter_install_dir }}"
+            - "{{ node_exporter_config_dir }}"
+            - "{{ node_exporter_textfile_dir }}"
+
+        # Download and install
+        - name: Check if node_exporter exists
+          stat:
+            path: "{{ node_exporter_bin_path }}"
+          register: node_exporter_binary
+
+        - name: Get installed node_exporter version
+          command: "{{ node_exporter_bin_path }} --version"
+          register: node_exporter_current_version
+          changed_when: false
+          failed_when: false
+          when: node_exporter_binary.stat.exists
+
+        - name: Determine if node_exporter needs install
+          set_fact:
+            node_exporter_needs_install: >-
+              {{
+                not node_exporter_binary.stat.exists or
+                node_exporter_version not in node_exporter_current_version.stdout | default('')
+              }}
+
+        - name: Download node_exporter
+          get_url:
+            url: "{{ node_exporter_download_url }}"
+            dest: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+            mode: "0644"
+            timeout: 60
+          when: node_exporter_needs_install
+          register: node_exporter_download
+
+        - name: Extract node_exporter
+          unarchive:
+            src: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+            dest: "{{ node_exporter_install_dir }}"
+            remote_src: yes
+            extra_opts:
+              - --strip-components=1
+            owner: "{{ node_exporter_user }}"
+            group: "{{ node_exporter_group }}"
+          when: node_exporter_needs_install
+
+        - name: Create symlink to node_exporter binary
+          file:
+            src: "{{ node_exporter_install_dir }}/node_exporter"
+            dest: "{{ node_exporter_bin_path }}"
+            state: link
+          when: node_exporter_needs_install
+
+        - name: Clean up node_exporter archive
+          file:
+            path: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+            state: absent
+          when: node_exporter_needs_install
+
+        # Configure and start
+        - name: Deploy node_exporter systemd service
+          template:
+            src: node_exporter.service.j2
+            dest: /etc/systemd/system/node_exporter.service
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Reload systemd and enable node_exporter
+          systemd:
+            name: node_exporter
+            enabled: yes
+            daemon_reload: yes
+            state: restarted
+
+        - name: Wait for node_exporter to be ready
+          wait_for:
+            host: "{{ node_exporter_listen_address }}"
+            port: "{{ node_exporter_listen_port }}"
+            timeout: 30
+
+        - name: Verify node_exporter metrics endpoint
+          uri:
+            url: "http://{{ node_exporter_listen_address }}:{{ node_exporter_listen_port }}/metrics"
+            method: GET
+            status_code: 200
+          register: node_exporter_check
+          retries: 3
+          delay: 5
+          until: node_exporter_check.status == 200
+
+        - name: Display node_exporter status
+          debug:
+            msg: |
+              ✅ Node Exporter deployed successfully
+              Endpoint: http://{{ node_exporter_listen_address }}:{{ node_exporter_listen_port }}/metrics
+      tags: node-exporter
+
+    # =========================================================================
+    # Task 3: Deploy Prometheus Process Exporter
+    # =========================================================================
+
+    - name: "▶ Deploy Prometheus Process Exporter"
+      block:
+        # Create user and directories
+        - name: Create process_exporter system user
+          user:
+            name: "{{ process_exporter_user }}"
+            group: "{{ process_exporter_group }}"
+            system: yes
+            shell: /usr/sbin/nologin
+            create_home: no
+            state: present
+
+        - name: Create process_exporter directories
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: "{{ process_exporter_user }}"
+            group: "{{ process_exporter_group }}"
+            mode: "0755"
+          loop:
+            - "{{ process_exporter_install_dir }}"
+            - "{{ process_exporter_config_dir }}"
+
+        # Download and install
+        - name: Check if process_exporter exists
+          stat:
+            path: "{{ process_exporter_bin_path }}"
+          register: process_exporter_binary
+
+        - name: Get installed process_exporter version
+          command: "{{ process_exporter_bin_path }} --version"
+          register: process_exporter_installed_version
+          changed_when: false
+          failed_when: false
+          when: process_exporter_binary.stat.exists
+
+        - name: Download process_exporter
+          get_url:
+            url: "{{ process_exporter_download_url }}"
+            dest: "/tmp/process-exporter-{{ process_exporter_version }}.tar.gz"
+            mode: "0644"
+          when: not process_exporter_binary.stat.exists or process_exporter_version not in process_exporter_installed_version.stdout | default('')
+
+        - name: Extract process_exporter
+          unarchive:
+            src: "/tmp/process-exporter-{{ process_exporter_version }}.tar.gz"
+            dest: "{{ process_exporter_install_dir }}"
+            remote_src: yes
+            extra_opts: [--strip-components=1]
+            owner: "{{ process_exporter_user }}"
+            group: "{{ process_exporter_group }}"
+          when: not process_exporter_binary.stat.exists or process_exporter_version not in process_exporter_installed_version.stdout | default('')
+
+        - name: Create symlink to process_exporter binary
+          file:
+            src: "{{ process_exporter_install_dir }}/process-exporter"
+            dest: "{{ process_exporter_bin_path }}"
+            state: link
+          when: not process_exporter_binary.stat.exists or process_exporter_version not in process_exporter_installed_version.stdout | default('')
+
+        - name: Clean up process_exporter archive
+          file:
+            path: "/tmp/process-exporter-{{ process_exporter_version }}.tar.gz"
+            state: absent
+          when: not process_exporter_binary.stat.exists or process_exporter_version not in process_exporter_installed_version.stdout | default('')
+
+        # Configure and start
+        - name: Deploy process_exporter configuration
+          template:
+            src: process_exporter_config.yml.j2
+            dest: "{{ process_exporter_config_file }}"
+            owner: "{{ process_exporter_user }}"
+            group: "{{ process_exporter_group }}"
+            mode: "0644"
+
+        - name: Deploy process_exporter systemd service
+          template:
+            src: process_exporter.service.j2
+            dest: /etc/systemd/system/process_exporter.service
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Enable and start process_exporter
+          systemd:
+            name: process_exporter
+            enabled: yes
+            state: restarted
+            daemon_reload: yes
+
+        - name: Wait for process_exporter to be ready
+          wait_for:
+            host: "{{ process_exporter_listen_address }}"
+            port: "{{ process_exporter_listen_port }}"
+            timeout: 30
+
+        - name: Verify process_exporter metrics endpoint
+          uri:
+            url: "http://{{ process_exporter_listen_address }}:{{ process_exporter_listen_port }}/metrics"
+            method: GET
+            status_code: 200
+          register: process_exporter_check
+          retries: 3
+          delay: 5
+          until: process_exporter_check.status == 200
+
+        - name: Display process_exporter status
+          debug:
+            msg: |
+              ✅ Process Exporter deployed successfully
+              Endpoint: http://{{ process_exporter_listen_address }}:{{ process_exporter_listen_port }}/metrics
+      tags: process-exporter
+
+  # ===========================================================================
+  # Post-deployment Summary
+  # ===========================================================================
+
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg: |
+
+          ╔════════════════════════════════════════════════════════════════╗
+          ║   ✅ Deployment Complete                                       ║
+          ╚════════════════════════════════════════════════════════════════╝
+
+          Server: {{ ansible_hostname }}
+
+          Services Status:
+            • Node Pulse Agent: RUNNING
+            • Node Exporter: RUNNING
+            • Process Exporter: RUNNING
+
+          Endpoints (localhost only):
+            • Node Exporter: http://127.0.0.1:9100/metrics
+            • Process Exporter: http://127.0.0.1:9256/metrics
+
+          Next Steps:
+            1. Verify metrics in dashboard: {{ ingest_endpoint }}
+            2. Check logs: journalctl -u nodepulse -f
+            3. Monitor service status: systemctl status nodepulse
+
+      tags: always

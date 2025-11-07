@@ -1,126 +1,255 @@
-# Ansible Agent Deployment
+# Node Pulse Ansible Playbooks
 
-This directory contains Ansible playbooks and roles for deploying the Node Pulse monitoring agent to servers.
+Simplified Ansible automation for deploying and managing the Node Pulse monitoring stack.
+
+## Overview
+
+This directory contains **two simple playbooks** in `nodepulse/` for complete lifecycle management:
+
+1. **`nodepulse/deploy.yml`** - Deploys/updates all monitoring components
+2. **`nodepulse/uninstall.yml`** - Removes all monitoring components
+
+## What Gets Deployed
+
+The monitoring stack includes:
+
+- **Node Pulse Agent** - Custom metrics collector with mTLS support
+- **Prometheus Node Exporter** - System metrics (CPU, memory, disk, network)
+- **Prometheus Process Exporter** - Process-level metrics
+
+## Quick Start
+
+### 1. Create Inventory
+
+Create `inventory.yml`:
+
+```yaml
+all:
+  hosts:
+    server1:
+      ansible_host: 192.168.1.100
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: ~/.ssh/id_rsa
+
+      # Required: Agent configuration
+      agent_server_id: "srv_abc123"  # From Flagship dashboard
+      ingest_endpoint: "https://your-dashboard.com/metrics/prometheus"
+
+      # Optional: mTLS certificates (for production)
+      tls_enabled: true
+      ca_cert: |
+        -----BEGIN CERTIFICATE-----
+        ...
+        -----END CERTIFICATE-----
+      client_cert: |
+        -----BEGIN CERTIFICATE-----
+        ...
+        -----END CERTIFICATE-----
+      client_key: |
+        -----BEGIN PRIVATE KEY-----
+        ...
+        -----END PRIVATE KEY-----
+```
+
+### 2. Deploy Everything
+
+```bash
+# Production (with mTLS):
+ansible-playbook -i inventory.yml nodepulse/deploy.yml
+
+# Development (without mTLS):
+ansible-playbook -i inventory.yml nodepulse/deploy.yml -e "tls_enabled=false"
+
+# Deploy to specific servers:
+ansible-playbook -i inventory.yml nodepulse/deploy.yml --limit "server1,server2"
+
+# Deploy specific components only:
+ansible-playbook -i inventory.yml nodepulse/deploy.yml --tags "nodepulse"
+ansible-playbook -i inventory.yml nodepulse/deploy.yml --tags "node-exporter"
+ansible-playbook -i inventory.yml nodepulse/deploy.yml --tags "process-exporter"
+```
+
+### 3. Verify Deployment
+
+```bash
+# Check service status
+ssh server1 'systemctl status nodepulse node_exporter process_exporter'
+
+# View logs
+ssh server1 'journalctl -u nodepulse -n 50'
+
+# Test metrics endpoints (on server)
+curl http://127.0.0.1:9100/metrics  # Node Exporter
+curl http://127.0.0.1:9256/metrics  # Process Exporter
+```
+
+### 4. Update/Upgrade
+
+The same `deploy.yml` playbook handles updates:
+
+```bash
+# Update to latest version:
+ansible-playbook -i inventory.yml nodepulse/deploy.yml
+
+# Update to specific version:
+ansible-playbook -i inventory.yml nodepulse/deploy.yml -e "agent_version=1.2.3"
+```
+
+### 5. Uninstall
+
+```bash
+# Remove everything:
+ansible-playbook -i inventory.yml nodepulse/uninstall.yml
+
+# Remove specific components:
+ansible-playbook -i inventory.yml nodepulse/uninstall.yml --tags "nodepulse"
+
+# Dry run (check what will be removed):
+ansible-playbook -i inventory.yml nodepulse/uninstall.yml --check
+```
+
+## Configuration Variables
+
+### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `agent_server_id` | Server ID from Flagship | `"srv_abc123"` |
+| `ingest_endpoint` | Metrics ingestion URL | `"https://dashboard.com/metrics/prometheus"` |
+
+### Optional Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `agent_version` | `latest` | Agent version to install |
+| `agent_interval` | `15s` | Metrics collection interval |
+| `agent_timeout` | `5s` | HTTP request timeout |
+| `tls_enabled` | `false` | Enable mTLS (requires certificates) |
+| `node_exporter_version` | `1.8.2` | Node Exporter version |
+| `process_exporter_version` | `0.8.3` | Process Exporter version |
+
+### mTLS Configuration
+
+For production deployments with mTLS:
+
+```yaml
+tls_enabled: true
+ca_cert: |
+  -----BEGIN CERTIFICATE-----
+  ...
+  -----END CERTIFICATE-----
+client_cert: |
+  -----BEGIN CERTIFICATE-----
+  ...
+  -----END CERTIFICATE-----
+client_key: |
+  -----BEGIN PRIVATE KEY-----
+  ...
+  -----END PRIVATE KEY-----
+```
+
+Certificates are typically provided by the Flagship deployment job.
 
 ## Directory Structure
 
 ```
 ansible/
-├── ansible.cfg                  # Ansible configuration
-├── inventory/
-│   └── dynamic.php             # Dynamic inventory script (reads from PostgreSQL)
-├── playbooks/
-│   ├── deploy-agent.yml        # Main deployment playbook
-│   ├── update-agent.yml        # Update existing agent
-│   ├── remove-agent.yml        # Uninstall agent
-│   ├── verify-agent.yml        # Verify agent health
-│   ├── rollback-agent.yml      # Rollback to previous version
-│   └── retry-failed.yml        # Retry deployment on failed servers
-├── roles/
-│   └── nodepulse-agent/        # Agent installation role
-│       ├── tasks/              # Task definitions
-│       ├── templates/          # Configuration templates
-│       ├── handlers/           # Service handlers
-│       ├── vars/               # Variables
-│       └── defaults/           # Default variables
-└── group_vars/                  # Group-specific variables
+├── nodepulse/                          # Node Pulse deployment playbooks
+│   ├── deploy.yml                      # Main deployment playbook
+│   ├── uninstall.yml                   # Uninstall playbook
+│   └── templates/                      # Jinja2 templates
+│       ├── nodepulse.yml.j2           # Agent configuration
+│       ├── nodepulse.service.j2       # Agent systemd service
+│       ├── node_exporter.service.j2   # Node Exporter service
+│       ├── process_exporter.service.j2    # Process Exporter service
+│       └── process_exporter_config.yml.j2 # Process Exporter config
+├── ansible.cfg                         # Ansible configuration
+└── README.md                           # This file
 ```
 
-## Usage
+## Advanced Usage
 
-### Deploy Agent to Servers
+### Custom Process Monitoring
+
+Override the process exporter configuration:
 
 ```bash
-# From Laravel application
-php artisan ansible:deploy --server-ids=uuid1,uuid2,uuid3
-
-# Or use the web dashboard
+ansible-playbook -i inventory.yml nodepulse/deploy.yml \
+  -e '{
+    "process_exporter_process_names": [
+      {"name": "nginx", "cmdline": ["nginx"]},
+      {"name": "postgresql", "cmdline": ["postgres"]}
+    ]
+  }'
 ```
 
-### Test Inventory
+### Using from Flagship (Automated Deployments)
 
-```bash
-# List all servers
-php artisan ansible:inventory
+Flagship can trigger deployments automatically via the `submarines-deployer` service. The deployer:
 
-# Filter by server IDs
-php artisan ansible:inventory --server-ids=uuid1,uuid2
+1. Receives deployment jobs from Valkey Stream
+2. Generates dynamic inventory from server records
+3. Decrypts SSH keys using master key
+4. Runs `nodepulse/deploy.yml` with appropriate variables
+5. Reports status back to Flagship
 
-# Filter by tags
-php artisan ansible:inventory --tags=production,web
-```
-
-### Manual Playbook Execution
-
-```bash
-cd /path/to/admiral/ansible
-
-# Deploy to all servers
-ansible-playbook playbooks/deploy-agent.yml
-
-# Deploy to specific servers (set environment variable)
-ANSIBLE_SERVER_IDS=uuid1,uuid2 ansible-playbook playbooks/deploy-agent.yml
-
-# Test connectivity
-ansible all -m ping
-```
-
-## Configuration
-
-### Environment Variables
-
-Set these in your `.env` file:
-
-```bash
-# Agent binary download URL (Cloudflare R2)
-AGENT_DOWNLOAD_BASE_URL=https://pub-xxxxx.r2.dev
-
-# Dashboard endpoint for agents to report to
-INGEST_ENDPOINT=https://your-dashboard.com/metrics
-```
-
-### Agent Version
-
-The playbooks will deploy the latest version by default. To deploy a specific version:
-
-```bash
-ansible-playbook playbooks/deploy-agent.yml --extra-vars="agent_version=v1.2.3"
-```
-
-## Security
-
-- SSH private keys are automatically decrypted from the database
-- Temporary key files are created with `chmod 0600` permissions
-- Keys are automatically cleaned up after playbook execution
-- All SSH connections use the keys configured in the dashboard
+No manual intervention required!
 
 ## Troubleshooting
 
-### View Ansible Logs
+### Check Ansible Connectivity
 
 ```bash
-tail -f /var/log/ansible/ansible.log
+ansible -i inventory.yml all -m ping
 ```
 
-### Check Agent Status on Server
+### Run in Verbose Mode
 
 ```bash
-ssh user@server "systemctl status nodepulse"
+ansible-playbook -i inventory.yml nodepulse/deploy.yml -vvv
 ```
 
-### View Agent Logs
+### Check Service Status
 
 ```bash
-ssh user@server "journalctl -u nodepulse -f"
+ansible -i inventory.yml all -m shell -a 'systemctl status nodepulse'
 ```
 
-## Development
+### View Logs
 
-To add a new playbook:
+```bash
+ansible -i inventory.yml all -m shell -a 'journalctl -u nodepulse -n 20'
+```
 
-1. Create the playbook in `playbooks/`
-2. Add any required roles or tasks
-3. Update the Laravel `AnsibleService` to support the new playbook
-4. Add UI controls in the dashboard
+## Requirements
 
-For more details, see `/docs/ansible-agent-deployment.md`
+- **Control Node** (where you run Ansible):
+  - Ansible 2.12+
+  - Python 3.8+
+
+- **Target Servers**:
+  - Linux (Ubuntu 22.04+, Debian 11+, RHEL 8+, Rocky Linux 8+)
+  - SSH access with sudo privileges
+  - Systemd
+  - Internet connectivity (for downloads)
+
+## Security Notes
+
+- **mTLS is strongly recommended for production** - Use `tls_enabled: true`
+- **SSH keys should be encrypted at rest** - Flagship uses master key encryption
+- **Private keys are never logged** - Templates set mode `0600` for keys
+- **Metrics endpoints bind to localhost** - Use agent to forward to dashboard
+
+## Integration with Flagship
+
+This ansible directory is:
+
+1. **Mounted in Docker containers** - Both `flagship` and `submarines-deployer` services
+2. **Included in release tarballs** - Available for manual deployments
+3. **Used by automated deployments** - Via submarines-deployer service
+
+## Support
+
+- **Issues**: https://github.com/node-pulse/admiral/issues
+- **Documentation**: See `/docs` directory in repository
+- **Claude Code Context**: See `/CLAUDE.md` for AI assistant guidelines
