@@ -3,7 +3,139 @@
 **Status**: Phase 2.5 - Planned
 **Target**: Post-MVP (After custom playbook upload feature)
 **Created**: 2025-11-02
-**Updated**: 2025-11-03
+**Updated**: 2025-11-07
+
+---
+
+## Manifest Format Changes (2025-11-07)
+
+The community playbook `manifest.json` format has been updated based on feedback to improve UX, enable better filtering, and support internationalization in the future.
+
+### Key Improvements
+
+#### 1. Variables: Object → Array with `name` + `label`
+
+**Before (Object format):**
+```json
+"variables": {
+  "port": {
+    "type": "integer",
+    "default": 7700,
+    "description": "HTTP listen port"
+  }
+}
+```
+
+**After (Array format with labels):**
+```json
+"variables": [
+  {
+    "name": "port",              // Ansible variable name
+    "label": "HTTP Listen Port", // UI display label (enables i18n)
+    "type": "integer",
+    "default": 7700,
+    "description": "HTTP listen port for Meilisearch",
+    "required": false
+  }
+]
+```
+
+**Benefits:**
+- ✅ Separate Ansible variable names from UI labels
+- ✅ Better UX with human-friendly labels
+- ✅ Future i18n support (translate `label` without changing `name`)
+- ✅ Clearer distinction between internal and display names
+
+#### 2. Requirements: Flattened Structure
+
+**Before (Nested):**
+```json
+"requirements": {
+  "ansible_version": ">=2.15",
+  "os": ["ubuntu-20.04", "ubuntu-22.04"],
+  "arch": ["amd64", "arm64"]
+}
+```
+
+**After (Flat + Structured):**
+```json
+"ansible_version": ">=2.15",
+
+"os_support": [
+  {
+    "distro": "ubuntu",
+    "version": "20.04",
+    "arch": "both"
+  },
+  {
+    "distro": "ubuntu",
+    "version": "22.04",
+    "arch": "both"
+  },
+  {
+    "distro": "debian",
+    "version": "11",
+    "arch": "amd64"
+  }
+]
+```
+
+**Benefits:**
+- ✅ Granular OS+arch compatibility (per-distro, per-version)
+- ✅ Realistic support matrix (e.g., "Ubuntu 20.04 amd64 only, 22.04 both")
+- ✅ Better filtering in UI
+- ✅ Easier to query in PostgreSQL
+
+#### 3. Author Status Badge
+
+**Before:**
+```json
+"author": {
+  "name": "Node Pulse Community",
+  "email": "community@nodepulse.io",
+  "url": "https://github.com/node-pulse"
+}
+```
+
+**After:**
+```json
+"author": {
+  "name": "Node Pulse Community",
+  "email": "community@nodepulse.io",
+  "url": "https://github.com/node-pulse",
+  "status": "verified"  // "community" | "verified" | "deprecated"
+}
+```
+
+**Benefits:**
+- ✅ Trust badges in UI (🟢 Verified, 🔵 Community, ⚠️ Deprecated)
+- ✅ Filter by verification status
+- ✅ Helps users identify maintained vs. abandoned playbooks
+
+#### 4. Password Type Explicit
+
+**Before:**
+```json
+{
+  "name": "db_password",
+  "type": "string",
+  "secret": true  // Implicit password via flag
+}
+```
+
+**After:**
+```json
+{
+  "name": "db_password",
+  "label": "Database Password",
+  "type": "password"  // Explicit type
+}
+```
+
+**Benefits:**
+- ✅ Clearer intent (explicit `password` type)
+- ✅ Simpler validation (no need to check `secret` flag)
+- ✅ Better form generation
 
 ---
 
@@ -23,6 +155,7 @@ Enable users to install pre-built Ansible playbooks from a community-maintained 
 ### Core Principles
 
 **Self-contained and Zero External Dependencies**
+
 - Every playbook must be completely self-contained within its directory
 - You can use code from Ansible Galaxy roles/collections, but must include a local copy in your playbook directory
 - No external fetching - we only download files from this GitHub repository
@@ -34,10 +167,9 @@ Enable users to install pre-built Ansible playbooks from a community-maintained 
 ### Non-Goals
 
 - Complex signing/verification (trust GitHub + maintainer review)
-- Paid/commercial playbooks
+- Paid/commercial playbooks (for example, license_key could be the requried deployment variable)
 - User ratings/reviews (Phase 3+)
 - Automatic updates (Phase 3+)
-- External Ansible Galaxy dependencies
 
 ---
 
@@ -111,6 +243,7 @@ github.com/node-pulse/playbooks/
 ```
 
 **Why 26 directories (a-z)?**
+
 - Avoids massive `index.json` file
 - Easy navigation on GitHub
 - Simple directory listing via GitHub API
@@ -138,7 +271,8 @@ Every playbook package **must** include `manifest.json` in its root directory.
   "author": {
     "name": "Node Pulse Community",
     "email": "community@nodepulse.io",
-    "url": "https://github.com/node-pulse"
+    "url": "https://github.com/node-pulse",
+    "status": "verified"
   },
 
   "homepage": "https://github.com/node-pulse/playbooks/tree/main/m/meilisearch",
@@ -151,23 +285,39 @@ Every playbook package **must** include `manifest.json` in its root directory.
 
   "structure": {
     "playbook": "playbook.yml",
-    "templates": [
-      "templates/config.j2",
-      "templates/systemd.service.j2"
-    ],
-    "files": [
-      "files/healthcheck.sh"
-    ]
+    "templates": ["templates/config.j2", "templates/systemd.service.j2"],
+    "files": ["files/healthcheck.sh"]
   },
 
-  "requirements": {
-    "ansible_version": ">=2.15",
-    "os": ["ubuntu-20.04", "ubuntu-22.04", "debian-11", "debian-12"],
-    "arch": ["amd64", "arm64"]
-  },
+  "ansible_version": ">=2.15",
 
-  "variables": {
-    "port": {
+  "os_support": [
+    {
+      "distro": "ubuntu",
+      "version": "20.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "22.04",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "11",
+      "arch": "amd64"
+    },
+    {
+      "distro": "debian",
+      "version": "12",
+      "arch": "both"
+    }
+  ],
+
+  "variables": [
+    {
+      "name": "port",
+      "label": "HTTP Listen Port",
       "type": "integer",
       "default": 7700,
       "description": "HTTP listen port for Meilisearch",
@@ -175,26 +325,31 @@ Every playbook package **must** include `manifest.json` in its root directory.
       "min": 1024,
       "max": 65535
     },
-    "master_key": {
-      "type": "string",
+    {
+      "name": "master_key",
+      "label": "Master API Key",
+      "type": "password",
       "description": "Master API key (auto-generated if not provided)",
-      "required": false,
-      "secret": true
+      "required": false
     },
-    "data_dir": {
+    {
+      "name": "data_dir",
+      "label": "Data Directory",
       "type": "string",
       "default": "/var/lib/meilisearch",
       "description": "Data directory path",
       "required": false,
       "pattern": "^/[a-zA-Z0-9/_-]+$"
     },
-    "version": {
+    {
+      "name": "version",
+      "label": "Meilisearch Version",
       "type": "string",
       "default": "1.5.1",
       "description": "Meilisearch version to install",
       "required": false
     }
-  },
+  ],
 
   "health_checks": [
     {
@@ -220,22 +375,24 @@ Every playbook package **must** include `manifest.json` in its root directory.
 
 ### Field Descriptions
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | string | Yes | Unique identifier (slug), must match directory name |
-| `name` | string | Yes | Display name for UI |
-| `version` | string | Yes | Semantic version (e.g., "1.2.0") |
-| `description` | string | Yes | Short description (max 200 chars) |
-| `author` | object | Yes | Author information |
-| `category` | string | Yes | One of: `monitoring`, `database`, `search`, `security`, `proxy`, `storage`, `dev-tools` |
-| `tags` | string[] | Yes | Searchable tags (max 10) |
-| `entry_point` | string | Yes | Main playbook file to execute (e.g., "playbook.yml") |
-| `structure` | object | Yes | File manifest (what files exist) |
-| `requirements` | object | Yes | System requirements |
-| `variables` | object | No | Variable definitions for form generation |
-| `health_checks` | array | No | Post-install health check definitions |
-| `dangerous_operations` | string[] | No | Warning messages for risky operations |
-| `license` | string | Yes | SPDX license identifier |
+| Field                  | Type     | Required | Description                                                                             |
+| ---------------------- | -------- | -------- | --------------------------------------------------------------------------------------- |
+| `id`                   | string   | Yes      | Unique identifier (slug), must match directory name                                     |
+| `name`                 | string   | Yes      | Display name for UI                                                                     |
+| `version`              | string   | Yes      | Semantic version (e.g., "1.2.0")                                                        |
+| `description`          | string   | Yes      | Short description (max 200 chars)                                                       |
+| `author`               | object   | Yes      | Author information (name, email, url, status)                                           |
+| `author.status`        | string   | No       | Trust badge: `community`, `verified`, `deprecated` (default: `community`)               |
+| `category`             | string   | Yes      | One of: `monitoring`, `database`, `search`, `security`, `proxy`, `storage`, `dev-tools` |
+| `tags`                 | string[] | Yes      | Searchable tags (max 10)                                                                |
+| `entry_point`          | string   | Yes      | Main playbook file to execute (e.g., "playbook.yml")                                    |
+| `structure`            | object   | Yes      | File manifest (what files exist)                                                        |
+| `ansible_version`      | string   | Yes      | Minimum Ansible version (e.g., ">=2.15")                                                |
+| `os_support`           | array    | Yes      | Array of OS compatibility objects (distro, version, arch)                               |
+| `variables`            | array    | No       | Variable definitions for form generation (array format with name+label)                 |
+| `health_checks`        | array    | No       | Post-install health check definitions                                                   |
+| `dangerous_operations` | string[] | No       | Warning messages for risky operations                                                   |
+| `license`              | string   | Yes      | SPDX license identifier                                                                 |
 
 ### Categories
 
@@ -249,15 +406,63 @@ Supported categories:
 - `storage` - SeaweedFS, MinIO, backup tools
 - `dev-tools` - Docker, Git, build tools
 
+### OS Support Schema
+
+Each `os_support` entry defines a specific OS configuration:
+
+| Field     | Type   | Required | Values                                                   |
+| --------- | ------ | -------- | -------------------------------------------------------- |
+| `distro`  | string | Yes      | `ubuntu`, `debian`, `centos`, `rhel`, `rocky`, `alma`    |
+| `version` | string | Yes      | OS version (e.g., "22.04", "11", "9")                    |
+| `arch`    | string | Yes      | `amd64`, `arm64`, `both`                                 |
+
+**Examples:**
+```json
+// Universal compatibility
+"os_support": [
+  { "distro": "ubuntu", "version": "22.04", "arch": "both" },
+  { "distro": "debian", "version": "12", "arch": "both" }
+]
+
+// Raspberry Pi optimized (ARM only)
+"os_support": [
+  { "distro": "ubuntu", "version": "22.04", "arch": "arm64" },
+  { "distro": "debian", "version": "12", "arch": "arm64" }
+]
+
+// Legacy software (amd64 only)
+"os_support": [
+  { "distro": "ubuntu", "version": "20.04", "arch": "amd64" }
+]
+```
+
 ### Variable Types
 
-| Type | Validation | UI Rendering |
-|------|-----------|--------------|
-| `string` | Optional `pattern` regex | Text input |
-| `integer` | Optional `min`/`max` | Number input |
-| `boolean` | N/A | Checkbox |
-| `select` | `options: []` array | Dropdown |
-| `password` | `secret: true` | Password input (hidden) |
+Each variable must include both `name` (Ansible variable name) and `label` (UI display):
+
+| Type       | Validation               | UI Rendering            |
+| ---------- | ------------------------ | ----------------------- |
+| `string`   | Optional `pattern` regex | Text input              |
+| `integer`  | Optional `min`/`max`     | Number input            |
+| `boolean`  | N/A                      | Checkbox                |
+| `select`   | `options: []` array      | Dropdown                |
+| `password` | N/A                      | Password input (hidden) |
+
+**Variable Schema:**
+```json
+{
+  "name": "db_password",           // Ansible variable name (required)
+  "label": "Database Password",    // UI display label (required)
+  "type": "password",              // Variable type (required)
+  "description": "Root password",  // Help text (required)
+  "required": true,                // Whether user must provide value
+  "default": "changeme",           // Default value (optional)
+  "pattern": "^[a-zA-Z0-9]+$",     // Regex validation (string only)
+  "min": 1024,                     // Min value (integer only)
+  "max": 65535,                    // Max value (integer only)
+  "options": ["opt1", "opt2"]      // Select options (select only)
+}
+```
 
 ---
 
@@ -287,6 +492,8 @@ CREATE TABLE admiral.community_playbooks (
     category VARCHAR(50),
     tags TEXT[],
     author_name VARCHAR(255),
+    author_status VARCHAR(20) DEFAULT 'community',  -- community, verified, deprecated
+    ansible_version VARCHAR(20),
 
     -- Stats
     install_count INTEGER DEFAULT 0,
@@ -301,10 +508,15 @@ CREATE TABLE admiral.community_playbooks (
 -- Indexes
 CREATE INDEX idx_community_playbooks_slug ON admiral.community_playbooks(slug);
 CREATE INDEX idx_community_playbooks_category ON admiral.community_playbooks(category);
+CREATE INDEX idx_community_playbooks_author_status ON admiral.community_playbooks(author_status);
 CREATE INDEX idx_community_playbooks_tags ON admiral.community_playbooks USING GIN(tags);
 CREATE INDEX idx_community_playbooks_manifest ON admiral.community_playbooks USING GIN(manifest);
 CREATE INDEX idx_community_playbooks_name_search ON admiral.community_playbooks
     USING GIN(to_tsvector('english', name || ' ' || description));
+
+-- Index for OS compatibility queries (JSONB path queries)
+CREATE INDEX idx_community_playbooks_os_support ON admiral.community_playbooks
+    USING GIN((manifest->'os_support') jsonb_path_ops);
 
 -- View for active playbooks
 CREATE VIEW admiral.active_community_playbooks AS
@@ -317,13 +529,74 @@ SELECT
     category,
     tags,
     author_name,
+    author_status,
+    ansible_version,
     install_count,
     manifest->>'entry_point' as entry_point,
-    manifest->'requirements' as requirements,
+    manifest->'ansible_version' as manifest_ansible_version,
+    manifest->'os_support' as os_support,
     last_synced_at,
     created_at
 FROM admiral.community_playbooks
 ORDER BY install_count DESC, name ASC;
+```
+
+### Query Examples
+
+**Find playbooks compatible with a specific server:**
+
+```sql
+-- Server info: Ubuntu 22.04 ARM64
+SELECT
+    slug,
+    name,
+    version,
+    category
+FROM admiral.community_playbooks
+WHERE
+    -- Match Ubuntu 22.04 with arm64 or both
+    manifest->'os_support' @> '[{"distro": "ubuntu", "version": "22.04", "arch": "arm64"}]'::jsonb
+    OR manifest->'os_support' @> '[{"distro": "ubuntu", "version": "22.04", "arch": "both"}]'::jsonb
+ORDER BY install_count DESC;
+```
+
+**Filter by multiple criteria:**
+
+```sql
+-- Find all verified monitoring playbooks for Ubuntu 22.04
+SELECT
+    slug,
+    name,
+    description,
+    author_name,
+    author_status
+FROM admiral.community_playbooks
+WHERE
+    category = 'monitoring'
+    AND author_status = 'verified'
+    AND (
+        manifest->'os_support' @> '[{"distro": "ubuntu", "version": "22.04"}]'::jsonb
+    )
+ORDER BY install_count DESC;
+```
+
+**Full-text search:**
+
+```sql
+-- Search for "search engine" playbooks
+SELECT
+    slug,
+    name,
+    description,
+    ts_rank(
+        to_tsvector('english', name || ' ' || description),
+        plainto_tsquery('english', 'search engine')
+    ) AS rank
+FROM admiral.community_playbooks
+WHERE
+    to_tsvector('english', name || ' ' || description)
+    @@ plainto_tsquery('english', 'search engine')
+ORDER BY rank DESC, install_count DESC;
 ```
 
 ### Update Existing Table: `admiral.playbooks`
@@ -366,20 +639,29 @@ type GitHubContent struct {
 }
 
 type Manifest struct {
-    ID          string   `json:"id"`
-    Name        string   `json:"name"`
-    Version     string   `json:"version"`
-    Description string   `json:"description"`
-    Author      Author   `json:"author"`
-    Category    string   `json:"category"`
-    Tags        []string `json:"tags"`
-    EntryPoint  string   `json:"entry_point"`
+    ID             string      `json:"id"`
+    Name           string      `json:"name"`
+    Version        string      `json:"version"`
+    Description    string      `json:"description"`
+    Author         Author      `json:"author"`
+    Category       string      `json:"category"`
+    Tags           []string    `json:"tags"`
+    EntryPoint     string      `json:"entry_point"`
+    AnsibleVersion string      `json:"ansible_version"`
+    OSSupport      []OSSupport `json:"os_support"`
 }
 
 type Author struct {
-    Name  string `json:"name"`
-    Email string `json:"email"`
-    URL   string `json:"url"`
+    Name   string `json:"name"`
+    Email  string `json:"email"`
+    URL    string `json:"url"`
+    Status string `json:"status,omitempty"` // community, verified, deprecated
+}
+
+type OSSupport struct {
+    Distro  string `json:"distro"`  // ubuntu, debian, centos, rhel, rocky, alma
+    Version string `json:"version"` // 22.04, 11, 9, etc.
+    Arch    string `json:"arch"`    // amd64, arm64, both
 }
 
 func SyncCommunityPlaybooks(db *sqlx.DB) error {
@@ -438,11 +720,17 @@ func SyncCommunityPlaybooks(db *sqlx.DB) error {
 
             manifestJSON, _ := json.Marshal(manifest)
 
+            // Determine author status (default to "community" if not set)
+            authorStatus := manifest.Author.Status
+            if authorStatus == "" {
+                authorStatus = "community"
+            }
+
             _, err = db.Exec(`
                 INSERT INTO admiral.community_playbooks
                 (slug, name, version, description, github_path, github_repo, github_branch,
-                 manifest, category, tags, author_name, last_synced_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+                 manifest, category, tags, author_name, author_status, ansible_version, last_synced_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
                 ON CONFLICT (slug) DO UPDATE SET
                     name = EXCLUDED.name,
                     version = EXCLUDED.version,
@@ -451,6 +739,8 @@ func SyncCommunityPlaybooks(db *sqlx.DB) error {
                     category = EXCLUDED.category,
                     tags = EXCLUDED.tags,
                     author_name = EXCLUDED.author_name,
+                    author_status = EXCLUDED.author_status,
+                    ansible_version = EXCLUDED.ansible_version,
                     last_synced_at = NOW()
             `,
                 manifest.ID,
@@ -464,6 +754,8 @@ func SyncCommunityPlaybooks(db *sqlx.DB) error {
                 manifest.Category,
                 manifest.Tags,
                 manifest.Author.Name,
+                authorStatus,
+                manifest.AnsibleVersion,
             )
 
             if err != nil {
@@ -551,6 +843,12 @@ func validateManifest(m *Manifest) error {
     if m.Category == "" {
         return fmt.Errorf("missing required field: category")
     }
+    if m.AnsibleVersion == "" {
+        return fmt.Errorf("missing required field: ansible_version")
+    }
+    if len(m.OSSupport) == 0 {
+        return fmt.Errorf("missing required field: os_support (must have at least one entry)")
+    }
 
     validCategories := map[string]bool{
         "monitoring": true,
@@ -564,6 +862,46 @@ func validateManifest(m *Manifest) error {
 
     if !validCategories[m.Category] {
         return fmt.Errorf("invalid category: %s", m.Category)
+    }
+
+    // Validate os_support entries
+    validDistros := map[string]bool{
+        "ubuntu": true,
+        "debian": true,
+        "centos": true,
+        "rhel":   true,
+        "rocky":  true,
+        "alma":   true,
+    }
+
+    validArch := map[string]bool{
+        "amd64": true,
+        "arm64": true,
+        "both":  true,
+    }
+
+    for _, os := range m.OSSupport {
+        if !validDistros[os.Distro] {
+            return fmt.Errorf("invalid distro in os_support: %s", os.Distro)
+        }
+        if os.Version == "" {
+            return fmt.Errorf("missing version in os_support entry for distro: %s", os.Distro)
+        }
+        if !validArch[os.Arch] {
+            return fmt.Errorf("invalid arch in os_support: %s (must be amd64, arm64, or both)", os.Arch)
+        }
+    }
+
+    // Validate author.status if present
+    if m.Author.Status != "" {
+        validStatus := map[string]bool{
+            "community":  true,
+            "verified":   true,
+            "deprecated": true,
+        }
+        if !validStatus[m.Author.Status] {
+            return fmt.Errorf("invalid author.status: %s", m.Author.Status)
+        }
     }
 
     return nil
@@ -836,9 +1174,9 @@ class CommunityPlaybookController extends Controller
 **File**: `flagship/resources/js/pages/playbooks/community-index.tsx`
 
 ```typescript
-import { useState } from 'react';
-import { router } from '@inertiajs/react';
-import { Search, Filter, Download } from 'lucide-react';
+import { useState } from "react";
+import { router } from "@inertiajs/react";
+import { Search, Filter, Download } from "lucide-react";
 
 interface CommunityPlaybook {
   id: string;
@@ -854,23 +1192,23 @@ interface CommunityPlaybook {
 
 export default function CommunityPlaybooksIndex() {
   const [playbooks, setPlaybooks] = useState<CommunityPlaybook[]>([]);
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('');
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
 
   const categories = [
-    'monitoring',
-    'database',
-    'search',
-    'security',
-    'proxy',
-    'storage',
-    'dev-tools',
+    "monitoring",
+    "database",
+    "search",
+    "security",
+    "proxy",
+    "storage",
+    "dev-tools",
   ];
 
   const fetchPlaybooks = async () => {
     const params = new URLSearchParams();
-    if (search) params.set('search', search);
-    if (category) params.set('category', category);
+    if (search) params.set("search", search);
+    if (category) params.set("category", category);
 
     const response = await fetch(`/api/community-playbooks?${params}`);
     const data = await response.json();
@@ -880,10 +1218,13 @@ export default function CommunityPlaybooksIndex() {
   const handleInstall = async (slug: string) => {
     try {
       const response = await fetch(`/api/community-playbooks/${slug}/install`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN":
+            document
+              .querySelector('meta[name="csrf-token"]')
+              ?.getAttribute("content") || "",
         },
       });
 
@@ -892,17 +1233,19 @@ export default function CommunityPlaybooksIndex() {
         router.visit(`/dashboard/playbooks/${data.playbook_id}`);
       } else {
         const error = await response.json();
-        alert(error.error || 'Installation failed');
+        alert(error.error || "Installation failed");
       }
     } catch (err) {
-      alert('Installation failed: ' + err.message);
+      alert("Installation failed: " + err.message);
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Community Playbooks</h1>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Community Playbooks
+        </h1>
         <p className="mt-2 text-gray-600">
           Pre-built Ansible playbooks maintained by the community
         </p>
@@ -916,7 +1259,7 @@ export default function CommunityPlaybooksIndex() {
             placeholder="Search playbooks..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyUp={(e) => e.key === 'Enter' && fetchPlaybooks()}
+            onKeyUp={(e) => e.key === "Enter" && fetchPlaybooks()}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg"
           />
         </div>
@@ -1004,9 +1347,9 @@ export default function CommunityPlaybooksIndex() {
 **File**: `flagship/resources/js/pages/playbooks/community-show.tsx`
 
 ```typescript
-import { useState, useEffect } from 'react';
-import { router } from '@inertiajs/react';
-import { AlertTriangle, Download, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { router } from "@inertiajs/react";
+import { AlertTriangle, Download, ExternalLink } from "lucide-react";
 
 interface PlaybookManifest {
   id: string;
@@ -1055,16 +1398,19 @@ export default function CommunityPlaybookShow({ slug }: { slug: string }) {
 
   const handleInstall = async () => {
     if (manifest?.dangerous_operations?.length && !acceptedWarnings) {
-      alert('Please accept the warnings before installing');
+      alert("Please accept the warnings before installing");
       return;
     }
 
     try {
       const response = await fetch(`/api/community-playbooks/${slug}/install`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN":
+            document
+              .querySelector('meta[name="csrf-token"]')
+              ?.getAttribute("content") || "",
         },
       });
 
@@ -1073,7 +1419,7 @@ export default function CommunityPlaybookShow({ slug }: { slug: string }) {
         router.visit(`/dashboard/playbooks/${data.playbook_id}`);
       }
     } catch (err) {
-      alert('Installation failed');
+      alert("Installation failed");
     }
   };
 
@@ -1088,7 +1434,9 @@ export default function CommunityPlaybookShow({ slug }: { slug: string }) {
         <div className="mb-6">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{manifest.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {manifest.name}
+              </h1>
               <p className="text-gray-600 mt-2">{manifest.description}</p>
             </div>
             <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
@@ -1108,7 +1456,10 @@ export default function CommunityPlaybookShow({ slug }: { slug: string }) {
         {/* Tags */}
         <div className="mb-6 flex flex-wrap gap-2">
           {manifest.tags.map((tag) => (
-            <span key={tag} className="px-3 py-1 bg-gray-100 text-gray-700 rounded">
+            <span
+              key={tag}
+              className="px-3 py-1 bg-gray-100 text-gray-700 rounded"
+            >
               {tag}
             </span>
           ))}
@@ -1120,67 +1471,80 @@ export default function CommunityPlaybookShow({ slug }: { slug: string }) {
           <dl className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <dt className="text-sm text-gray-500">Ansible Version</dt>
-              <dd className="text-sm font-mono">{manifest.requirements.ansible_version}</dd>
+              <dd className="text-sm font-mono">
+                {manifest.requirements.ansible_version}
+              </dd>
             </div>
             <div>
               <dt className="text-sm text-gray-500">Supported OS</dt>
-              <dd className="text-sm">{manifest.requirements.os.join(', ')}</dd>
+              <dd className="text-sm">{manifest.requirements.os.join(", ")}</dd>
             </div>
             <div>
               <dt className="text-sm text-gray-500">Architecture</dt>
-              <dd className="text-sm">{manifest.requirements.arch.join(', ')}</dd>
+              <dd className="text-sm">
+                {manifest.requirements.arch.join(", ")}
+              </dd>
             </div>
           </dl>
         </div>
 
         {/* Dangerous Operations Warning */}
-        {manifest.dangerous_operations && manifest.dangerous_operations.length > 0 && (
-          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-yellow-900 mb-2">
-                  Warning: This playbook will perform the following operations
-                </h3>
-                <ul className="list-disc list-inside space-y-1 text-sm text-yellow-800">
-                  {manifest.dangerous_operations.map((op, i) => (
-                    <li key={i}>{op}</li>
-                  ))}
-                </ul>
+        {manifest.dangerous_operations &&
+          manifest.dangerous_operations.length > 0 && (
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-yellow-900 mb-2">
+                    Warning: This playbook will perform the following operations
+                  </h3>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-yellow-800">
+                    {manifest.dangerous_operations.map((op, i) => (
+                      <li key={i}>{op}</li>
+                    ))}
+                  </ul>
 
-                <label className="flex items-center gap-2 mt-4 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={acceptedWarnings}
-                    onChange={(e) => setAcceptedWarnings(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm text-yellow-900">
-                    I understand and accept these operations
-                  </span>
-                </label>
+                  <label className="flex items-center gap-2 mt-4 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={acceptedWarnings}
+                      onChange={(e) => setAcceptedWarnings(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-yellow-900">
+                      I understand and accept these operations
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Variables */}
         {manifest.variables && Object.keys(manifest.variables).length > 0 && (
           <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">Configuration Variables</h2>
+            <h2 className="text-lg font-semibold mb-3">
+              Configuration Variables
+            </h2>
             <div className="space-y-3">
               {Object.entries(manifest.variables).map(([key, schema]) => (
                 <div key={key} className="border border-gray-200 rounded p-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <code className="text-sm font-mono text-blue-600">{key}</code>
+                      <code className="text-sm font-mono text-blue-600">
+                        {key}
+                      </code>
                       {schema.required && (
-                        <span className="ml-2 text-xs text-red-600">required</span>
+                        <span className="ml-2 text-xs text-red-600">
+                          required
+                        </span>
                       )}
                     </div>
                     <span className="text-xs text-gray-500">{schema.type}</span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{schema.description}</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {schema.description}
+                  </p>
                   {schema.default !== undefined && (
                     <p className="text-xs text-gray-500 mt-1">
                       Default: <code>{JSON.stringify(schema.default)}</code>
@@ -1196,7 +1560,9 @@ export default function CommunityPlaybookShow({ slug }: { slug: string }) {
         <div className="flex gap-4">
           <button
             onClick={handleInstall}
-            disabled={manifest.dangerous_operations?.length > 0 && !acceptedWarnings}
+            disabled={
+              manifest.dangerous_operations?.length > 0 && !acceptedWarnings
+            }
             className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             Install Playbook
@@ -1228,14 +1594,14 @@ export default function CommunityPlaybookShow({ slug }: { slug: string }) {
 
 **File**: `.github/workflows/validate-playbook.yml`
 
-```yaml
+````yaml
 name: Validate Playbook PR
 
 on:
   pull_request:
     paths:
-      - '[a-z]/**'
-      - '!**.md'
+      - "[a-z]/**"
+      - "!**.md"
 
 jobs:
   validate:
@@ -1250,7 +1616,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install Ansible and ansible-lint
         run: |
@@ -1466,7 +1832,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.changes.outputs.dirs }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-```
+````
 
 ### 2. Contribution Guide
 
@@ -1489,17 +1855,18 @@ Thank you for contributing to the community playbook repository!
    - `README.md` (optional)
 
 ## Directory Structure
+```
 
-```
 m/meilisearch/
-├── manifest.json       # Required metadata
-├── playbook.yml        # Ansible playbook (entry point)
-├── templates/          # Optional Jinja2 templates
-│   └── config.j2
-├── files/              # Optional static files
-│   └── healthcheck.sh
-└── README.md           # Optional documentation
-```
+├── manifest.json # Required metadata
+├── playbook.yml # Ansible playbook (entry point)
+├── templates/ # Optional Jinja2 templates
+│ └── config.j2
+├── files/ # Optional static files
+│ └── healthcheck.sh
+└── README.md # Optional documentation
+
+````
 
 ## Manifest Schema
 
@@ -1514,7 +1881,8 @@ Every playbook **must** include a `manifest.json` file:
   "author": {
     "name": "Your Name",
     "email": "you@example.com",
-    "url": "https://github.com/yourname"
+    "url": "https://github.com/yourname",
+    "status": "community"
   },
   "category": "search",
   "tags": ["search", "database", "api"],
@@ -1524,19 +1892,39 @@ Every playbook **must** include a `manifest.json` file:
     "templates": ["templates/config.j2"],
     "files": ["files/healthcheck.sh"]
   },
-  "requirements": {
-    "ansible_version": ">=2.15",
-    "os": ["ubuntu-20.04", "ubuntu-22.04", "debian-11", "debian-12"],
-    "arch": ["amd64", "arm64"]
-  },
-  "variables": {
-    "port": {
+  "ansible_version": ">=2.15",
+  "os_support": [
+    {
+      "distro": "ubuntu",
+      "version": "20.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "22.04",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "11",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "12",
+      "arch": "both"
+    }
+  ],
+  "variables": [
+    {
+      "name": "port",
+      "label": "HTTP Listen Port",
       "type": "integer",
       "default": 7700,
       "description": "HTTP listen port",
       "required": false
     }
-  },
+  ],
   "health_checks": [
     {
       "type": "http",
@@ -1550,27 +1938,28 @@ Every playbook **must** include a `manifest.json` file:
   ],
   "license": "MIT"
 }
-```
+````
 
 ### Required Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique identifier (must match directory name) |
-| `name` | string | Display name |
-| `version` | string | Semantic version (e.g., "1.0.0") |
-| `description` | string | Short description (max 200 chars) |
-| `author` | object | Author information |
-| `category` | string | One of: `monitoring`, `database`, `search`, `security`, `proxy`, `storage`, `dev-tools` |
-| `tags` | string[] | Searchable tags (max 10) |
-| `entry_point` | string | Main playbook file (e.g., "playbook.yml") |
-| `requirements` | object | System requirements |
-| `license` | string | SPDX license identifier |
+| Field            | Type     | Description                                                                             |
+| ---------------- | -------- | --------------------------------------------------------------------------------------- |
+| `id`             | string   | Unique identifier (must match directory name)                                           |
+| `name`           | string   | Display name                                                                            |
+| `version`        | string   | Semantic version (e.g., "1.0.0")                                                        |
+| `description`    | string   | Short description (max 200 chars)                                                       |
+| `author`         | object   | Author information (name, email, url, status)                                           |
+| `category`       | string   | One of: `monitoring`, `database`, `search`, `security`, `proxy`, `storage`, `dev-tools` |
+| `tags`           | string[] | Searchable tags (max 10)                                                                |
+| `entry_point`    | string   | Main playbook file (e.g., "playbook.yml")                                               |
+| `ansible_version`| string   | Minimum Ansible version (e.g., ">=2.15")                                                |
+| `os_support`     | array    | OS compatibility (distro, version, arch)                                                |
+| `license`        | string   | SPDX license identifier                                                                 |
 
 ### Optional Fields
 
 - `structure` - File manifest (helps Admiral know what to download)
-- `variables` - Variable schema for auto-generating configuration forms
+- `variables` - Variable schema (array format with name+label) for auto-generating configuration forms
 - `health_checks` - Post-install health check definitions
 - `dangerous_operations` - Warning messages for risky operations
 
@@ -1641,7 +2030,8 @@ Open an issue or reach out to the maintainers.
 ---
 
 **License**: All contributions must be MIT licensed.
-```
+
+````
 
 ### 3. Repository README
 
@@ -1723,7 +2113,7 @@ EOF
 ansible-playbook --syntax-check m/my-app/playbook.yml
 
 # 6. Submit PR
-```
+````
 
 ## License
 
@@ -1732,6 +2122,7 @@ MIT - See [LICENSE](./LICENSE) for details
 ## Maintained By
 
 [Node Pulse Community](https://github.com/node-pulse)
+
 ```
 
 ---
@@ -1981,3 +2372,4 @@ This approach ensures reliability (no broken external dependencies), security (a
 **Document Status**: Complete
 **Next Review**: After Phase 2.5 implementation begins
 **Owner**: Engineering Team
+```
