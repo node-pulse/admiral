@@ -16,7 +16,7 @@ class AnsibleService
     public function __construct()
     {
         $this->ansiblePath = base_path('ansible');
-        $this->playbookPath = base_path('ansible/playbooks');
+        $this->playbookPath = base_path('ansible');
         $this->inventoryPath = base_path('ansible/inventory/dynamic.php');
     }
 

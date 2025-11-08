@@ -39,6 +39,7 @@ interface TreeNode {
     description?: string;
     size?: number;
     modified?: number;
+    isTemplate?: boolean;
     children?: TreeNode[];
 }
 
@@ -47,6 +48,7 @@ interface FileContent {
     content: string;
     size: number;
     modified: number;
+    isTemplate?: boolean;
 }
 
 export default function AnsiblePlaybooks() {
@@ -117,15 +119,19 @@ export default function AnsiblePlaybooks() {
             const data = await response.json();
             setSelectedFile(data);
 
-            // Try to parse YAML to validate it
-            try {
-                YAML.parse(data.content);
-                setYamlError(null); // Clear any previous errors
-            } catch (yamlError: any) {
-                const errorMessage =
-                    yamlError?.message || 'Unknown YAML parsing error';
-                setYamlError(errorMessage);
-                console.warn('Failed to parse YAML:', yamlError);
+            // Only try to parse YAML for .yml and .yaml files, not .j2 templates
+            if (!data.isTemplate) {
+                try {
+                    YAML.parse(data.content);
+                    setYamlError(null); // Clear any previous errors
+                } catch (yamlError: any) {
+                    const errorMessage =
+                        yamlError?.message || 'Unknown YAML parsing error';
+                    setYamlError(errorMessage);
+                    console.warn('Failed to parse YAML:', yamlError);
+                }
+            } else {
+                setYamlError(null); // Clear errors for non-YAML files
             }
         } catch (error) {
             toast.error('Failed to load file content');
@@ -271,6 +277,11 @@ export default function AnsiblePlaybooks() {
                                 {selectedFile
                                     ? selectedFile.path
                                     : 'Select a file'}
+                                {selectedFile?.isTemplate && (
+                                    <Badge variant="secondary" className="ml-2">
+                                        Jinja2 Template
+                                    </Badge>
+                                )}
                                 {yamlError && (
                                     <Badge
                                         variant="destructive"
@@ -355,7 +366,11 @@ export default function AnsiblePlaybooks() {
                                         </div>
                                         <ScrollArea className="h-[600px] w-full rounded-md border">
                                             <SyntaxHighlighter
-                                                language="yaml"
+                                                language={
+                                                    selectedFile.isTemplate
+                                                        ? 'jinja2'
+                                                        : 'yaml'
+                                                }
                                                 style={vscDarkPlus}
                                                 showLineNumbers
                                                 customStyle={{

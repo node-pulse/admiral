@@ -255,8 +255,18 @@ func handleDeployment(ctx context.Context, msg valkey.StreamMessage) error {
 }
 
 func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string, variablesJSON string) (string, string, error) {
-	// Check if this is a production playbook that requires mTLS
-	requireMTLS := strings.Contains(playbook, "deploy-agent-mtls.yml")
+	// Parse variables to check if mTLS is required
+	var variables map[string]any
+	requireMTLS := false
+	if variablesJSON != "" {
+		if err := json.Unmarshal([]byte(variablesJSON), &variables); err != nil {
+			return "", "", fmt.Errorf("failed to parse variables: %w", err)
+		}
+		// Check if tls_enabled is explicitly set to true
+		if tlsEnabled, ok := variables["tls_enabled"].(bool); ok && tlsEnabled {
+			requireMTLS = true
+		}
+	}
 
 	// Build inventory from server IDs (also creates temp SSH key files)
 	inventory, tempKeyFiles, err := buildInventory(serverIDs, requireMTLS)
@@ -288,16 +298,8 @@ func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string
 	inventoryFile.Close()
 
 	// Playbook path - support both flat and subdirectory structure
-	// Playbook format: "nodepulse/deploy-agent.yml" or "custom/my-playbook.yml"
-	playbookPath := filepath.Join("/app/ansible/playbooks", playbook)
-
-	// Parse variables
-	var variables map[string]any
-	if variablesJSON != "" {
-		if err := json.Unmarshal([]byte(variablesJSON), &variables); err != nil {
-			return "", "", fmt.Errorf("failed to parse variables: %w", err)
-		}
-	}
+	// Playbook format: "nodepulse/deploy.yml" or "custom/my-playbook.yml"
+	playbookPath := filepath.Join("/app/ansible", playbook)
 
 	// Build ansible-playbook command
 	args := []string{

@@ -28,7 +28,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { playbookFields } from '@/utils/playbook-fields';
+import { playbookVariableMap } from '@/utils/playbook-variables';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Loader2, Rocket, Search, Server } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -84,9 +84,29 @@ export default function CreateDeployment() {
     const [deploymentName, setDeploymentName] = useState('');
     const [deploymentDescription, setDeploymentDescription] = useState('');
     const [playbook, setPlaybook] = useState<string>('');
-    const [extraVariables, setExtraVariables] = useState<
+    const [deploymentVariables, setDeploymentVariables] = useState<
         Record<string, string>
     >({});
+
+    console.log('deploymentVariables :>> ', deploymentVariables);
+
+    // Wrapper for setPlaybook that also initializes deployment variables
+    const handlePlaybookChange = (playbookPath: string) => {
+        setPlaybook(playbookPath);
+        if (playbookPath && playbookVariableMap[playbookPath]) {
+            const defaultValues: Record<string, string> = {};
+
+            playbookVariableMap[playbookPath].forEach((field) => {
+                if (field.defaultValue) {
+                    defaultValues[field.name] = field.defaultValue;
+                }
+            });
+
+            setDeploymentVariables(defaultValues);
+        } else {
+            setDeploymentVariables({});
+        }
+    };
 
     useEffect(() => {
         fetchServers();
@@ -136,15 +156,14 @@ export default function CreateDeployment() {
 
             const data = await response.json();
 
-            // Flatten the tree structure to get a list of playbooks
+            // Flatten the tree structure to get a list of playbooks (exclude templates)
             const flattenTree = (nodes: any[]): any[] => {
                 const playbooks: any[] = [];
 
                 const traverse = (nodes: any[]) => {
                     for (const node of nodes) {
-                        if (node.type === 'file') {
-                            // Use the path which includes directory/filename
-                            // e.g., "nodepulse/deploy-agent.yml"
+                        if (node.type === 'file' && !node.isTemplate) {
+                            // Only include .yml and .yaml files, not .j2 templates
                             playbooks.push({
                                 name: node.path, // Use full path as display name
                                 file_name: node.name,
@@ -166,7 +185,7 @@ export default function CreateDeployment() {
 
             // Set default playbook to first one if available
             if (playbooksList.length > 0 && !playbook) {
-                setPlaybook(playbooksList[0].path);
+                handlePlaybookChange(playbooksList[0].path);
             }
         } catch (error) {
             console.error('Error fetching playbooks:', error);
@@ -216,6 +235,19 @@ export default function CreateDeployment() {
             return;
         }
 
+        // validate playbook variables
+        const requiredFields =
+            playbookVariableMap[playbook]?.filter((f) => f.isRequired) || [];
+        const missedRequiredFields = requiredFields.filter(
+            (field) => !deploymentVariables[field.name]?.trim(),
+        );
+
+        if (missedRequiredFields.length > 0) {
+            const str = missedRequiredFields.map((f) => f.label).join(', ');
+            toast.error(`Please fill in required fields: ${str}`);
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -231,7 +263,7 @@ export default function CreateDeployment() {
                     description: deploymentDescription || null,
                     playbook: playbook,
                     server_ids: Array.from(selectedServers),
-                    variables: extraVariables,
+                    variables: deploymentVariables,
                 }),
             });
 
@@ -309,7 +341,7 @@ export default function CreateDeployment() {
                                     <Label htmlFor="playbook">Playbook *</Label>
                                     <Select
                                         value={playbook}
-                                        onValueChange={setPlaybook}
+                                        onValueChange={handlePlaybookChange}
                                         disabled={loadingPlaybooks}
                                     >
                                         <SelectTrigger id="playbook">
@@ -363,37 +395,49 @@ export default function CreateDeployment() {
                             </div>
 
                             {/* Playbook-specific fields */}
-                            {playbookFields[playbook]?.length > 0 && (
+                            {playbookVariableMap[playbook]?.length > 0 && (
                                 <div className="grid gap-4 md:grid-cols-2">
-                                    {playbookFields[playbook].map((field) => (
-                                        <div
-                                            key={field.name}
-                                            className="space-y-2"
-                                        >
-                                            <Label htmlFor={field.name}>
-                                                {field.label}
-                                            </Label>
-                                            <Input
-                                                id={field.name}
-                                                placeholder={field.placeholder}
-                                                value={
-                                                    extraVariables[
-                                                        field.name
-                                                    ] || ''
-                                                }
-                                                onChange={(e) =>
-                                                    setExtraVariables({
-                                                        ...extraVariables,
-                                                        [field.name]:
-                                                            e.target.value,
-                                                    })
-                                                }
-                                            />
-                                            <p className="text-sm text-muted-foreground">
-                                                {field.helpText}
-                                            </p>
-                                        </div>
-                                    ))}
+                                    {playbookVariableMap[playbook].map(
+                                        (field) => (
+                                            <div
+                                                key={field.name}
+                                                className="space-y-2"
+                                            >
+                                                <Label htmlFor={field.name}>
+                                                    {field.label}
+                                                    {field.isRequired && (
+                                                        <span className="ml-1 text-destructive">
+                                                            *
+                                                        </span>
+                                                    )}
+                                                </Label>
+                                                <Input
+                                                    id={field.name}
+                                                    placeholder={
+                                                        field.placeholder
+                                                    }
+                                                    value={
+                                                        deploymentVariables[
+                                                            field.name
+                                                        ] ??
+                                                        field.defaultValue ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        setDeploymentVariables({
+                                                            ...deploymentVariables,
+                                                            [field.name]:
+                                                                e.target.value,
+                                                        })
+                                                    }
+                                                    required={field.isRequired}
+                                                />
+                                                <p className="text-sm text-muted-foreground">
+                                                    {field.helpText}
+                                                </p>
+                                            </div>
+                                        ),
+                                    )}
                                 </div>
                             )}
                         </CardContent>

@@ -49,10 +49,10 @@ class DeployAgentJob implements ShouldQueue
         ]);
 
         try {
-            // Run Ansible playbook
+            // Run Ansible playbook (use playbook from deployment record)
             $success = $ansible->runPlaybook(
                 $this->deployment,
-                'deploy-agent.yml',
+                $this->deployment->playbook,
                 $this->serverIds,
                 $this->variables
             );

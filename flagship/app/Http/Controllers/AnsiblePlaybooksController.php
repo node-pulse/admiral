@@ -20,12 +20,12 @@ class AnsiblePlaybooksController extends Controller
      */
     public function index()
     {
-        $playbooksPath = base_path('ansible/playbooks');
+        $playbooksPath = base_path('ansible');
 
         if (!is_dir($playbooksPath)) {
             return response()->json([
                 'tree' => [],
-                'error' => 'Playbooks directory not found',
+                'error' => 'Ansible directory not found',
             ]);
         }
 
@@ -33,21 +33,21 @@ class AnsiblePlaybooksController extends Controller
 
         return response()->json([
             'tree' => $tree,
-            'basePath' => 'ansible/playbooks',
+            'basePath' => 'ansible',
         ]);
     }
 
     /**
      * Get content of a specific playbook file
      */
-    public function show(Request $request, string $path)
+    public function show(string $path)
     {
-        $playbooksPath = base_path('ansible/playbooks');
-        $filePath = $playbooksPath . '/' . $path;
+        $ansiblePath = base_path('ansible');
+        $filePath = $ansiblePath . '/' . $path;
 
         // Security: Prevent directory traversal
         $realPath = realpath($filePath);
-        $realBasePath = realpath($playbooksPath);
+        $realBasePath = realpath($ansiblePath);
 
         if (!$realPath || !$realBasePath || strpos($realPath, $realBasePath) !== 0) {
             return response()->json([
@@ -61,19 +61,22 @@ class AnsiblePlaybooksController extends Controller
             ], 404);
         }
 
-        if (!in_array(pathinfo($filePath, PATHINFO_EXTENSION), ['yml', 'yaml'])) {
+        $extension = pathinfo($filePath, PATHINFO_EXTENSION);
+        if (!in_array($extension, ['yml', 'yaml', 'j2'])) {
             return response()->json([
-                'error' => 'Only YAML files are allowed',
+                'error' => 'Only YAML and Jinja2 template files are allowed',
             ], 403);
         }
 
         $content = file_get_contents($filePath);
+        $isTemplate = $extension === 'j2';
 
         return response()->json([
             'path' => $path,
             'content' => $content,
             'size' => filesize($filePath),
             'modified' => filemtime($filePath),
+            'isTemplate' => $isTemplate,
         ]);
     }
 
@@ -95,6 +98,11 @@ class AnsiblePlaybooksController extends Controller
                 continue;
             }
 
+            // Skip hidden files and system directories
+            if (str_starts_with($item, '.') || in_array($item, ['inventory', 'group_vars', 'host_vars'])) {
+                continue;
+            }
+
             $fullPath = $path . '/' . $item;
             $relativePath = str_replace($basePath . '/', '', $fullPath);
 
@@ -105,18 +113,25 @@ class AnsiblePlaybooksController extends Controller
                     'path' => $relativePath,
                     'children' => $this->buildDirectoryTree($fullPath, $basePath),
                 ];
-            } elseif (is_file($fullPath) && in_array(pathinfo($fullPath, PATHINFO_EXTENSION), ['yml', 'yaml'])) {
-                $metadata = $this->parsePlaybookMetadata($fullPath);
+            } elseif (is_file($fullPath)) {
+                $extension = pathinfo($fullPath, PATHINFO_EXTENSION);
 
-                $tree[] = [
-                    'type' => 'file',
-                    'name' => $item,
-                    'path' => $relativePath,
-                    'title' => $metadata['name'] ?? ucfirst(str_replace(['-', '_', '.yml'], [' ', ' ', ''], basename($item, '.yml'))),
-                    'description' => $metadata['description'] ?? null,
-                    'size' => filesize($fullPath),
-                    'modified' => filemtime($fullPath),
-                ];
+                // Show .yml, .yaml, and .j2 files
+                if (in_array($extension, ['yml', 'yaml', 'j2'])) {
+                    $metadata = $this->parsePlaybookMetadata($fullPath);
+                    $isTemplate = $extension === 'j2';
+
+                    $tree[] = [
+                        'type' => 'file',
+                        'name' => $item,
+                        'path' => $relativePath,
+                        'title' => $metadata['name'] ?? ucfirst(str_replace(['-', '_', '.yml', '.yaml', '.j2'], [' ', ' ', '', '', ''], basename($item))),
+                        'description' => $metadata['description'] ?? ($isTemplate ? 'Jinja2 Template' : null),
+                        'size' => filesize($fullPath),
+                        'modified' => filemtime($fullPath),
+                        'isTemplate' => $isTemplate,
+                    ];
+                }
             }
         }
 
