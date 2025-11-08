@@ -6,6 +6,28 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property string $id
+ * @property string $name
+ * @property string|null $description
+ * @property string $playbook
+ * @property array $server_filter
+ * @property array $variables
+ * @property string $status
+ * @property \Illuminate\Support\Carbon|null $started_at
+ * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property int $total_servers
+ * @property int $successful_servers
+ * @property int $failed_servers
+ * @property int $skipped_servers
+ * @property string|null $output
+ * @property string|null $error_output
+ * @property int|null $created_by
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read float $success_rate
+ * @property-read int|null $duration
+ */
 class Deployment extends Model
 {
     protected $table = 'admiral.deployments';

@@ -36,7 +36,7 @@ class AnsibleService
         ]);
 
         // Build Ansible command
-        $command = $this->buildCommand($playbook, $serverIds, $extraVars);
+        $command = $this->buildCommand($playbook, $extraVars);
 
         Log::info("Running Ansible playbook", [
             'deployment_id' => $deployment->id,
@@ -90,7 +90,7 @@ class AnsibleService
     /**
      * Build Ansible command
      */
-    private function buildCommand(string $playbook, array $serverIds, array $extraVars): array
+    private function buildCommand(string $playbook, array $extraVars): array
     {
         $command = [
             'ansible-playbook',
@@ -178,8 +178,6 @@ class AnsibleService
 
         if (preg_match_all('/(\S+)\s+:\s+ok=(\d+).*?failed=(\d+).*?skipped=(\d+)/', $output, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
-                $hostname = $match[1];
-                $ok = (int) $match[2];
                 $failed = (int) $match[3];
                 $skipped = (int) $match[4];
 
