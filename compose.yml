@@ -181,7 +181,7 @@ services:
         condition: service_started
     volumes:
       - ./flagship/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh:ro
-      - ./ansible:/var/www/html/ansible:ro # Mount Ansible playbooks (read-only)
+      - ./ansible:/var/www/html/ansible # Mount Ansible playbooks (writable for community playbook installation)
       - ./logs/flagship:/var/www/html/storage/logs # Mount logs for persistence
       - ./secrets:/secrets:ro # Mount shared secrets directory (read-only)
     networks:

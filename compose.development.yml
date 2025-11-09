@@ -233,7 +233,7 @@ services:
         condition: service_started
     volumes:
       - ./flagship:/var/www/html # Mount entire app for hot reload
-      - ./ansible:/var/www/html/ansible:ro # Mount Ansible playbooks
+      - ./ansible:/var/www/html/ansible # Mount Ansible playbooks (writable for community playbook installation)
       - ./logs/flagship:/var/www/html/storage/logs
       - ./secrets:/secrets:ro
       - ./flagship/docker-entrypoint-dev.sh:/usr/local/bin/docker-entrypoint-dev.sh:ro

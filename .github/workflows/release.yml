@@ -172,7 +172,9 @@ jobs:
           chmod +x release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/flagship/docker-entrypoint.sh
 
           # Copy Ansible playbooks (needed at runtime for custom playbooks)
-          cp -r ansible release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/ansible
+          # Exclude catalog/ directory as it should be downloaded from registry
+          mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/ansible
+          rsync -av --exclude='catalog/' ansible/ release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/ansible/
 
           # Copy documentation
           cp README.md release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/

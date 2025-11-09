@@ -160,13 +160,18 @@ class DeploymentsController extends Controller
         ]);
 
         // Prepare variables to store in database
-        // Use ingest domain for metrics endpoint (user can override via variables)
-        $defaultEndpoint = 'http://' . config('submarines.ingest_domain') . '/metrics/prometheus';
+        // For agent deployment playbooks, set default endpoint
+        // For community playbooks, use variables from manifest.json
+        $storedVariables = $validated['variables'] ?? [];
 
-        $storedVariables = [
-            'agent_version' => $validated['variables']['agent_version'] ?? 'latest',
-            'ingest_endpoint' => $validated['variables']['ingest_endpoint'] ?? $defaultEndpoint,
-        ];
+        // If this is an agent deployment playbook, set defaults
+        if (str_contains($validated['playbook'], 'nodepulse/')) {
+            $defaultEndpoint = 'http://' . config('submarines.ingest_domain') . '/metrics/prometheus';
+            $storedVariables = array_merge([
+                'agent_version' => 'latest',
+                'ingest_endpoint' => $defaultEndpoint,
+            ], $storedVariables);
+        }
 
         // Create deployment record
         $deployment = Deployment::create([

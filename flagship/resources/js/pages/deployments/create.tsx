@@ -78,7 +78,9 @@ export default function CreateDeployment() {
     );
     const [searchTerm, setSearchTerm] = useState('');
     const [playbooks, setPlaybooks] = useState<any[]>([]);
+    const [communityPlaybooks, setCommunityPlaybooks] = useState<any[]>([]);
     const [loadingPlaybooks, setLoadingPlaybooks] = useState(true);
+    const [selectedPlaybookData, setSelectedPlaybookData] = useState<any>(null);
 
     // Form state
     const [deploymentName, setDeploymentName] = useState('');
@@ -93,7 +95,32 @@ export default function CreateDeployment() {
     // Wrapper for setPlaybook that also initializes deployment variables
     const handlePlaybookChange = (playbookPath: string) => {
         setPlaybook(playbookPath);
-        if (playbookPath && playbookVariableMap[playbookPath]) {
+
+        // Check if it's a community playbook (path format: catalog/f/fail2ban/playbook.yml)
+        const communityPlaybook = communityPlaybooks.find(
+            (pb) => `catalog/${pb.source_path}/${pb.entry_point}` === playbookPath
+        );
+
+        if (communityPlaybook) {
+            // Use manifest variables for community playbooks
+            setSelectedPlaybookData(communityPlaybook);
+            const defaultValues: Record<string, string> = {};
+
+            communityPlaybook.variables?.forEach((variable: any) => {
+                if (variable.default !== undefined && variable.default !== null) {
+                    defaultValues[variable.name] = String(variable.default);
+                }
+            });
+
+            setDeploymentVariables(defaultValues);
+
+            // Update URL with pb_id for community playbooks
+            const url = new URL(window.location.href);
+            url.searchParams.set('pb_id', communityPlaybook.id);
+            window.history.pushState({}, '', url);
+        } else if (playbookPath && playbookVariableMap[playbookPath]) {
+            // Use hardcoded variables for built-in playbooks
+            setSelectedPlaybookData(null);
             const defaultValues: Record<string, string> = {};
 
             playbookVariableMap[playbookPath].forEach((field) => {
@@ -103,14 +130,26 @@ export default function CreateDeployment() {
             });
 
             setDeploymentVariables(defaultValues);
+
+            // Remove pb_id from URL for built-in playbooks
+            const url = new URL(window.location.href);
+            url.searchParams.delete('pb_id');
+            window.history.pushState({}, '', url);
         } else {
+            setSelectedPlaybookData(null);
             setDeploymentVariables({});
+
+            // Remove pb_id from URL
+            const url = new URL(window.location.href);
+            url.searchParams.delete('pb_id');
+            window.history.pushState({}, '', url);
         }
     };
 
     useEffect(() => {
         fetchServers();
         fetchPlaybooks();
+        fetchCommunityPlaybooks();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchServers = async () => {
@@ -181,11 +220,18 @@ export default function CreateDeployment() {
             };
 
             const playbooksList = flattenTree(data.tree || []);
-            setPlaybooks(playbooksList);
 
-            // Set default playbook to first one if available
-            if (playbooksList.length > 0 && !playbook) {
-                handlePlaybookChange(playbooksList[0].path);
+            // Filter out catalog playbooks from built-in list
+            const builtInPlaybooks = playbooksList.filter(
+                (pb) => !pb.path.startsWith('catalog/')
+            );
+            setPlaybooks(builtInPlaybooks);
+
+            // Set default playbook to first built-in one if available and no URL param
+            const urlParams = new URLSearchParams(window.location.search);
+            const pbId = urlParams.get('pb_id');
+            if (!pbId && builtInPlaybooks.length > 0 && !playbook) {
+                handlePlaybookChange(builtInPlaybooks[0].path);
             }
         } catch (error) {
             console.error('Error fetching playbooks:', error);
@@ -194,6 +240,53 @@ export default function CreateDeployment() {
             setLoadingPlaybooks(false);
         }
     };
+
+    const fetchCommunityPlaybooks = async () => {
+        try {
+            const response = await fetch('/api/playbooks', {
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    Accept: 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch community playbooks');
+            }
+
+            const data = await response.json();
+            setCommunityPlaybooks(data.playbooks.data || []);
+        } catch (error) {
+            console.error('Error fetching community playbooks:', error);
+            // Don't show error toast - community playbooks are optional
+        }
+    };
+
+    // Handle pb_id URL parameter after community playbooks are loaded
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const pbId = urlParams.get('pb_id');
+
+        console.log('URL pb_id:', pbId);
+        console.log('Community playbooks:', communityPlaybooks);
+
+        if (pbId && communityPlaybooks.length > 0) {
+            // Find the community playbook by id (downloaded playbooks have 'id' field)
+            const communityPlaybook = communityPlaybooks.find(
+                (pb) => pb.id === pbId
+            );
+
+            console.log('Found community playbook:', communityPlaybook);
+
+            if (communityPlaybook) {
+                const playbookPath = `catalog/${communityPlaybook.source_path}/${communityPlaybook.entry_point}`;
+                console.log('Setting playbook to:', playbookPath);
+                handlePlaybookChange(playbookPath);
+            } else {
+                console.log('No matching playbook found for pb_id:', pbId);
+            }
+        }
+    }, [communityPlaybooks]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const filteredServers = (servers || []).filter((server) => {
         const searchLower = searchTerm.toLowerCase();
@@ -354,17 +447,48 @@ export default function CreateDeployment() {
                                             />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {playbooks.map((pb) => (
-                                                <SelectItem
-                                                    key={pb.path}
-                                                    value={pb.path}
-                                                >
-                                                    {pb.name}
-                                                </SelectItem>
-                                            ))}
+                                            {/* Built-in playbooks */}
+                                            {playbooks.length > 0 && (
+                                                <>
+                                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                                        Built-in Playbooks
+                                                    </div>
+                                                    {playbooks.map((pb) => (
+                                                        <SelectItem
+                                                            key={pb.path}
+                                                            value={pb.path}
+                                                        >
+                                                            {pb.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </>
+                                            )}
+
+                                            {/* Community playbooks */}
+                                            {communityPlaybooks.length > 0 && (
+                                                <>
+                                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                                        Community Playbooks
+                                                    </div>
+                                                    {communityPlaybooks.map((pb) => (
+                                                        <SelectItem
+                                                            key={pb.id}
+                                                            value={`catalog/${pb.source_path}/${pb.entry_point}`}
+                                                        >
+                                                            {pb.name} (v{pb.version})
+                                                        </SelectItem>
+                                                    ))}
+                                                </>
+                                            )}
                                         </SelectContent>
                                     </Select>
+                                    {playbook && selectedPlaybookData?.description && (
+                                        <p className="text-sm text-muted-foreground">
+                                            {selectedPlaybookData.description}
+                                        </p>
+                                    )}
                                     {playbook &&
+                                        !selectedPlaybookData &&
                                         playbooks.find(
                                             (pb) => pb.path === playbook,
                                         )?.description && (
@@ -394,7 +518,7 @@ export default function CreateDeployment() {
                                 />
                             </div>
 
-                            {/* Playbook-specific fields */}
+                            {/* Playbook-specific fields - Built-in playbooks */}
                             {playbookVariableMap[playbook]?.length > 0 && (
                                 <div className="grid gap-4 md:grid-cols-2">
                                     {playbookVariableMap[playbook].map(
@@ -435,6 +559,88 @@ export default function CreateDeployment() {
                                                 <p className="text-sm text-muted-foreground">
                                                     {field.helpText}
                                                 </p>
+                                            </div>
+                                        ),
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Playbook-specific fields - Community playbooks */}
+                            {selectedPlaybookData?.variables?.length > 0 && (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {selectedPlaybookData.variables.map(
+                                        (variable: any) => (
+                                            <div
+                                                key={variable.name}
+                                                className="space-y-2"
+                                            >
+                                                <Label htmlFor={variable.name}>
+                                                    {variable.label}
+                                                    {variable.required && (
+                                                        <span className="ml-1 text-destructive">
+                                                            *
+                                                        </span>
+                                                    )}
+                                                </Label>
+                                                {variable.type === 'select' ? (
+                                                    <Select
+                                                        value={deploymentVariables[variable.name] ?? String(variable.default ?? '')}
+                                                        onValueChange={(value) =>
+                                                            setDeploymentVariables({
+                                                                ...deploymentVariables,
+                                                                [variable.name]: value,
+                                                            })
+                                                        }
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder={`Select ${variable.label}`} />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {variable.options?.map((opt: string) => (
+                                                                <SelectItem key={opt} value={opt}>
+                                                                    {opt}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                ) : variable.type === 'boolean' ? (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={variable.name}
+                                                            checked={deploymentVariables[variable.name] === 'true'}
+                                                            onCheckedChange={(checked) =>
+                                                                setDeploymentVariables({
+                                                                    ...deploymentVariables,
+                                                                    [variable.name]: String(checked),
+                                                                })
+                                                            }
+                                                        />
+                                                        <label htmlFor={variable.name} className="text-sm">
+                                                            {variable.description}
+                                                        </label>
+                                                    </div>
+                                                ) : (
+                                                    <Input
+                                                        id={variable.name}
+                                                        type={variable.type === 'integer' ? 'number' : variable.type === 'password' ? 'password' : 'text'}
+                                                        placeholder={String(variable.default ?? '')}
+                                                        value={deploymentVariables[variable.name] ?? String(variable.default ?? '')}
+                                                        onChange={(e) =>
+                                                            setDeploymentVariables({
+                                                                ...deploymentVariables,
+                                                                [variable.name]: e.target.value,
+                                                            })
+                                                        }
+                                                        min={variable.min}
+                                                        max={variable.max}
+                                                        required={variable.required}
+                                                    />
+                                                )}
+                                                {variable.description && (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {variable.description}
+                                                    </p>
+                                                )}
                                             </div>
                                         ),
                                     )}

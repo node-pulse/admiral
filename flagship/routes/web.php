@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PlaybooksController;
 use App\Http\Controllers\PrivateKeysController;
 use App\Http\Controllers\ServersController;
 use App\Http\Controllers\SystemSettingsController;
@@ -83,6 +84,11 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('dashboard')->group(fun
         Route::get('/', [\App\Http\Controllers\DeploymentsController::class, 'index'])->name('deployments');
         Route::get('/create', [\App\Http\Controllers\DeploymentsController::class, 'create'])->name('deployments.create');
         Route::get('/{id}/details', [\App\Http\Controllers\DeploymentsController::class, 'details'])->name('deployments.details');
+    });
+
+    // Community Playbooks management (admin only)
+    Route::prefix('playbooks')->group(function () {
+        Route::get('/', [PlaybooksController::class, 'index'])->name('playbooks');
     });
 
     // Ansible Playbooks management (admin only)

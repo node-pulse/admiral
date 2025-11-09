@@ -14,6 +14,7 @@ import {
     ansiblePlaybooks,
     dashboard,
     deployments,
+    playbooks,
     servers,
     sshKeys,
     sshSessions,
@@ -32,6 +33,7 @@ import {
     LineChart,
     Lock,
     Network,
+    Package,
     Play,
     Rocket,
     Server,
@@ -139,6 +141,12 @@ const getMainNavSections = (isAdmin: boolean): NavSection[] => {
                     href: ansiblePlaybooks(),
                     icon: FileCode,
                     display: true,
+                },
+                {
+                    title: 'Community Playbooks',
+                    href: playbooks(),
+                    icon: Package,
+                    display: isAdmin,
                 },
                 {
                     title: 'Deployments',

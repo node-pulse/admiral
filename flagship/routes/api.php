@@ -4,6 +4,7 @@ use App\Http\Controllers\AnsiblePlaybooksController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeploymentsController;
+use App\Http\Controllers\PlaybooksController;
 use App\Http\Controllers\ProcessController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +24,15 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/ansible-playbooks/list', [AnsiblePlaybooksController::class, 'index']);
         Route::get('/ansible-playbooks/details/{path}', [AnsiblePlaybooksController::class, 'show'])->where('path', '.*');
     });
+});
+
+// Community Playbooks API routes (admin only)
+Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('playbooks')->group(function () {
+    Route::get('/', [PlaybooksController::class, 'list']);
+    Route::get('/browse', [PlaybooksController::class, 'browse']);  // Browse registry catalog
+    Route::get('/{playbookId}', [PlaybooksController::class, 'show']);
+    Route::post('/download', [PlaybooksController::class, 'download']);
+    Route::delete('/{playbookId}', [PlaybooksController::class, 'remove']);
 });
 
 // Deployments API routes (admin only)
