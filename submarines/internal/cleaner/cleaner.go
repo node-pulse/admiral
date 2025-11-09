@@ -34,6 +34,11 @@ func (c *Cleaner) Run(ctx context.Context) error {
 		return fmt.Errorf("metrics cleanup failed: %w", err)
 	}
 
+	// Job 2: Process snapshots retention cleanup
+	if err := c.CleanOldProcessSnapshots(ctx); err != nil {
+		return fmt.Errorf("process snapshots cleanup failed: %w", err)
+	}
+
 	// Future jobs can be added here:
 	// - c.CleanOrphanedServers(ctx)
 	// - c.CleanResolvedAlerts(ctx)
