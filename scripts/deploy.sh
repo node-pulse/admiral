@@ -981,10 +981,6 @@ echo ""
 SEEDER_OUTPUT=$(docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder 2>&1)
 SEEDER_EXIT_CODE=$?
 
-# Display the seeder output (includes detailed messages from AdminUserSeeder)
-echo "$SEEDER_OUTPUT"
-echo ""
-
 # Now we can rely on exit codes since we fixed AdminUserSeeder to exit(1) on errors
 if [ $SEEDER_EXIT_CODE -eq 0 ]; then
     # Success or idempotent skip (both are OK)
@@ -1001,15 +997,11 @@ if [ $SEEDER_EXIT_CODE -eq 0 ]; then
     fi
 else
     # Actual failure (exit code != 0)
+    # Show the detailed error message from the seeder
     echo -e "${RED}✗ Admin user seeder failed (exit code: $SEEDER_EXIT_CODE)${NC}"
     echo ""
-    echo -e "${YELLOW}Common reasons:${NC}"
-    echo "  • Missing ADMIN_EMAIL or ADMIN_PASSWORD in .env"
-    echo "  • Attempting to run in production when users already exist (security block)"
-    echo "  • Database connection issues"
-    echo ""
-    echo "To retry manually after fixing the issue:"
-    echo "  docker compose exec flagship php artisan db:seed --class=AdminUserSeeder"
+    echo -e "${YELLOW}The reason for failure is shown below:${NC}"
+    echo "$SEEDER_OUTPUT"
     echo ""
 
     # Don't exit the deployment script - let it continue
