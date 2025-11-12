@@ -1,0 +1,8 @@
+# Ignore all user-uploaded custom playbooks
+*
+
+# But keep this .gitignore file
+!.gitignore
+
+# And keep the README
+!README.md

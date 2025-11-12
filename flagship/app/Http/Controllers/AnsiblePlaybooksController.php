@@ -61,9 +61,36 @@ class AnsiblePlaybooksController extends Controller
         }
 
         $extension = pathinfo($filePath, PATHINFO_EXTENSION);
-        if (!in_array($extension, ['yml', 'yaml', 'j2'])) {
+        $isCustomPath = str_starts_with($path, 'custom/');
+
+        // Define binary file extensions
+        $binaryExtensions = ['bin', 'exe', 'so', 'dylib', 'dll', 'zip', 'tar', 'gz', 'bz2', 'xz', 'jpg', 'jpeg', 'png', 'gif', 'pdf', 'ico'];
+        $isBinary = in_array(strtolower($extension), $binaryExtensions);
+
+        // For binary files, return a special response
+        if ($isBinary) {
             return response()->json([
-                'error' => 'Only YAML and Jinja2 template files are allowed',
+                'path' => $path,
+                'content' => null,
+                'size' => filesize($filePath),
+                'modified' => filemtime($filePath),
+                'isBinary' => true,
+                'extension' => $extension,
+                'message' => 'Binary file type - cannot display content',
+            ]);
+        }
+
+        // For custom directory, allow all text-based file types
+        // For other directories, only allow .yml, .yaml, .j2
+        $allowedExtensions = $isCustomPath
+            ? ['yml', 'yaml', 'j2', 'json', 'md', 'txt', 'sh', 'conf', 'ini', 'cfg', 'env', 'properties', 'log', 'xml', 'html', 'css', 'js']
+            : ['yml', 'yaml', 'j2'];
+
+        if (!in_array($extension, $allowedExtensions)) {
+            return response()->json([
+                'error' => $isCustomPath
+                    ? 'Only text-based files can be viewed'
+                    : 'Only YAML and Jinja2 template files are allowed',
             ], 403);
         }
 
@@ -115,10 +142,22 @@ class AnsiblePlaybooksController extends Controller
             } elseif (is_file($fullPath)) {
                 $extension = pathinfo($fullPath, PATHINFO_EXTENSION);
 
-                // Show .yml, .yaml, and .j2 files
-                if (in_array($extension, ['yml', 'yaml', 'j2'])) {
+                // For custom directory, show ALL file types (user can upload anything)
+                // For other directories, only show .yml, .yaml, and .j2 files
+                $isCustomDir = str_starts_with($relativePath, 'custom/');
+
+                if ($isCustomDir || in_array($extension, ['yml', 'yaml', 'j2'])) {
+                    // Skip if not in custom dir and not an ansible file
+                    if (!$isCustomDir && !in_array($extension, ['yml', 'yaml', 'j2'])) {
+                        continue;
+                    }
+
                     $metadata = $this->parsePlaybookMetadata($fullPath);
                     $isTemplate = $extension === 'j2';
+
+                    // Determine if file is binary/executable
+                    $binaryExtensions = ['bin', 'exe', 'so', 'dylib', 'dll', 'zip', 'tar', 'gz', 'bz2', 'xz', 'jpg', 'jpeg', 'png', 'gif', 'pdf', 'ico'];
+                    $isBinary = in_array(strtolower($extension), $binaryExtensions);
 
                     $tree[] = [
                         'type' => 'file',
@@ -129,6 +168,8 @@ class AnsiblePlaybooksController extends Controller
                         'size' => filesize($fullPath),
                         'modified' => filemtime($fullPath),
                         'isTemplate' => $isTemplate,
+                        'isBinary' => $isBinary,
+                        'extension' => $extension,
                     ];
                 }
             }

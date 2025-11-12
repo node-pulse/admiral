@@ -118,7 +118,7 @@ services:
       flagship-migrate:
         condition: service_completed_successfully
     volumes:
-      - ./ansible:/app/ansible:ro  # Mount Ansible playbooks (read-only)
+      - ./ansible:/app/ansible  # Mount Ansible playbooks (writable for custom playbooks)
       - ./secrets:/secrets:ro  # Mount master key for SSH key decryption (read-only)
     networks:
       - node-pulse-admiral
@@ -181,7 +181,7 @@ services:
         condition: service_started
     volumes:
       - ./flagship/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh:ro
-      - ./ansible:/var/www/html/ansible # Mount Ansible playbooks (writable for community playbook installation)
+      - ./ansible:/var/www/html/ansible # Mount Ansible playbooks (writable for community/custom playbooks)
       - ./logs/flagship:/var/www/html/storage/logs # Mount logs for persistence
       - ./secrets:/secrets:ro # Mount shared secrets directory (read-only)
     networks:

@@ -65,9 +65,23 @@ mkdir -p "release/$RELEASE_DIR/flagship"
 cp flagship/docker-entrypoint.sh "release/$RELEASE_DIR/flagship/"
 chmod +x "release/$RELEASE_DIR/flagship/docker-entrypoint.sh"
 
-# Copy Ansible playbooks (needed at runtime for custom playbooks)
+# Copy Ansible playbooks (needed at runtime)
 echo "  - ansible/ (playbooks)"
 cp -r ansible "release/$RELEASE_DIR/ansible"
+
+# Remove catalog directory from release (downloaded from registry at runtime)
+echo "  - Excluding ansible/catalog/ (downloaded from registry)"
+rm -rf "release/$RELEASE_DIR/ansible/catalog"
+mkdir -p "release/$RELEASE_DIR/ansible/catalog"
+cp ansible/catalog/.gitignore "release/$RELEASE_DIR/ansible/catalog/"
+
+# Remove custom playbooks directory from release (user-specific, not for distribution)
+echo "  - Excluding ansible/custom/ (user-specific uploads)"
+rm -rf "release/$RELEASE_DIR/ansible/custom"
+mkdir -p "release/$RELEASE_DIR/ansible/custom"
+# Keep only README and .gitignore
+cp ansible/custom/.gitignore "release/$RELEASE_DIR/ansible/custom/"
+cp ansible/custom/README.md "release/$RELEASE_DIR/ansible/custom/"
 
 # Copy documentation
 echo "  - README.md"

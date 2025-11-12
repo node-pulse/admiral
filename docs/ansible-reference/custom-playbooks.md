@@ -1,379 +1,221 @@
-# Custom Playbook Upload Feature Specification
+# Custom Playbook Upload Feature
 
-**Status**: Planned (Phase 2.1 - Tier 2)
-**Target**: Post-MVP
+**Status**: In Development
+**Target**: Phase 2.1
 **Created**: 2025-11-01
+**Updated**: 2025-11-11
 
 ---
 
 ## Overview
 
-This feature enables users to upload custom Ansible playbooks through the Flagship web UI. It provides a middle-ground between system-provided playbooks (Tier 1) and a full web-based YAML editor (Tier 3).
+This feature enables users to upload custom Ansible playbooks through the Flagship web UI. It provides a simple file-based approach where uploaded playbooks are stored in `ansible/custom/` and displayed in the existing Ansible playbooks file browser.
 
 Users can upload either:
-1. **Simple playbooks** - Single `.yml` file with inline tasks
-2. **Playbook packages** - ZIP archive containing playbook + templates + files
+1. **Simple playbooks** - Single `.yml` or `.yaml` file with inline tasks
+2. **Playbook packages** - `.zip` archive containing playbook + templates + files
 
 ### Goals
 
 1. **Enable customization** - Users can run their own automation tasks beyond built-in playbooks
-2. **Maintain simplicity** - Upload via web form, no Git integration required
-3. **Ensure safety** - Basic validation prevents syntax errors
-4. **Support backup** - Users can export/download their playbooks anytime
-5. **Support templates** - Allow template files for configuration management
+2. **Maintain simplicity** - Upload via web form, files stored in filesystem, no database needed
+3. **Ensure safety** - Basic YAML validation prevents syntax errors
+4. **Leverage existing UI** - Use the existing Ansible playbooks file browser
 
 ### Non-Goals
 
-- Advanced YAML editor with syntax highlighting (Tier 3)
-- Full Ansible role support with complex directory structures (Phase 3+)
-- Git integration (Phase 5)
+- Database storage for playbook metadata (filesystem-only approach)
+- Advanced versioning system
+- Playbook marketplace or sharing between users
+- Advanced YAML editor with syntax highlighting
+- Git integration
 - Complex validation/sandboxing (users are trusted)
-
----
-
-## User Stories
-
-### Primary Use Cases
-
-**Story 1: DevOps Engineer - Custom Deployment Script**
-> "As a DevOps engineer, I want to upload my custom application deployment playbook so that I can automate deployments to my servers without manually SSH-ing into each one."
-
-**Story 2: System Administrator - Backup Script**
-> "As a sysadmin, I want to upload a backup playbook that runs nightly across all my servers and stores backups to S3."
-
-**Story 3: Security Analyst - Compliance Audit**
-> "As a security analyst, I want to run my custom compliance check playbook monthly and export the results for audit purposes."
-
-**Story 4: Freelancer - Client-Specific Tasks**
-> "As a freelancer managing multiple clients, I want to upload client-specific maintenance playbooks and organize them by tags."
 
 ---
 
 ## Architecture
 
-### Storage Strategy: Hybrid (Database + Filesystem)
+### Storage Strategy: Filesystem Only
 
-**Why Hybrid?**
+**Why Filesystem-Only?**
 
-1. **Database (PostgreSQL)** - Stores playbook content as text for backup, versioning, and search
-2. **Filesystem** - Ansible execution requires actual files on disk
-3. **Best of both** - Database backup + fast execution
+1. **Simplicity** - No database schema, no ORM complexity
+2. **Ansible-native** - Ansible requires files on disk anyway
+3. **Existing UI** - File browser already shows directory trees
+4. **Easy backup** - Just backup the `ansible/custom/` directory
+5. **No sync issues** - Single source of truth (the filesystem)
 
 ```
-┌─────────────────────────────────────────────────┐
-│  User uploads playbook via Web UI              │
-└─────────────────┬───────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  User uploads playbook via Web UI                      │
+└─────────────────┬───────────────────────────────────────┘
                   │
                   ▼
-┌─────────────────────────────────────────────────┐
-│  Flagship validates YAML syntax                 │
-│  - Parse YAML structure                         │
-│  - Check for required Ansible keys              │
-│  - Basic security scan (no hardcoded secrets)   │
-└─────────────────┬───────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  Flagship validates YAML syntax                         │
+│  - Parse YAML structure                                 │
+│  - Check for required Ansible keys                      │
+│  - Basic security scan (no hardcoded secrets)           │
+└─────────────────┬───────────────────────────────────────┘
                   │
                   ▼
-        ┌─────────┴──────────┐
-        │                    │
-        ▼                    ▼
-┌───────────────┐   ┌────────────────────┐
-│  PostgreSQL   │   │  Filesystem        │
-│  admiral.     │   │  /var/lib/         │
-│  playbooks    │   │  nodepulse/        │
-│               │   │  playbooks/        │
-│  - id         │   │  user_123/         │
-│  - user_id    │   │    custom.yml      │
-│  - name       │   │                    │
-│  - content    │◄──┤  Symlinked to      │
-│  - file_path  │   │  real file         │
-│  - version    │   │                    │
-└───────────────┘   └────────────────────┘
-        │
-        │ Backup/Export
-        ▼
-┌─────────────────────────────────────────────────┐
-│  Download ZIP: all_playbooks.zip                │
-│  - user_playbook_1.yml                          │
-│  - user_playbook_2.yml                          │
-│  - metadata.json                                │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  Save to ansible/custom/                                │
+│                                                          │
+│  Simple playbook:   custom/my-playbook.yml              │
+│  Package:           custom/nginx-setup/                 │
+│                       ├── playbook.yml                  │
+│                       ├── templates/                    │
+│                       │   └── nginx.conf.j2             │
+│                       └── files/                        │
+│                           └── index.html                │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────┐
+│  Existing Ansible Playbooks file browser shows files   │
+│  User can view, execute, or delete playbooks           │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Database Schema
-
-### New Table: `admiral.playbooks`
-
-```sql
-CREATE TABLE admiral.playbooks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-    -- Ownership
-    user_id BIGINT NOT NULL REFERENCES admiral.users(id) ON DELETE CASCADE,
-
-    -- Playbook metadata
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    tags TEXT[],  -- For categorization: ["backup", "security", "client-abc"]
-
-    -- Upload type
-    is_package BOOLEAN DEFAULT false,  -- True if ZIP upload (has templates/files)
-
-    -- Content storage (for backup/versioning)
-    content TEXT NOT NULL,  -- Full YAML content (main playbook.yml)
-
-    -- Filesystem location
-    file_path TEXT NOT NULL,  -- Simple: "/path/to/playbook.yml" | Package: "/path/to/package-dir/"
-    playbook_entry_point TEXT,  -- For packages: relative path to main playbook (e.g., "playbook.yml")
-
-    -- Versioning
-    version INTEGER DEFAULT 1,
-    parent_id UUID REFERENCES admiral.playbooks(id),  -- Points to previous version
-
-    -- Status
-    is_active BOOLEAN DEFAULT true,
-    is_system BOOLEAN DEFAULT false,  -- True for built-in playbooks
-
-    -- Validation
-    last_validated_at TIMESTAMPTZ,
-    validation_errors JSONB,  -- Store validation warnings/errors
-
-    -- Usage stats
-    execution_count INTEGER DEFAULT 0,
-    last_executed_at TIMESTAMPTZ,
-
-    -- Audit
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-    -- Constraints
-    UNIQUE(user_id, name, version),
-    CHECK(length(name) >= 3),
-    CHECK(length(content) >= 10)
-);
-
--- Indexes
-CREATE INDEX idx_playbooks_user ON admiral.playbooks(user_id, is_active);
-CREATE INDEX idx_playbooks_tags ON admiral.playbooks USING GIN(tags);
-CREATE INDEX idx_playbooks_created ON admiral.playbooks(created_at DESC);
-CREATE INDEX idx_playbooks_name_search ON admiral.playbooks USING GIN(to_tsvector('english', name || ' ' || COALESCE(description, '')));
-
--- View for active playbooks only
-CREATE VIEW admiral.active_playbooks AS
-SELECT * FROM admiral.playbooks
-WHERE is_active = true;
-```
-
-### Filesystem Structure
+## Filesystem Structure
 
 ```
-/var/lib/nodepulse/playbooks/
-├── system/                           # Built-in playbooks (is_system=true)
-│   ├── deploy-agent-mtls.yml
-│   ├── deploy-node-exporter.yml
-│   └── security-hardening.yml
+ansible/
+├── nodepulse/                  # Built-in system playbooks
+│   ├── deploy.yml
+│   └── uninstall.yml
 │
-├── user_1/                           # User-uploaded playbooks
-│   ├── custom-backup.yml             # Simple playbook (single file)
-│   ├── deploy-app.yml                # Simple playbook
-│   │
-│   ├── nginx-setup/                  # Playbook package (extracted ZIP)
-│   │   ├── playbook.yml              # Main playbook
-│   │   ├── templates/
-│   │   │   ├── nginx.conf.j2
-│   │   │   └── site.conf.j2
-│   │   └── files/
-│   │       └── index.html
-│   │
-│   └── wordpress-deploy/             # Another playbook package
-│       ├── playbook.yml
-│       ├── templates/
-│       │   └── wp-config.php.j2
-│       └── files/
-│           └── .htaccess
+├── catalog/                    # Community playbooks (from registry)
+│   └── f/
+│       └── fail2ban/
+│           ├── manifest.json
+│           ├── playbook.yml
+│           └── templates/
 │
-├── user_2/
-│   ├── client-a-maintenance.yml
-│   └── client-b-deploy.yml
-│
-└── shared/                           # Future: shared playbooks (Phase 3)
-    └── community-wordpress-setup.yml
+└── custom/                     # User-uploaded playbooks (NEW)
+    ├── .gitignore              # Ignore all except README
+    ├── README.md
+    │
+    ├── my-backup.yml           # Simple playbook
+    ├── deploy-app.yml          # Simple playbook
+    │
+    ├── nginx-setup/            # Playbook package
+    │   ├── playbook.yml
+    │   ├── templates/
+    │   │   ├── nginx.conf.j2
+    │   │   └── site.conf.j2
+    │   └── files/
+    │       └── index.html
+    │
+    └── wordpress/              # Another package
+        ├── playbook.yml
+        ├── templates/
+        │   └── wp-config.php.j2
+        └── files/
+            └── .htaccess
 ```
 
 ---
 
 ## Validation Rules
 
-### Basic Validation (Phase 1)
+### File Upload Validation
 
-**File Upload Validation**
-- Simple playbook: `.yml` or `.yaml` file only
-- Package: `.zip` file containing valid structure
-- Max file size: 1MB (simple) or 5MB (package)
+**Simple Playbook:**
+- File extension: `.yml` or `.yaml` only
+- Max file size: 100MB
+- YAML syntax must be valid
+- Must have Ansible playbook structure (`hosts`, `tasks` or `roles`)
 
-**YAML Syntax Check**
-- Must be valid YAML (no parse errors)
-- Required top-level keys: `name`, `hosts`, `tasks` (or `roles`)
-- No empty task lists
+**Playbook Package (ZIP):**
+- File extension: `.zip` only
+- Max file size: 100MB
+- **Must contain a `manifest.json` file** following the Node Pulse Admiral schema
+- Must contain the playbook file specified in `manifest.entry_point`
+- Total extracted size must not exceed 100MB
+- Can include any file types (templates, configs, scripts, etc.)
 
-**Package Structure Validation** (for ZIP uploads)
-- Must contain a main playbook file (e.g., `playbook.yml`)
-- Optional: `templates/` directory for Jinja2 templates
-- Optional: `files/` directory for static files
-- No executable files allowed (.sh, .bin, .exe)
-- Total extracted size must not exceed 10MB
+### YAML Structure Validation (Simple Playbooks Only)
 
-**Ansible Structure Check**
-```python
-# Pseudo-code validation
-def validate_playbook(yaml_content, package_files=None):
-    # 1. Parse YAML
-    try:
-        data = yaml.safe_load(yaml_content)
-    except YAMLError as e:
-        return {"valid": False, "error": f"YAML syntax error: {e}"}
-
-    # 2. Must be a list of plays
-    if not isinstance(data, list):
-        return {"valid": False, "error": "Playbook must be a list of plays"}
-
-    # 3. Each play must have required keys
-    for play in data:
-        if "hosts" not in play:
-            return {"valid": False, "error": "Each play must have 'hosts' key"}
-
-        if "tasks" not in play and "roles" not in play:
-            return {"valid": False, "error": "Each play must have 'tasks' or 'roles'"}
-
-    # 4. Validate template references (for packages)
-    if package_files:
-        template_refs = extract_template_references(yaml_content)
-        for ref in template_refs:
-            if ref not in package_files:
-                return {
-                    "valid": False,
-                    "error": f"Referenced template not found in package: {ref}"
-                }
-
-    # 5. Scan for hardcoded secrets (basic regex check)
-    secrets_found = scan_for_secrets(yaml_content)
-    if secrets_found:
-        return {
-            "valid": True,
-            "warnings": [f"Potential secret found: {s}" for s in secrets_found]
-        }
-
-    return {"valid": True}
+```php
+// Basic validation rules for simple .yml uploads:
+1. Must be valid YAML (parseable)
+2. Must be a list of plays (array)
+3. Each play must have 'hosts' key
+4. Each play must have 'tasks' or 'roles'
 ```
 
-**Basic Secret Detection**
-```regex
-# Warn if these patterns are found (not blocking, just warnings)
-password:\s*['"]\w+['"]
-api_key:\s*['"]\w+['"]
-secret:\s*['"]\w+['"]
-token:\s*['"]\w+['"]
+### Manifest Validation (Package Uploads)
+
+ZIP packages **must** include a `manifest.json` file with these required fields:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
+  "id": "pb_aB3xK9mN2q",          // Format: pb_XXXXXXXXXX (10 alphanumeric)
+  "name": "My Custom Playbook",
+  "version": "1.0.0",
+  "description": "What this playbook does",
+  "author": {
+    "name": "Your Name",
+    "email": "you@example.com"
+  },
+  "category": "monitoring",        // One of: monitoring, database, search, security, proxy, storage, dev-tools
+  "tags": ["nginx", "web"],
+  "entry_point": "playbook.yml",   // Main playbook file to execute
+  "ansible_version": ">=2.15",
+  "os_support": [
+    {
+      "distro": "ubuntu",
+      "version": "22.04",
+      "arch": "both"
+    }
+  ],
+  "license": "MIT"
+}
 ```
 
-### Future: Advanced Validation (Optional - Phase 3)
+See full schema: [node-pulse-admiral-playbook-manifest-v1.schema.json](https://github.com/node-pulse/playbooks/blob/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json)
 
-- Module whitelist (only allow safe modules)
-- Variable validation (ensure all variables are defined)
-- Dry-run execution in sandbox
-- Ansible-lint integration
+### Security Checks
+
+**Basic Secret Detection (warnings only):**
+- Scans for patterns like `password:`, `api_key:`, `secret:`, `token:`
+- Warns user but doesn't block upload
+- Encourages use of Ansible Vault or variables
+
+**Path Traversal Prevention:**
+- Filenames sanitized to remove `..`, `/`, `~`
+- All uploads restricted to `ansible/custom/` directory
+- Realpath validation on all file operations
 
 ---
 
 ## API Endpoints
 
-### Playbook Management API
-
-**Base path**: `/api/playbooks`
-
-#### List User Playbooks
+### Upload Custom Playbook
 
 ```http
-GET /api/playbooks
-Authorization: Bearer {token}
-
-Query Parameters:
-  - tags: string[] (filter by tags)
-  - search: string (search name/description)
-  - is_active: boolean (default: true)
-  - per_page: integer (default: 20)
-
-Response: 200 OK
-{
-  "playbooks": [
-    {
-      "id": "uuid",
-      "name": "Custom Backup Playbook",
-      "description": "Backs up /var/www to S3",
-      "tags": ["backup", "production"],
-      "version": 2,
-      "is_active": true,
-      "execution_count": 15,
-      "last_executed_at": "2025-11-01T10:30:00Z",
-      "created_at": "2025-10-15T08:00:00Z",
-      "updated_at": "2025-10-20T14:30:00Z"
-    }
-  ],
-  "meta": {
-    "current_page": 1,
-    "per_page": 20,
-    "total": 5
-  }
-}
-```
-
-#### Get Playbook Details
-
-```http
-GET /api/playbooks/{id}
-Authorization: Bearer {token}
-
-Response: 200 OK
-{
-  "playbook": {
-    "id": "uuid",
-    "name": "Custom Backup Playbook",
-    "description": "Backs up /var/www to S3",
-    "tags": ["backup", "production"],
-    "content": "---\n- name: Backup to S3\n  hosts: all\n  tasks:\n    - name: ...",
-    "file_path": "/var/lib/nodepulse/playbooks/user_123/custom-backup.yml",
-    "version": 2,
-    "parent_id": "previous-version-uuid",
-    "validation_errors": null,
-    "execution_count": 15,
-    "last_executed_at": "2025-11-01T10:30:00Z",
-    "created_at": "2025-10-15T08:00:00Z"
-  }
-}
-```
-
-#### Upload New Playbook
-
-```http
-POST /api/playbooks
+POST /api/custom-playbooks/upload
 Authorization: Bearer {token}
 Content-Type: multipart/form-data
 
 Form Data:
   - file: playbook.yml OR package.zip (required)
-  - name: string (optional - auto-detected from playbook)
-  - description: string (optional)
-  - tags: string[] (optional)
-  - entry_point: string (optional - for packages, defaults to "playbook.yml")
+  - name: string (optional - custom filename)
 
 Response: 201 Created (Simple Playbook)
 {
+  "success": true,
   "message": "Playbook uploaded successfully",
   "playbook": {
-    "id": "new-uuid",
-    "name": "Custom Backup Playbook",
-    "is_package": false,
-    "file_path": "/var/lib/nodepulse/playbooks/user_123/custom-backup.yml"
+    "name": "my-backup.yml",
+    "path": "custom/my-backup.yml",
+    "size": 1234,
+    "type": "simple"
   },
   "validation": {
     "valid": true,
@@ -383,17 +225,16 @@ Response: 201 Created (Simple Playbook)
 
 Response: 201 Created (Package)
 {
+  "success": true,
   "message": "Playbook package uploaded successfully",
   "playbook": {
-    "id": "new-uuid",
-    "name": "Nginx Setup",
-    "is_package": true,
-    "file_path": "/var/lib/nodepulse/playbooks/user_123/nginx-setup/",
-    "playbook_entry_point": "playbook.yml",
-    "package_contents": {
-      "playbook": "playbook.yml",
-      "templates": ["nginx.conf.j2", "site.conf.j2"],
-      "files": ["index.html"]
+    "name": "nginx-setup",
+    "path": "custom/nginx-setup",
+    "type": "package",
+    "contents": {
+      "playbooks": ["playbook.yml"],
+      "templates": ["templates/nginx.conf.j2", "templates/site.conf.j2"],
+      "files": ["files/index.html"]
     }
   },
   "validation": {
@@ -402,87 +243,45 @@ Response: 201 Created (Package)
   }
 }
 
-Response: 400 Bad Request (validation failed)
+Response: 422 Unprocessable Entity (Validation Failed)
 {
-  "message": "Playbook validation failed",
+  "success": false,
+  "message": "YAML validation failed",
   "errors": [
-    "YAML syntax error: expected <block end>, but found ..."
+    "YAML syntax error: expected <block end>, but found ...",
+    "Play #0 missing required 'hosts' key"
   ]
 }
-```
 
-#### Update Playbook (Creates New Version)
-
-```http
-PUT /api/playbooks/{id}
-Authorization: Bearer {token}
-Content-Type: multipart/form-data
-
-Form Data:
-  - file: playbook.yml (optional - if provided, creates new version)
-  - name: string (optional)
-  - description: string (optional)
-  - tags: string[] (optional)
-
-Response: 200 OK
+Response: 409 Conflict (File Exists)
 {
-  "message": "Playbook updated (version 3 created)",
-  "playbook": {
-    "id": "new-version-uuid",
-    "version": 3,
-    "parent_id": "old-version-uuid"
-  }
+  "success": false,
+  "message": "A playbook with this name already exists"
 }
 ```
 
-#### Delete Playbook (Soft Delete)
+### Delete Custom Playbook
 
 ```http
-DELETE /api/playbooks/{id}
+DELETE /api/custom-playbooks/delete
 Authorization: Bearer {token}
+Content-Type: application/json
 
-Response: 200 OK
+Body:
 {
-  "message": "Playbook deactivated"
+  "path": "custom/my-backup.yml"
 }
-```
-
-#### Export All Playbooks (Backup)
-
-```http
-GET /api/playbooks/export
-Authorization: Bearer {token}
-
-Response: 200 OK
-Content-Type: application/zip
-Content-Disposition: attachment; filename="playbooks_backup_2025-11-01.zip"
-
-ZIP Contents:
-  playbooks/
-    custom-backup.yml
-    deploy-app.yml
-    client-maintenance.yml
-  metadata.json  # Contains names, descriptions, tags, versions
-```
-
-#### Import Playbooks (Restore)
-
-```http
-POST /api/playbooks/import
-Authorization: Bearer {token}
-Content-Type: multipart/form-data
-
-Form Data:
-  - file: playbooks_backup.zip
 
 Response: 200 OK
 {
-  "message": "Imported 3 playbooks",
-  "imported": [
-    {"name": "custom-backup.yml", "status": "success"},
-    {"name": "deploy-app.yml", "status": "success"},
-    {"name": "invalid.yml", "status": "failed", "error": "YAML syntax error"}
-  ]
+  "success": true,
+  "message": "Playbook deleted successfully"
+}
+
+Response: 403 Forbidden (Invalid Path)
+{
+  "success": false,
+  "message": "Invalid path: must be under custom/ directory"
 }
 ```
 
@@ -490,258 +289,194 @@ Response: 200 OK
 
 ## Web UI Components
 
-### Playbook Upload Page
+### Upload Modal/Page
 
-**Route**: `/dashboard/playbooks/upload`
+**Route**: `/dashboard/ansible/playbooks` (add upload button to existing page)
 
-**UI Components**:
+**UI Components:**
 
-1. **Upload Type Selector**
-   - Radio buttons: "Simple Playbook" or "Playbook Package"
-   - Shows appropriate instructions for each type
+1. **Upload Button** in existing Ansible Playbooks page toolbar
+   - Opens modal or dedicated upload page
 
 2. **File Upload Area**
    - Drag-and-drop zone
    - File picker button
-   - Simple mode: Accepts `.yml`, `.yaml` files (max 1MB)
-   - Package mode: Accepts `.zip` files (max 5MB)
+   - Accepts `.yml`, `.yaml`, `.zip` files (max 100MB)
+   - Shows file preview after selection
 
-3. **Package Configuration** (shown only for ZIP uploads)
-   - Entry point selector (dropdown of .yml files found in ZIP)
-   - Package contents preview (tree view of extracted files)
+3. **Optional Name Field**
+   - Auto-filled from filename
+   - User can override with custom name
+   - Sanitized automatically
 
-4. **Metadata Form**
-   - Name (auto-filled from playbook, editable)
-   - Description (optional textarea)
-   - Tags (multi-select dropdown + custom input)
+4. **Validation Preview**
+   - Real-time YAML validation after file selection
+   - Shows syntax errors or validation warnings
+   - Package contents preview (for ZIP files)
 
-5. **Validation Preview**
-   - Real-time YAML validation
-   - Syntax highlighting (read-only preview)
-   - Package structure validation (for ZIPs)
-   - Warning/error messages
-
-6. **Upload Button**
+5. **Upload Button**
    - Disabled until validation passes
    - Shows progress indicator
-   - Success/error toast notifications
+   - Success/error notifications
 
-**Example React Component Structure**:
+**Example React Component:**
 
 ```typescript
-// flagship/resources/js/components/playbooks/upload-playbook.tsx
-import { useState } from 'react';
+// flagship/resources/js/components/ansible/upload-playbook-modal.tsx
 import { useForm } from '@inertiajs/react';
+import { useState } from 'react';
 
-interface UploadPlaybookForm {
+interface UploadForm {
   file: File | null;
   name: string;
-  description: string;
-  tags: string[];
 }
 
-export default function UploadPlaybook() {
-  const { data, setData, post, processing, errors } = useForm<UploadPlaybookForm>({
+export function UploadPlaybookModal({ open, onClose }) {
+  const { data, setData, post, processing, errors } = useForm<UploadForm>({
     file: null,
     name: '',
-    description: '',
-    tags: [],
   });
 
-  const [validationResult, setValidationResult] = useState(null);
+  const [validation, setValidation] = useState(null);
 
   const handleFileChange = async (file: File) => {
     setData('file', file);
 
     // Auto-fill name from filename
-    const name = file.name.replace(/\.(yml|yaml)$/, '');
+    const name = file.name.replace(/\.(yml|yaml|zip)$/i, '');
     setData('name', name);
 
-    // Validate YAML client-side
-    const content = await file.text();
-    const result = await validatePlaybook(content);
-    setValidationResult(result);
+    // TODO: Client-side validation preview
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    post('/api/playbooks', {
+
+    post('/api/custom-playbooks/upload', {
       forceFormData: true,
       onSuccess: () => {
-        // Redirect to playbooks list
+        onClose();
+        // Refresh file tree
       },
     });
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <FileDropzone
-        onFileSelect={handleFileChange}
-        accept=".yml,.yaml"
-        maxSize={1024 * 1024} // 1MB
-      />
+    <Dialog open={open} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <FileDropzone
+          onFileSelect={handleFileChange}
+          accept=".yml,.yaml,.zip"
+          maxSize={100 * 1024 * 1024} // 100MB
+        />
 
-      {validationResult && (
-        <ValidationPreview result={validationResult} />
-      )}
+        <Input
+          label="Name (optional)"
+          value={data.name}
+          onChange={(e) => setData('name', e.target.value)}
+          placeholder="my-playbook"
+        />
 
-      <Input
-        label="Playbook Name"
-        value={data.name}
-        onChange={(e) => setData('name', e.target.value)}
-        error={errors.name}
-      />
+        {validation && <ValidationPreview result={validation} />}
 
-      <Textarea
-        label="Description"
-        value={data.description}
-        onChange={(e) => setData('description', e.target.value)}
-      />
-
-      <TagInput
-        value={data.tags}
-        onChange={(tags) => setData('tags', tags)}
-      />
-
-      <Button
-        type="submit"
-        disabled={processing || !validationResult?.valid}
-      >
-        Upload Playbook
-      </Button>
-    </form>
+        <Button type="submit" disabled={processing || !data.file}>
+          Upload Playbook
+        </Button>
+      </form>
+    </Dialog>
   );
 }
 ```
 
-### Playbook List Page
+### Integration with Existing File Browser
 
-**Route**: `/dashboard/playbooks`
+The existing `AnsiblePlaybooksController` already displays `ansible/custom/` automatically:
+- Shows directory tree
+- Displays file sizes and modification times
+- Allows viewing YAML content
+- Supports syntax highlighting
 
-**Features**:
-- Table view with columns: Name, Tags, Last Executed, Executions, Actions
-- Filter by tags
-- Search by name/description
-- Quick actions: View, Edit, Execute, Delete, Download
-
-### Playbook Detail Page
-
-**Route**: `/dashboard/playbooks/{id}`
-
-**Sections**:
-1. **Metadata** - Name, description, tags, created date
-2. **Content Preview** - Syntax-highlighted YAML (read-only)
-3. **Version History** - List of all versions with diff view
-4. **Execution History** - Recent runs with status
-5. **Actions** - Execute, Edit, Download, Delete
+**Special handling for custom/ directory:**
+1. **All file types shown** - Unlike system/catalog playbooks (only .yml/.yaml/.j2), custom directory shows ALL files
+2. **Binary files** - Displayed in tree but show "Binary file type - cannot display content" when clicked
+3. **Text file types viewable**: .yml, .yaml, .j2, .json, .md, .txt, .sh, .conf, .ini, .cfg, .env, .properties, .log, .xml, .html, .css, .js
+4. **Binary file types**: .bin, .exe, .so, .dll, .zip, .tar, .gz, images, PDFs (shown but not viewable)
+5. **Delete button** - Available for custom playbooks only (not system/catalog)
+6. **Upload button** - In page toolbar
 
 ---
 
-## Implementation Plan
+## Implementation Checklist
 
-### Phase 1: Basic Upload (Week 1-2)
+### Phase 1: Backend (Laravel)
 
-**Backend (Laravel/PostgreSQL)**:
-- [ ] Create migration for `admiral.playbooks` table
-- [ ] Create `Playbook` Eloquent model
-- [ ] Implement `PlaybookService` for validation and storage
-- [ ] Create API endpoints: `POST /api/playbooks`, `GET /api/playbooks`
+- [x] Create `ansible/custom/` directory with `.gitignore`
+- [x] Create `CustomPlaybooksController` with upload/delete methods
+- [ ] Add routes to `routes/api.php`
+- [ ] Add YAML validation using Symfony YAML component
+- [ ] Add ZIP extraction and validation
 - [ ] Write unit tests for validation logic
+- [ ] Write feature tests for upload/delete
 
-**Frontend (React/Inertia)**:
-- [ ] Build upload form component
-- [ ] Implement file dropzone with validation
-- [ ] Create playbook list view
+### Phase 2: Frontend (React/Inertia)
+
+- [ ] Create upload modal component
+- [ ] Add file dropzone with validation
+- [ ] Add upload button to Ansible Playbooks page
+- [ ] Add delete button for custom playbooks
+- [ ] Add "Custom" badge to distinguish files
 - [ ] Add toast notifications for success/errors
+- [ ] Refresh file tree after upload/delete
 
-**Testing**:
+### Phase 3: Testing
+
 - [ ] Test YAML validation with valid/invalid playbooks
-- [ ] Test file upload with various file sizes
-- [ ] Test database storage and filesystem sync
+- [ ] Test ZIP package upload and extraction
+- [ ] Test file size limits
+- [ ] Test path traversal prevention
+- [ ] Test delete functionality
+- [ ] E2E test for full upload flow
 
-### Phase 2: Execution Integration (Week 3)
+### Phase 4: Documentation
 
-**Backend**:
-- [ ] Update `AnsibleService` to support custom playbooks
-- [ ] Modify `DeployAgentJob` to accept custom playbook IDs
-- [ ] Add playbook selection to deployment creation API
-
-**Frontend**:
-- [ ] Add "Execute Playbook" button to playbook detail page
-- [ ] Create server selection modal for custom playbooks
-- [ ] Integrate with existing deployment flow
-
-### Phase 3: Versioning & Backup (Week 4)
-
-**Backend**:
-- [ ] Implement versioning logic (create new version on update)
-- [ ] Build export endpoint (`GET /api/playbooks/export`)
-- [ ] Build import endpoint (`POST /api/playbooks/import`)
-- [ ] Add diff comparison between versions
-
-**Frontend**:
-- [ ] Add version history view
-- [ ] Build diff viewer component
-- [ ] Add export/import buttons to playbook list
-- [ ] Implement backup download functionality
-
-### Phase 4: Polish & Documentation (Week 5)
-
-**Backend**:
-- [ ] Add usage statistics tracking
-- [ ] Implement soft delete (is_active flag)
-- [ ] Add tags filtering and search
-
-**Frontend**:
-- [ ] Improve UI/UX based on testing
-- [ ] Add loading states and error handling
-- [ ] Create help documentation in-app
-
-**Documentation**:
-- [ ] Update user guide with playbook upload instructions
-- [ ] Create video tutorial for playbook upload
-- [ ] Add example playbooks to documentation
+- [ ] Update user documentation
+- [ ] Add example playbooks
+- [ ] Document upload limits and validation rules
 
 ---
 
 ## Security Considerations
 
-### Basic Security (Phase 1)
+### Upload Security
 
-1. **File Upload**
-   - Restrict file types: `.yml`, `.yaml` only
-   - Max file size: 1MB
-   - Virus scan (optional with ClamAV)
+1. **File Type Restrictions**
+   - Only `.yml`, `.yaml`, `.zip` allowed
+   - No executable files in ZIP packages
+   - MIME type validation
 
-2. **User Isolation**
-   - Users can only access their own playbooks
-   - File paths use user ID for separation
-   - Database queries always filter by `user_id`
+2. **File Size Limits**
+   - Single file: 100MB max
+   - Extracted package: 100MB max
 
-3. **Secret Detection**
-   - Warn (don't block) if potential secrets detected
-   - Encourage use of Ansible Vault or environment variables
+3. **Path Traversal Prevention**
+   - Filename sanitization (remove `..`, `/`, `~`)
+   - Realpath validation on all operations
+   - Restrict all operations to `ansible/custom/` only
 
-4. **Execution**
-   - Playbooks run in same context as system playbooks
-   - No additional sandboxing (users are trusted)
+4. **YAML Validation**
+   - Parse with safe YAML loader
+   - Check basic Ansible structure
+   - Warn on potential secrets (not blocking)
 
-### Future Security (Phase 3 - Optional)
+5. **User Isolation**
+   - All users share `ansible/custom/` directory (single-tenant assumption)
+   - Admin-only access controls who can upload/delete
 
-1. **Module Whitelisting**
-   - Restrict to safe Ansible modules only
-   - Block: `shell`, `command`, `script`, `raw` modules
-   - Allow: `apt`, `yum`, `systemd`, `file`, `template`, etc.
+### Execution Security
 
-2. **Dry-Run Validation**
-   - Test playbook execution in isolated environment
-   - Use Docker container or Ansible check mode
-   - Report potential issues before real execution
-
-3. **Audit Logging**
-   - Log all playbook uploads with user info
-   - Track all executions with full output
-   - Retention policy for compliance
+- Playbooks run in same context as system playbooks
+- No additional sandboxing (users are trusted admins)
+- Full Ansible capabilities available
 
 ---
 
@@ -749,15 +484,15 @@ export default function UploadPlaybook() {
 
 ### How to Upload a Custom Playbook
 
-#### Option 1: Simple Playbook (Single File)
+#### Option 1: Simple Playbook (Single YAML File)
 
 **Step 1: Prepare Your Playbook**
 
-Create a valid Ansible playbook in YAML format:
+Create a valid Ansible playbook:
 
 ```yaml
 ---
-- name: My Custom Backup Playbook
+- name: My Custom Backup
   hosts: all
   become: yes
 
@@ -766,43 +501,43 @@ Create a valid Ansible playbook in YAML format:
       file:
         path: /var/backups/myapp
         state: directory
-        owner: root
-        group: root
         mode: '0755'
 
-    - name: Backup application files
+    - name: Backup files
       archive:
         path: /var/www/myapp
         dest: /var/backups/myapp/backup-{{ ansible_date_time.date }}.tar.gz
-        format: gz
 ```
 
-**Step 2: Upload**
+**Step 2: Upload via Web UI**
 
-1. Navigate to **Dashboard → Playbooks → Upload**
-2. Select "Simple Playbook"
-3. Drag and drop your `.yml` file or click "Choose File"
+1. Navigate to **Ansible → Playbooks**
+2. Click **Upload Custom Playbook** button
+3. Select your `.yml` file or drag-and-drop
 4. Review validation results
-5. Add description and tags (optional)
-6. Click "Upload Playbook"
+5. (Optional) Change the name
+6. Click **Upload**
 
-#### Option 2: Playbook Package (With Templates/Files)
+**Step 3: Execute**
+
+1. The playbook now appears in the file tree under `custom/`
+2. Click on it to view content
+3. Use it in deployments by referencing `custom/my-backup.yml`
+
+#### Option 2: Playbook Package (With Templates)
 
 **Step 1: Create Package Structure**
 
-Organize your playbook with templates and files:
-
 ```
 nginx-setup/
-├── playbook.yml              # Main playbook
+├── playbook.yml
 ├── templates/
-│   ├── nginx.conf.j2         # Jinja2 template
-│   └── site.conf.j2
+│   └── nginx.conf.j2
 └── files/
-    └── index.html            # Static file
+    └── index.html
 ```
 
-**Example playbook.yml with templates:**
+**Example playbook.yml:**
 
 ```yaml
 ---
@@ -810,31 +545,17 @@ nginx-setup/
   hosts: webservers
   become: yes
 
-  vars:
-    server_name: example.com
-    web_root: /var/www/html
-
   tasks:
     - name: Install nginx
       apt:
         name: nginx
         state: present
 
-    - name: Deploy nginx config
+    - name: Deploy config
       template:
-        src: templates/nginx.conf.j2  # Relative path within package
+        src: templates/nginx.conf.j2
         dest: /etc/nginx/nginx.conf
       notify: restart nginx
-
-    - name: Deploy site config
-      template:
-        src: templates/site.conf.j2
-        dest: /etc/nginx/sites-available/{{ server_name }}
-
-    - name: Copy index page
-      copy:
-        src: files/index.html  # Relative path within package
-        dest: "{{ web_root }}/index.html"
 
   handlers:
     - name: restart nginx
@@ -843,294 +564,86 @@ nginx-setup/
         state: restarted
 ```
 
-**Step 2: Create ZIP Archive**
+**Step 2: Create ZIP**
 
 ```bash
 cd nginx-setup/
-zip -r nginx-setup.zip playbook.yml templates/ files/
+zip -r nginx-setup.zip .
 ```
 
-**Step 3: Upload Package**
+**Step 3: Upload**
 
-1. Navigate to **Dashboard → Playbooks → Upload**
-2. Select "Playbook Package"
-3. Upload your ZIP file
-4. Select entry point (defaults to `playbook.yml`)
-5. Review package contents preview
-6. Add description and tags
-7. Click "Upload Package"
+1. Navigate to **Ansible → Playbooks**
+2. Click **Upload Custom Playbook**
+3. Select your `.zip` file
+4. Review package contents
+5. Click **Upload**
 
-#### Execute Your Playbook
+**Step 4: Execute**
 
-1. Go to **Dashboard → Playbooks**
-2. Click on your uploaded playbook
-3. Click "Execute"
-4. Select target servers
-5. Review variables (if any)
-6. Click "Run Playbook"
+Reference the package in deployments: `custom/nginx-setup/playbook.yml`
 
-#### View Results
+### Deleting Custom Playbooks
 
-1. Monitor execution in real-time
-2. View output logs per server
-3. Check success/failure status
-4. Download full execution logs
-
-#### Backup and Restore
-
-**Export all playbooks:**
-1. Go to **Dashboard → Playbooks**
-2. Click "Export All"
-3. Download ZIP file containing all your playbooks and metadata
-
-**Import playbooks:**
-1. Go to **Dashboard → Playbooks**
-2. Click "Import"
-3. Upload previously exported ZIP file
-4. Review import results
-
----
-
-## Testing Strategy
-
-### Unit Tests
-
-**Laravel (PHPUnit)**:
-
-```php
-// tests/Unit/Services/PlaybookValidationTest.php
-class PlaybookValidationTest extends TestCase
-{
-    public function test_valid_playbook_passes_validation()
-    {
-        $yaml = <<<YAML
----
-- name: Test
-  hosts: all
-  tasks:
-    - name: Ping
-      ping:
-YAML;
-
-        $validator = new PlaybookValidator();
-        $result = $validator->validate($yaml);
-
-        $this->assertTrue($result['valid']);
-    }
-
-    public function test_invalid_yaml_fails_validation()
-    {
-        $yaml = "invalid: yaml: syntax";
-
-        $validator = new PlaybookValidator();
-        $result = $validator->validate($yaml);
-
-        $this->assertFalse($result['valid']);
-        $this->assertStringContainsString('YAML syntax error', $result['error']);
-    }
-
-    public function test_playbook_without_hosts_fails()
-    {
-        $yaml = <<<YAML
----
-- name: Test
-  tasks:
-    - name: Ping
-      ping:
-YAML;
-
-        $validator = new PlaybookValidator();
-        $result = $validator->validate($yaml);
-
-        $this->assertFalse($result['valid']);
-        $this->assertStringContainsString('hosts', $result['error']);
-    }
-}
-```
-
-### Integration Tests
-
-**Laravel (Feature Tests)**:
-
-```php
-// tests/Feature/PlaybookUploadTest.php
-class PlaybookUploadTest extends TestCase
-{
-    use RefreshDatabase;
-
-    public function test_authenticated_user_can_upload_playbook()
-    {
-        $user = User::factory()->create();
-
-        $file = UploadedFile::fake()->createWithContent('test.yml', <<<YAML
----
-- name: Test
-  hosts: all
-  tasks:
-    - name: Ping
-      ping:
-YAML);
-
-        $response = $this->actingAs($user)
-            ->post('/api/playbooks', [
-                'file' => $file,
-                'name' => 'Test Playbook',
-                'description' => 'A test playbook',
-                'tags' => ['test'],
-            ]);
-
-        $response->assertStatus(201);
-        $this->assertDatabaseHas('admiral.playbooks', [
-            'user_id' => $user->id,
-            'name' => 'Test Playbook',
-        ]);
-    }
-
-    public function test_playbook_is_stored_on_filesystem()
-    {
-        // ... test file storage
-    }
-
-    public function test_user_can_only_see_own_playbooks()
-    {
-        // ... test user isolation
-    }
-}
-```
-
-### End-to-End Tests
-
-**Playwright/Cypress**:
-
-```typescript
-// tests/e2e/playbook-upload.spec.ts
-test('user can upload and execute playbook', async ({ page }) => {
-  // Login
-  await page.goto('/login');
-  await page.fill('input[name="email"]', 'test@example.com');
-  await page.fill('input[name="password"]', 'password');
-  await page.click('button[type="submit"]');
-
-  // Navigate to upload page
-  await page.goto('/dashboard/playbooks/upload');
-
-  // Upload file
-  const fileInput = page.locator('input[type="file"]');
-  await fileInput.setInputFiles('fixtures/test-playbook.yml');
-
-  // Wait for validation
-  await page.waitForSelector('.validation-success');
-
-  // Fill metadata
-  await page.fill('input[name="name"]', 'E2E Test Playbook');
-  await page.fill('textarea[name="description"]', 'Uploaded via E2E test');
-
-  // Submit
-  await page.click('button:has-text("Upload Playbook")');
-
-  // Verify success
-  await expect(page.locator('.toast-success')).toBeVisible();
-  await expect(page).toHaveURL(/\/dashboard\/playbooks$/);
-});
-```
+1. Navigate to **Ansible → Playbooks**
+2. Expand `custom/` directory
+3. Find your playbook
+4. Click the delete icon (only available for custom playbooks)
+5. Confirm deletion
 
 ---
 
 ## Future Enhancements
 
-### Phase 2+ Features
+### Potential Improvements (Phase 3+)
 
-1. **Playbook Marketplace** (Tier 2+)
-   - Community-contributed playbooks
-   - Star/favorite system
-   - Comments and ratings
-   - Fork and customize
-
-2. **Scheduled Execution**
-   - Run playbooks on cron schedule
-   - Maintenance windows
-   - Calendar view
-
-3. **Playbook Templates**
+1. **Playbook Templates**
    - Pre-built templates for common tasks
-   - Variable substitution in templates
-   - Template gallery
+   - Template gallery in UI
 
-4. **Advanced Editor** (Tier 3)
-   - In-browser YAML editor with syntax highlighting
-   - Auto-completion for Ansible modules
-   - Live validation as you type
-   - Integrated documentation
+2. **Inline Editor**
+   - Edit playbooks directly in browser
+   - Syntax highlighting and validation
 
-5. **Ansible Vault Integration**
-   - Encrypt sensitive variables
+3. **Export/Import**
+   - Bulk export all custom playbooks as ZIP
+   - Import previously exported archives
+
+4. **Scheduled Execution**
+   - Run custom playbooks on cron schedule
+   - Maintenance windows
+
+5. **Ansible Vault Support**
+   - Upload encrypted vault files
    - Vault password management
-   - Automatic decryption during execution
-
-6. **Git Sync** (Phase 5)
-   - Sync playbooks from Git repositories
-   - GitOps workflow
-   - Automatic execution on git push
-
----
-
-## Success Metrics
-
-### Launch Metrics (First 3 Months)
-
-- **Adoption**: 30% of active users upload at least 1 custom playbook
-- **Usage**: 50% of uploaded playbooks executed at least once
-- **Validation**: <5% upload failure rate due to validation errors
-- **Backup**: 10% of users export playbooks for backup
-
-### Quality Metrics
-
-- **Execution Success**: >80% of custom playbook executions succeed
-- **Upload Time**: <3 seconds for typical 100KB playbook
-- **Validation Time**: <1 second for YAML validation
-- **Search Performance**: <500ms for playbook search queries
 
 ---
 
 ## FAQ
 
-### Q: Can I upload Ansible roles?
-**A**: Not in the traditional sense. You can upload playbook packages (ZIP files) with templates and files, but not full role directory structures. This covers most use cases without the complexity of role management.
+### Q: Where are custom playbooks stored?
+**A**: In `ansible/custom/` directory on the Admiral server. They're regular files on disk, accessible to Ansible.
 
-### Q: How do I use variables in custom playbooks?
-**A**: You can define variables in your playbook using `vars:` section, or pass them during execution via the web UI.
+### Q: Can I organize playbooks into subdirectories?
+**A**: Yes! When you upload a ZIP package, it creates a subdirectory automatically. You can also create subdirectories manually by uploading packages with nested structure.
 
-### Q: Are my playbooks private?
-**A**: Yes. All playbooks are private to your account. Other users cannot see or execute your playbooks.
+### Q: Are custom playbooks backed up?
+**A**: They're regular files, so include `ansible/custom/` in your backup strategy. The directory is gitignored, so files won't be committed to version control.
 
-### Q: Can I share playbooks with my team?
-**A**: Not in Phase 1. Team sharing and playbook marketplace are planned for Phase 3+.
+### Q: Can I share playbooks with other users?
+**A**: Yes, all admin users see the same `ansible/custom/` directory. Any uploaded playbook is accessible to all admins.
 
-### Q: What happens if I upload a playbook with syntax errors?
-**A**: The validation will fail and show you the specific error. Fix the YAML and re-upload.
+### Q: What's the file size limit?
+**A**: 100MB per upload and 100MB maximum extracted size for ZIP packages.
 
-### Q: Can I edit playbooks after uploading?
-**A**: Yes. Updating a playbook creates a new version. All previous versions are retained for rollback.
+### Q: Can I use Ansible Galaxy roles?
+**A**: Not automatically. You'd need to pre-install roles on the server. Automatic Galaxy role installation is a future enhancement.
 
-### Q: How do I backup my playbooks?
-**A**: Use the "Export All Playbooks" button to download a ZIP file containing all your playbooks and metadata.
+### Q: How do I use templates in custom playbooks?
+**A**: Upload a ZIP package with a `templates/` directory. Reference templates with relative paths like `src: templates/nginx.conf.j2`.
 
-### Q: What file size limit exists for playbooks?
-**A**: 1MB per playbook file. This is sufficient for even very large playbooks.
-
-### Q: Can I use Ansible Galaxy roles in my playbooks?
-**A**: Not automatically in Phase 1. You'll need to pre-install roles on the Admiral server. Automatic Galaxy role installation is planned for Phase 3.
-
-### Q: What's the difference between a simple playbook and a package?
-**A**:
-- **Simple playbook**: Single `.yml` file with all tasks defined inline. Good for straightforward automation.
-- **Package**: ZIP containing playbook + templates + files. Use when you need Jinja2 templates or static files.
-
-### Q: Can I use the `template` module in simple playbooks?
-**A**: No. The `template` module requires template files to exist on disk. Use playbook packages instead, or use the `copy` module with inline `content:` for simple templates.
-
-### Q: How do I reference templates in a package?
-**A**: Use relative paths from the package root. Example: `src: templates/nginx.conf.j2` or `src: files/index.html`.
+### Q: What happens if I upload a file with the same name?
+**A**: The upload will fail with a 409 Conflict error. Delete the old file first, or use a different name.
 
 ---
 
@@ -1140,9 +653,10 @@ test('user can upload and execute playbook', async ({ page }) => {
 - [YAML Specification](https://yaml.org/spec/1.2.2/)
 - Laravel File Uploads: [Laravel Docs](https://laravel.com/docs/11.x/filesystem)
 - Inertia.js File Uploads: [Inertia Docs](https://inertiajs.com/file-uploads)
+- Symfony YAML Component: [Symfony Docs](https://symfony.com/doc/current/components/yaml.html)
 
 ---
 
-**Document Status**: Draft
-**Next Review**: After Phase 2.1 implementation begins
+**Document Status**: Updated (Filesystem-only approach)
+**Next Steps**: Complete frontend implementation
 **Owner**: Engineering Team

@@ -1,3 +1,4 @@
+import { UploadPlaybookModal } from '@/components/ansible/upload-playbook-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +18,7 @@ import {
     Folder,
     FolderOpen,
     Loader2,
+    Upload,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -45,10 +47,12 @@ interface TreeNode {
 
 interface FileContent {
     path: string;
-    content: string;
+    content: string | null;
     size: number;
     modified: number;
     isTemplate?: boolean;
+    isBinary?: boolean;
+    message?: string;
 }
 
 export default function AnsiblePlaybooks() {
@@ -66,19 +70,23 @@ export default function AnsiblePlaybooks() {
     const [loadingFile, setLoadingFile] = useState(false);
     const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
     const [yamlError, setYamlError] = useState<string | null>(null);
+    const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
     useEffect(() => {
         fetchTree();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchTree = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/fleetops/ansible-playbooks/list', {
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
+            const response = await fetch(
+                '/api/fleetops/ansible-playbooks/list',
+                {
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
                 },
-            });
+            );
 
             if (!response.ok) {
                 throw new Error('Failed to fetch playbooks');
@@ -119,19 +127,26 @@ export default function AnsiblePlaybooks() {
             const data = await response.json();
             setSelectedFile(data);
 
-            // Only try to parse YAML for .yml and .yaml files, not .j2 templates
-            if (!data.isTemplate) {
+            // Always clear YAML errors first
+            setYamlError(null);
+
+            // Skip YAML parsing for binary files
+            if (data.isBinary) {
+                return;
+            }
+
+            // Only try to parse YAML for .yml and .yaml files (not .j2 templates or other files)
+            const isYamlFile = data.path && data.path.match(/\.(yml|yaml)$/i);
+
+            if (isYamlFile && data.content) {
                 try {
                     YAML.parse(data.content);
-                    setYamlError(null); // Clear any previous errors
                 } catch (yamlError: any) {
                     const errorMessage =
                         yamlError?.message || 'Unknown YAML parsing error';
                     setYamlError(errorMessage);
                     console.warn('Failed to parse YAML:', yamlError);
                 }
-            } else {
-                setYamlError(null); // Clear errors for non-YAML files
             }
         } catch (error) {
             toast.error('Failed to load file content');
@@ -247,6 +262,23 @@ export default function AnsiblePlaybooks() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Ansible Playbooks" />
             <div className="AnsiblePlaybooks flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+                {/* Header with Upload Button */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold">
+                            Ansible Playbooks
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Browse and view Ansible playbooks for server
+                            deployments
+                        </p>
+                    </div>
+                    <Button onClick={() => setUploadModalOpen(true)}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload Custom Playbooks
+                    </Button>
+                </div>
+
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Left: Directory Tree */}
                     <Card className="lg:col-span-1">
@@ -299,8 +331,36 @@ export default function AnsiblePlaybooks() {
                                 </div>
                             ) : selectedFile ? (
                                 <div className="space-y-4">
+                                    {/* Binary File Notice */}
+                                    {selectedFile.isBinary && (
+                                        <div className="flex items-start gap-3 rounded-lg border border-muted bg-muted/10 p-4">
+                                            <AlertCircle className="h-5 w-5 shrink-0 text-muted-foreground" />
+                                            <div className="flex-1">
+                                                <h3 className="text-sm font-semibold">
+                                                    Binary File
+                                                </h3>
+                                                <p className="mt-1 text-sm text-muted-foreground">
+                                                    {selectedFile.message ||
+                                                        'This file cannot be displayed as it is a binary file.'}
+                                                </p>
+                                                <p className="mt-2 text-xs text-muted-foreground">
+                                                    File type:{' '}
+                                                    {selectedFile.path
+                                                        .split('.')
+                                                        .pop()
+                                                        ?.toUpperCase()}{' '}
+                                                    | Size:{' '}
+                                                    {(
+                                                        selectedFile.size / 1024
+                                                    ).toFixed(2)}{' '}
+                                                    KB
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* YAML Parse Error Alert */}
-                                    {yamlError && (
+                                    {yamlError && !selectedFile.isBinary && (
                                         <div className="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
                                             <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
                                             <div className="flex-1">
@@ -319,70 +379,77 @@ export default function AnsiblePlaybooks() {
                                         </div>
                                     )}
 
-                                    {/* YAML Content with Syntax Highlighting */}
-                                    <div>
-                                        <div className="mb-2 flex items-center justify-between">
-                                            <h3 className="text-sm font-semibold">
-                                                YAML Content
-                                            </h3>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline">
-                                                    {
-                                                        selectedFile.content.split(
-                                                            '\n',
-                                                        ).length
-                                                    }{' '}
-                                                    lines
-                                                </Badge>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        copyToClipboard(
-                                                            selectedFile.content,
-                                                        )
-                                                    }
-                                                >
-                                                    <Copy className="h-3 w-3" />
-                                                    Copy
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        downloadFile(
-                                                            selectedFile.content,
-                                                            selectedFile.path
-                                                                .split('/')
-                                                                .pop() ||
-                                                                'playbook.yml',
-                                                        )
-                                                    }
-                                                >
-                                                    <Download className="h-3 w-3" />
-                                                    Download
-                                                </Button>
+                                    {/* File Content with Syntax Highlighting */}
+                                    {!selectedFile.isBinary &&
+                                        selectedFile.content && (
+                                            <div>
+                                                <div className="mb-2 flex items-center justify-between">
+                                                    <h3 className="text-sm font-semibold">
+                                                        YAML Content
+                                                    </h3>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant="outline">
+                                                            {
+                                                                selectedFile.content.split(
+                                                                    '\n',
+                                                                ).length
+                                                            }{' '}
+                                                            lines
+                                                        </Badge>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() =>
+                                                                copyToClipboard(
+                                                                    selectedFile.content ||
+                                                                        '',
+                                                                )
+                                                            }
+                                                        >
+                                                            <Copy className="h-3 w-3" />
+                                                            Copy
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() =>
+                                                                downloadFile(
+                                                                    selectedFile.content ||
+                                                                        '',
+                                                                    selectedFile.path
+                                                                        .split(
+                                                                            '/',
+                                                                        )
+                                                                        .pop() ||
+                                                                        'playbook.yml',
+                                                                )
+                                                            }
+                                                        >
+                                                            <Download className="h-3 w-3" />
+                                                            Download
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                <ScrollArea className="h-[600px] w-full rounded-md border">
+                                                    <SyntaxHighlighter
+                                                        language={
+                                                            selectedFile.isTemplate
+                                                                ? 'jinja2'
+                                                                : 'yaml'
+                                                        }
+                                                        style={vscDarkPlus}
+                                                        showLineNumbers
+                                                        customStyle={{
+                                                            margin: 0,
+                                                            borderRadius: 0,
+                                                            fontSize: '12px',
+                                                        }}
+                                                    >
+                                                        {selectedFile.content}
+                                                    </SyntaxHighlighter>
+                                                </ScrollArea>
                                             </div>
-                                        </div>
-                                        <ScrollArea className="h-[600px] w-full rounded-md border">
-                                            <SyntaxHighlighter
-                                                language={
-                                                    selectedFile.isTemplate
-                                                        ? 'jinja2'
-                                                        : 'yaml'
-                                                }
-                                                style={vscDarkPlus}
-                                                showLineNumbers
-                                                customStyle={{
-                                                    margin: 0,
-                                                    borderRadius: 0,
-                                                    fontSize: '12px',
-                                                }}
-                                            >
-                                                {selectedFile.content}
-                                            </SyntaxHighlighter>
-                                        </ScrollArea>
-                                    </div>
+                                        )}
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -396,6 +463,14 @@ export default function AnsiblePlaybooks() {
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* Upload Playbook Modal */}
+                <UploadPlaybookModal
+                    open={uploadModalOpen}
+                    onClose={() => setUploadModalOpen(false)}
+                    onSuccess={() => fetchTree()}
+                    csrfToken={csrfToken}
+                />
             </div>
         </AppLayout>
     );
