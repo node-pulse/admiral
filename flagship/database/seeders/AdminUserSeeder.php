@@ -32,7 +32,9 @@ class AdminUserSeeder extends Seeder
             if ($userCount > 0) {
                 $this->command->error('❌ Security: Cannot run AdminUserSeeder in production when users already exist');
                 $this->command->error('💡 Use the admin panel to create additional admin users');
-                return;
+
+                // Exit with error code (security prevention)
+                exit(1);
             }
 
             // Production + no users = initial setup (allowed)
@@ -57,7 +59,9 @@ class AdminUserSeeder extends Seeder
         if (empty($email) || empty($password)) {
             $this->command->error('❌ ADMIN_EMAIL and ADMIN_PASSWORD environment variables are required');
             $this->command->info('💡 These should be set in .env by the deployment script');
-            return;
+
+            // Exit with error code so deploy script can detect failure
+            exit(1);
         }
 
         if (empty($name)) {

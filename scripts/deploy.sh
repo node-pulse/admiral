@@ -973,23 +973,47 @@ echo -e "${BLUE}================================================${NC}"
 echo ""
 
 # Run the seeder (idempotent - safe to run multiple times)
-if docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder; then
-    echo ""
-    echo -e "${GREEN}✓ Admin user created successfully${NC}"
+echo "Running admin user seeder..."
+echo ""
+
+# Capture both output and exit code
+# Note: Using -T flag to avoid TTY issues in production
+SEEDER_OUTPUT=$(docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder 2>&1)
+SEEDER_EXIT_CODE=$?
+
+# Display the seeder output (includes detailed messages from AdminUserSeeder)
+echo "$SEEDER_OUTPUT"
+echo ""
+
+# Now we can rely on exit codes since we fixed AdminUserSeeder to exit(1) on errors
+if [ $SEEDER_EXIT_CODE -eq 0 ]; then
+    # Success or idempotent skip (both are OK)
+    echo -e "${GREEN}✓ Admin user setup completed successfully${NC}"
     echo ""
 
     # Clean up admin credentials from .env (security best practice)
-    echo "Removing admin credentials from .env file..."
-    sed -i.bak '/^ADMIN_NAME=/d; /^ADMIN_EMAIL=/d; /^ADMIN_PASSWORD=/d' .env
-    rm -f .env.bak  # Remove backup file created by sed
-    echo -e "${GREEN}✓ Credentials removed from .env (now stored securely in database)${NC}"
+    # Always try to clean up if credentials exist
+    if grep -q "^ADMIN_PASSWORD=" .env 2>/dev/null; then
+        echo "Removing admin credentials from .env file..."
+        sed -i.bak '/^ADMIN_NAME=/d; /^ADMIN_EMAIL=/d; /^ADMIN_PASSWORD=/d' .env
+        rm -f .env.bak  # Remove backup file created by sed
+        echo -e "${GREEN}✓ Credentials removed from .env (now stored securely in database)${NC}"
+    fi
 else
+    # Actual failure (exit code != 0)
+    echo -e "${RED}✗ Admin user seeder failed (exit code: $SEEDER_EXIT_CODE)${NC}"
     echo ""
-    echo -e "${YELLOW}⚠️  Warning: Admin user creation failed or was skipped${NC}"
-    echo -e "${YELLOW}⚠️  You may need to create an admin user manually${NC}"
+    echo -e "${YELLOW}Common reasons:${NC}"
+    echo "  • Missing ADMIN_EMAIL or ADMIN_PASSWORD in .env"
+    echo "  • Attempting to run in production when users already exist (security block)"
+    echo "  • Database connection issues"
     echo ""
-    echo "To create admin user manually, run:"
+    echo "To retry manually after fixing the issue:"
     echo "  docker compose exec flagship php artisan db:seed --class=AdminUserSeeder"
+    echo ""
+
+    # Don't exit the deployment script - let it continue
+    # The user can create admin manually later if needed
 fi
 
 echo ""
