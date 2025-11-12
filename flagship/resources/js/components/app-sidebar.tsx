@@ -18,6 +18,7 @@ import {
     servers,
     sshKeys,
     sshSessions,
+    users,
 } from '@/routes';
 import { type NavItem, type NavSection } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
@@ -41,6 +42,7 @@ import {
     Shield,
     ShieldAlert,
     Terminal,
+    Users,
 } from 'lucide-react';
 import AppLogo from './app-logo';
 
@@ -54,6 +56,12 @@ const getMainNavSections = (isAdmin: boolean): NavSection[] => {
                     href: dashboard(),
                     icon: LayoutGrid,
                     display: true,
+                },
+                {
+                    title: 'Users',
+                    href: users(),
+                    icon: Users,
+                    display: isAdmin,
                 },
                 {
                     title: 'System Settings',

@@ -5,6 +5,7 @@ use App\Http\Controllers\PrivateKeysController;
 use App\Http\Controllers\ServersController;
 use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\SshSessionsController;
+use App\Http\Controllers\UsersController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -85,6 +86,9 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('dashboard')->group(fun
         Route::get('/create', [\App\Http\Controllers\DeploymentsController::class, 'create'])->name('deployments.create');
         Route::get('/{id}/details', [\App\Http\Controllers\DeploymentsController::class, 'details'])->name('deployments.details');
     });
+
+    // Users management (admin only)
+    Route::get('/users', [UsersController::class, 'index'])->name('users');
 
     // Community Playbooks management (admin only)
     Route::prefix('playbooks')->group(function () {

@@ -58,7 +58,17 @@ class FortifyServiceProvider extends ServiceProvider
             $credentials = $request->only(Fortify::username(), 'password');
 
             if (Auth::attempt($credentials, $request->boolean('remember'))) {
-                return Auth::user();
+                $user = Auth::user();
+
+                // Check if user account is disabled
+                if ($user->isDisabled()) {
+                    Auth::logout();
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        Fortify::username() => __('Your account has been disabled.'),
+                    ])->errorBag('default');
+                }
+
+                return $user;
             }
 
             return null;

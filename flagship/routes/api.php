@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeploymentsController;
 use App\Http\Controllers\PlaybooksController;
 use App\Http\Controllers\ProcessController;
+use App\Http\Controllers\UsersController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth'])->group(function () {
@@ -71,4 +72,13 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('servers')->grou
     Route::delete('/{server}/certificate/{certificate}', [CertificateController::class, 'revokeCertificate']);
     Route::post('/{server}/certificate/renew', [CertificateController::class, 'renewCertificate']);
     Route::get('/{server}/certificates', [CertificateController::class, 'listServerCertificates']);
+});
+
+// Users Management API routes (admin only)
+Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('users')->group(function () {
+    Route::get('/', [UsersController::class, 'list']);
+    Route::post('/', [UsersController::class, 'store']);
+    Route::patch('/{user}/status', [UsersController::class, 'updateStatus']);
+    Route::patch('/{user}/role', [UsersController::class, 'updateRole']);
+    Route::delete('/{user}', [UsersController::class, 'destroy']);
 });
