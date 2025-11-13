@@ -54,24 +54,26 @@ class FortifyServiceProvider extends ServiceProvider
                 ]);
             }
 
-            // Perform the actual authentication using Laravel's Auth
+            // Validate credentials
             $credentials = $request->only(Fortify::username(), 'password');
 
-            if (Auth::attempt($credentials, $request->boolean('remember'))) {
-                $user = Auth::user();
-
-                // Check if user account is disabled
-                if ($user->isDisabled()) {
-                    Auth::logout();
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        Fortify::username() => __('Your account has been disabled.'),
-                    ])->errorBag('default');
-                }
-
-                return $user;
+            if (! Auth::validate($credentials)) {
+                return null;
             }
 
-            return null;
+            // Get the user by credentials
+            $user = Auth::getProvider()->retrieveByCredentials($credentials);
+
+            // Check if user account is disabled
+            if ($user && $user->isDisabled()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    Fortify::username() => __('Your account has been disabled.'),
+                ])->errorBag('default');
+            }
+
+            // Return the user WITHOUT logging them in
+            // Fortify will handle 2FA challenge if enabled
+            return $user;
         });
     }
 
