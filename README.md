@@ -2,6 +2,16 @@
 
 **Production-ready agent fleet management system** for monitoring Linux servers with secure mTLS authentication, real-time metrics collection, and zero-configuration deployment.
 
+## Screenshots
+
+### Server Management Dashboard
+![Servers Dashboard](screenshots/AdmiralScreenshot_Servers.png)
+*Manage your server fleet with real-time status monitoring, SSH key management, and one-click terminal access*
+
+### Browser-Based SSH Terminal
+![Web Terminal](screenshots/AdmiralScreenshot_WebTerminal.png)
+*Secure WebSocket-based SSH terminal for instant server access directly from your browser*
+
 ## Why Push-Based Architecture?
 
 Node Pulse uses a **push-based** approach where agents actively send metrics to the dashboard, unlike traditional pull-based systems (e.g., Prometheus) that scrape metrics from targets. This provides significant advantages:
