@@ -1,125 +1,54 @@
 # Node Pulse Admiral
 
-**Production-ready agent fleet management system** for monitoring Linux servers with secure mTLS authentication, real-time metrics collection, and zero-configuration deployment.
+**Production-ready server monitoring platform** with fully automated Ansible deployment, extensive playbook registry, real-time metrics collection, and integrated SSH terminal.
+
+## Key Features
+
+### Real-time Metrics Collection
+
+- **Efficient agent-side parsing** - 98% bandwidth reduction (61KB → 1KB per scrape)
+- **Comprehensive metadata** - Hostname, IP address, OS version, hardware specs
+- **Minimal database footprint** - 99.8% reduction (1100+ rows → 1 row per scrape)
+- **High-performance queries** - 10-30x faster with direct column access
+- **15-second intervals** - Real-time visibility into system performance
+
+### SSH Access Management
+
+- **Encrypted SSH key storage** - Secure private key vault with master key encryption
+- **Browser-based terminal** - WebSocket-powered SSH access directly from your dashboard
+- **Session audit logging** - Complete audit trail of all SSH sessions for compliance
+
+### Automated Deployment & Configuration
+
+- **Playbook-based automation** - Deploy and configure applications using battle-tested Ansible playbooks
+- **Extensive playbook registry** - Community-driven playbooks for security hardening, databases, web servers, monitoring tools, self-hosted apps, and more at [github.com/node-pulse/registry](https://github.com/node-pulse/registry)
+- **Popular use cases** - PostgreSQL/MySQL/Redis clusters, Nginx/Caddy/Traefik proxies, Prometheus/Grafana monitoring, WireGuard VPN, Docker/K3s containers, SSH hardening, UFW/Fail2ban security, Restic/Borg backups, and 500+ more applications
+- **Zero-touch agent deployment** - Fully automated monitoring stack installation (Node Pulse Agent + node_exporter + process_exporter)
+- **Flexible security modes** - Support for both mTLS and non-mTLS configurations
+
+### Alert Management
+
+- **Customizable alert rules** - Define thresholds for CPU, memory, disk, and network metrics
+- **Alert history tracking** - Complete audit trail of all triggered alerts
+- **Multi-channel notifications** - Email, Slack, webhook integrations (coming soon)
+
+### User & Access Management
+
+- **Multi-user authentication** - Enterprise-ready user management with Laravel Fortify
+- **Session management** - Secure session handling with Redis-compatible Valkey
+- **Two-factor authentication** - Optional 2FA for enhanced security
 
 ## Screenshots
 
 ### Server Management Dashboard
+
 ![Servers Dashboard](screenshots/AdmiralScreenshot_Servers.png)
-*Manage your server fleet with real-time status monitoring, SSH key management, and one-click terminal access*
+_Manage your server fleet with real-time status monitoring, SSH key management, and one-click terminal access_
 
 ### Browser-Based SSH Terminal
+
 ![Web Terminal](screenshots/AdmiralScreenshot_WebTerminal.png)
-*Secure WebSocket-based SSH terminal for instant server access directly from your browser*
-
-## Why Push-Based Architecture?
-
-Node Pulse uses a **push-based** approach where agents actively send metrics to the dashboard, unlike traditional pull-based systems (e.g., Prometheus) that scrape metrics from targets. This provides significant advantages:
-
-### Key Benefits
-
-1. **Firewall-Friendly**: Agents can push metrics through firewalls, NAT, and network restrictions without requiring inbound ports to be exposed. This makes it ideal for:
-
-   - Agents behind corporate firewalls
-   - Servers with strict security policies
-   - Cloud instances without public IPs
-   - Edge devices with dynamic IPs
-
-2. **Built-in Reliability**: Each agent has a local buffer that stores metrics when the dashboard is unreachable, ensuring:
-
-   - No data loss during network outages or dashboard maintenance
-   - Automatic retry with exponential backoff
-   - Up to 48 hours of buffered metrics (configurable)
-
-3. **Simplified Network Configuration**: No need to:
-
-   - Open inbound firewall rules on monitored servers
-   - Configure service discovery mechanisms
-   - Maintain allowlists of scraper IPs
-   - Set up VPN tunnels for monitoring access
-
-4. **Real-time Data**: Metrics arrive as soon as they're collected (15-second default interval), providing:
-
-   - Immediate visibility into system state
-   - Faster incident detection and response
-   - No scrape interval delays
-
-5. **Scalability**: The dashboard scales independently from the number of agents:
-
-   - Valkey Streams buffer incoming metrics during traffic spikes
-   - Multiple digest workers process metrics in parallel
-   - Horizontal scaling based on stream lag
-   - No need to manage scrape scheduling and intervals
-
-6. **Efficient Data Model**: Agent-side parsing with simplified metrics:
-   - **98.32% bandwidth reduction** (61KB → 1KB per scrape)
-   - **99.8% database reduction** (1100+ rows → 1 row per scrape)
-   - **10-30x faster queries** with direct column access
-   - Distributed parsing load (offloaded to agents, not central server)
-
-## Architecture
-
-Node Pulse Admiral uses a **push-based metrics pipeline** with Docker Compose orchestration:
-
-### Metrics Data Flow
-
-```
-node_exporter (:9100) and process_exporter (:9256)
-    │
-    │ scrapes (HTTP)
-    ▼
-Node Pulse Agent - parses & extracts 39 metrics, WAL buffer
-Node Pulse Agent - parses & extracts top N processes, WAL buffer
-    │
-    │ pushes JSON via HTTPS POST
-    ▼
-Submarines Ingest (:8080) - validates & publishes
-    │
-    │ streams to Valkey
-    ▼
-Valkey Streams (:6379) - message buffer & backpressure
-    │
-    │ consumes (batch of 100)
-    ▼
-Submarines Digest (worker) - batch insert
-    │
-    │ INSERT query
-    ▼
-PostgreSQL (:5432) - admiral.metrics + admiral.process_snapshots
-```
-
-### Component Architecture
-
-**Submarines (Go) - Metrics Pipeline**
-
-- **Ingest** (:8080) - Receives metrics from agents, publishes to Valkey Stream (~5ms response)
-- **Digest** (worker) - Consumes from stream, batch writes to PostgreSQL
-- **Status** (:8081) - Public status pages and health badges (read-only)
-- **Deployer** (worker) - Executes Ansible playbooks for agent deployment
-- **SSH WS** (:6001) - WebSocket terminal for server access
-
-**Flagship (Laravel + React) - Management UI**
-
-- Web dashboard with real-time charts
-- Server management and configuration
-- User authentication (Laravel Fortify)
-- API endpoints for metrics and processes
-- Served by Nginx (:8090) + PHP-FPM (:9000) inside container
-- Exposed via Caddy reverse proxy in production
-
-**Data Layer**
-
-- **PostgreSQL 18** - Admiral schema (metrics, servers, users, alerts)
-- **Valkey** - Message streams, caching, sessions (Redis-compatible)
-
-**Reverse Proxy & Web Server**
-
-- **Caddy** - Edge reverse proxy, TLS termination, automatic HTTPS, routes traffic between services
-- **Nginx** - Application server for Flagship (serves static files, proxies PHP requests to PHP-FPM)
-
-## Roadmap
-
-[Roadmap](docs/roadmap.md)
+_Secure WebSocket-based SSH terminal for instant server access directly from your browser_
 
 ## Prerequisites
 
@@ -504,6 +433,115 @@ docker compose -f compose.development.yml up -d --build flagship
 # Rebuild all services
 docker compose -f compose.development.yml up -d --build
 ```
+
+## Why Push-Based Architecture?
+
+Node Pulse uses a **push-based** approach where agents actively send metrics to the dashboard, unlike traditional pull-based systems (e.g., Prometheus) that scrape metrics from targets. This provides significant advantages:
+
+### Key Benefits
+
+1. **Firewall-Friendly**: Agents can push metrics through firewalls, NAT, and network restrictions without requiring inbound ports to be exposed. This makes it ideal for:
+
+   - Agents behind corporate firewalls
+   - Servers with strict security policies
+   - Cloud instances without public IPs
+   - Edge devices with dynamic IPs
+
+2. **Built-in Reliability**: Each agent has a local buffer that stores metrics when the dashboard is unreachable, ensuring:
+
+   - No data loss during network outages or dashboard maintenance
+   - Automatic retry with exponential backoff
+   - Up to 48 hours of buffered metrics (configurable)
+
+3. **Simplified Network Configuration**: No need to:
+
+   - Open inbound firewall rules on monitored servers
+   - Configure service discovery mechanisms
+   - Maintain allowlists of scraper IPs
+   - Set up VPN tunnels for monitoring access
+
+4. **Real-time Data**: Metrics arrive as soon as they're collected (15-second default interval), providing:
+
+   - Immediate visibility into system state
+   - Faster incident detection and response
+   - No scrape interval delays
+
+5. **Scalability**: The dashboard scales independently from the number of agents:
+
+   - Valkey Streams buffer incoming metrics during traffic spikes
+   - Multiple digest workers process metrics in parallel
+   - Horizontal scaling based on stream lag
+   - No need to manage scrape scheduling and intervals
+
+6. **Efficient Data Model**: Agent-side parsing with simplified metrics:
+   - **98.32% bandwidth reduction** (61KB → 1KB per scrape)
+   - **99.8% database reduction** (1100+ rows → 1 row per scrape)
+   - **10-30x faster queries** with direct column access
+   - Distributed parsing load (offloaded to agents, not central server)
+
+## Architecture
+
+Node Pulse Admiral uses a **push-based metrics pipeline** with Docker Compose orchestration:
+
+### Metrics Data Flow
+
+```
+node_exporter (:9100) and process_exporter (:9256)
+    │
+    │ scrapes (HTTP)
+    ▼
+Node Pulse Agent - parses & extracts 39 metrics, WAL buffer
+Node Pulse Agent - parses & extracts top N processes, WAL buffer
+    │
+    │ pushes JSON via HTTPS POST
+    ▼
+Submarines Ingest (:8080) - validates & publishes
+    │
+    │ streams to Valkey
+    ▼
+Valkey Streams (:6379) - message buffer & backpressure
+    │
+    │ consumes (batch of 100)
+    ▼
+Submarines Digest (worker) - batch insert
+    │
+    │ INSERT query
+    ▼
+PostgreSQL (:5432) - admiral.metrics + admiral.process_snapshots
+```
+
+### Component Architecture
+
+**Submarines (Go) - Metrics Pipeline**
+
+- **Ingest** (:8080) - Receives metrics from agents, publishes to Valkey Stream (~5ms response)
+- **Digest** (worker) - Consumes from stream, batch writes to PostgreSQL
+- **Status** (:8081) - Public status pages and health badges (read-only)
+- **Deployer** (worker) - Executes Ansible playbooks for agent deployment
+- **SSH WS** (:6001) - WebSocket terminal for server access
+
+**Flagship (Laravel + React) - Management UI**
+
+- Web dashboard with real-time charts
+- Server management and configuration
+- User authentication (Laravel Fortify)
+- API endpoints for metrics and processes
+- Served by Nginx (:8090) + PHP-FPM (:9000) inside container
+- Exposed via Caddy reverse proxy in production
+
+**Data Layer**
+
+- **PostgreSQL 18** - Admiral schema (metrics, servers, users, alerts)
+- **Valkey** - Message streams, caching, sessions (Redis-compatible)
+
+**Reverse Proxy & Web Server**
+
+- **Caddy** - Edge reverse proxy, TLS termination, automatic HTTPS, routes traffic between services
+- **Nginx** - Application server for Flagship (serves static files, proxies PHP requests to PHP-FPM)
+
+## Roadmap
+
+[Roadmap](docs/roadmap.md)
 
 ## Troubleshooting
 
