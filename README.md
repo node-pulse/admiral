@@ -21,7 +21,7 @@
 ### Automated Deployment & Configuration
 
 - **Playbook-based automation** - Deploy and configure applications using battle-tested Ansible playbooks
-- **Extensive playbook registry** - Community-driven playbooks for security hardening, databases, web servers, monitoring tools, self-hosted apps, and more at [github.com/node-pulse/registry](https://github.com/node-pulse/registry)
+- **Extensive playbook registry** - Community-driven playbooks for security hardening, databases, web servers, monitoring tools, self-hosted apps, and more at [github.com/node-pulse/playbooks](https://github.com/node-pulse/playbooks)
 - **Popular use cases** - PostgreSQL/MySQL/Redis clusters, Nginx/Caddy/Traefik proxies, Prometheus/Grafana monitoring, WireGuard VPN, Docker/K3s containers, SSH hardening, UFW/Fail2ban security, Restic/Borg backups, and 500+ more applications
 - **Zero-touch agent deployment** - Fully automated monitoring stack installation (Node Pulse Agent + node_exporter + process_exporter)
 - **Flexible security modes** - Support for both mTLS and non-mTLS configurations

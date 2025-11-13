@@ -80,6 +80,7 @@ github.com/node-pulse/playbooks/
 ```
 
 **Why 26 directories (a-z)?**
+
 - Easy navigation on GitHub
 - Simple directory listing via GitHub API
 - Scales to thousands of playbooks
@@ -164,21 +165,21 @@ Every playbook **must** include `manifest.json` in its root directory.
 
 ### Field Descriptions
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | string | Yes | Unique random identifier (format: `pb_[A-Za-z0-9]{10}`) |
-| `name` | string | Yes | Display name for UI |
-| `version` | string | Yes | Semantic version (e.g., "1.0.0") |
-| `description` | string | Yes | Short description (max 200 chars) |
-| `author` | object | Yes | Author information (name, email, url, status) |
-| `author.status` | string | No | Trust badge: `community`, `verified`, `deprecated` |
-| `category` | string | Yes | One of: `monitoring`, `database`, `search`, `security`, `proxy`, `storage`, `dev-tools` |
-| `tags` | string[] | Yes | Searchable tags (max 10) |
-| `entry_point` | string | Yes | Main playbook file (e.g., "playbook.yml") |
-| `ansible_version` | string | Yes | Minimum Ansible version (e.g., ">=2.10") |
-| `os_support` | array | Yes | Array of OS compatibility objects |
-| `variables` | array | No | Variable definitions (array format with name+label) |
-| `license` | string | Yes | SPDX license identifier |
+| Field             | Type     | Required | Description                                                                             |
+| ----------------- | -------- | -------- | --------------------------------------------------------------------------------------- |
+| `id`              | string   | Yes      | Unique random identifier (format: `pb_[A-Za-z0-9]{10}`)                                 |
+| `name`            | string   | Yes      | Display name for UI                                                                     |
+| `version`         | string   | Yes      | Semantic version (e.g., "1.0.0")                                                        |
+| `description`     | string   | Yes      | Short description (max 200 chars)                                                       |
+| `author`          | object   | Yes      | Author information (name, email, url, status)                                           |
+| `author.status`   | string   | No       | Trust badge: `community`, `verified`, `deprecated`                                      |
+| `category`        | string   | Yes      | One of: `monitoring`, `database`, `search`, `security`, `proxy`, `storage`, `dev-tools` |
+| `tags`            | string[] | Yes      | Searchable tags (max 10)                                                                |
+| `entry_point`     | string   | Yes      | Main playbook file (e.g., "playbook.yml")                                               |
+| `ansible_version` | string   | Yes      | Minimum Ansible version (e.g., ">=2.10")                                                |
+| `os_support`      | array    | Yes      | Array of OS compatibility objects                                                       |
+| `variables`       | array    | No       | Variable definitions (array format with name+label)                                     |
+| `license`         | string   | Yes      | SPDX license identifier                                                                 |
 
 ### Playbook ID Format
 
@@ -188,6 +189,7 @@ Every playbook **must** include `manifest.json` in its root directory.
 **Example**: `pb_Xk7nM2pQw9`
 
 **Generate a unique ID:**
+
 ```bash
 # Using Python (recommended)
 python3 -c "import random, string; print('pb_' + ''.join(random.choices(string.ascii_letters + string.digits, k=10)))"
@@ -197,6 +199,7 @@ echo "pb_$(openssl rand -base64 8 | tr -dc 'A-Za-z0-9' | head -c10)"
 ```
 
 **Why random IDs?**
+
 - Uniqueness cannot be enforced in GitHub (anyone can fork)
 - 62^10 = 839 quadrillion combinations (collision-free)
 - CI validates no duplicate IDs in repository
@@ -205,21 +208,21 @@ echo "pb_$(openssl rand -base64 8 | tr -dc 'A-Za-z0-9' | head -c10)"
 
 Each variable must include both `name` (Ansible variable) and `label` (UI display):
 
-| Type | Validation | UI Rendering |
-|------|------------|--------------|
-| `string` | Optional `pattern` regex | Text input |
-| `integer` | Optional `min`/`max` | Number input |
-| `boolean` | N/A | Checkbox |
-| `select` | Requires `options` array | Dropdown |
-| `password` | N/A | Password input (hidden) |
+| Type       | Validation               | UI Rendering            |
+| ---------- | ------------------------ | ----------------------- |
+| `string`   | Optional `pattern` regex | Text input              |
+| `integer`  | Optional `min`/`max`     | Number input            |
+| `boolean`  | N/A                      | Checkbox                |
+| `select`   | Requires `options` array | Dropdown                |
+| `password` | N/A                      | Password input (hidden) |
 
 ### OS Support Schema
 
-| Field | Type | Required | Values |
-|-------|------|----------|--------|
-| `distro` | string | Yes | `ubuntu`, `debian`, `centos`, `rhel`, `rocky`, `alma` |
-| `version` | string | Yes | OS version (e.g., "22.04", "11", "9") |
-| `arch` | string | Yes | `amd64`, `arm64`, `both` |
+| Field     | Type   | Required | Values                                                |
+| --------- | ------ | -------- | ----------------------------------------------------- |
+| `distro`  | string | Yes      | `ubuntu`, `debian`, `centos`, `rhel`, `rocky`, `alma` |
+| `version` | string | Yes      | OS version (e.g., "22.04", "11", "9")                 |
+| `arch`    | string | Yes      | `amd64`, `arm64`, `both`                              |
 
 ---
 
@@ -227,16 +230,40 @@ Each variable must include both `name` (Ansible variable) and `label` (UI displa
 
 ### Architecture
 
-**Cloudflare Worker**: `registry.nodepulse.sh`
-**Database**: D1 (serverless SQL)
-**Sync Frequency**: Every 6-24 hours (CRON trigger)
-**Repository**: `https://github.com/node-pulse/registry` (separate from playbooks repo)
+The registry operates as a **database and API layer** that sits between the playbook source repository and Admiral instances:
+
+```
+github.com/node-pulse/playbooks (Source)
+    ↓ (Fetched every 1 hour via CRON)
+registry.nodepulse.sh (Cloudflare Worker + D1 Database)
+    ↓ (Admiral fetches via API)
+Admiral Flagship Instances
+```
+
+**Purpose**: The registry provides a fast, searchable API for Admiral instances to browse available playbooks without directly hitting GitHub's API. It acts as a CDN/index layer, similar to how npm registry works for npm packages.
+
+**Components:**
+
+- **Cloudflare Worker**: `registry.nodepulse.sh` (API endpoints)
+- **D1 Database**: Serverless SQL database with indexed playbook metadata
+- **Sync Frequency**: Every 1-12 hours (CRON trigger)
+- **Source Repository**: `https://github.com/node-pulse/playbooks` (actual playbook files)
+- **Registry Code**: `https://github.com/node-pulse/registry` (worker implementation)
+
+**How it works:**
+
+1. **CRON Worker** fetches all `manifest.json` files from `github.com/node-pulse/playbooks/catalog/` every 1-12 hours
+2. **Validates** each manifest and stores metadata in D1 database
+3. **Admiral instances** query the registry API to browse/search playbooks
+4. **When installing**, Admiral downloads actual playbook files directly from GitHub
+5. **Registry acts as index only** - actual playbook execution uses files from GitHub
 
 ### D1 Database Schema
 
 **Database Name**: `nodepulse_registry`
 
 **Table: `playbooks`**
+
 ```sql
 CREATE TABLE playbooks (
   id TEXT PRIMARY KEY,                    -- pb_Xk7nM2pQw9
@@ -267,6 +294,7 @@ CREATE INDEX idx_updated_at ON playbooks(updated_at);
 ```
 
 **Table: `sync_metadata`**
+
 ```sql
 CREATE TABLE sync_metadata (
   key TEXT PRIMARY KEY,
@@ -290,11 +318,13 @@ INSERT INTO sync_metadata (key, value, updated_at) VALUES
 **URL**: `https://registry.nodepulse.sh/api/catalog`
 
 **Query Parameters:**
+
 - `category` (optional): Filter by category (e.g., `security`, `database`)
 - `search` (optional): Search in name, description, tags
 - `author_status` (optional): Filter by author status (`verified`, `community`)
 
 **Response Format:**
+
 ```json
 {
   "playbooks": [
@@ -315,7 +345,7 @@ INSERT INTO sync_metadata (key, value, updated_at) VALUES
       "entry_point": "playbook.yml",
       "ansible_version": ">=2.10",
       "os_support": [
-        {"distro": "ubuntu", "version": "22.04", "arch": "both"}
+        { "distro": "ubuntu", "version": "22.04", "arch": "both" }
       ],
       "variables": [
         {
@@ -340,6 +370,7 @@ INSERT INTO sync_metadata (key, value, updated_at) VALUES
 ```
 
 **Example Usage:**
+
 ```bash
 # Get all playbooks
 curl https://registry.nodepulse.sh/api/catalog
@@ -361,6 +392,7 @@ curl https://registry.nodepulse.sh/api/catalog?author_status=verified
 **URL**: `https://registry.nodepulse.sh/api/health`
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -374,6 +406,7 @@ curl https://registry.nodepulse.sh/api/catalog?author_status=verified
 ### Worker Implementation
 
 **File Structure** (in `node-pulse/registry` repository):
+
 ```
 registry/
 ├── src/
@@ -396,9 +429,9 @@ registry/
 #### Main Worker (`src/index.ts`)
 
 ```typescript
-import { catalog } from './handlers/catalog';
-import { health } from './handlers/health';
-import { syncPlaybooks } from './handlers/sync';
+import { catalog } from "./handlers/catalog";
+import { health } from "./handlers/health";
+import { syncPlaybooks } from "./handlers/sync";
 
 export interface Env {
   DB: D1Database;
@@ -412,43 +445,47 @@ export default {
 
     // CORS headers
     const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
     };
 
     // Handle CORS preflight
-    if (request.method === 'OPTIONS') {
+    if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
 
     try {
       // Route handling
-      if (url.pathname === '/api/catalog') {
+      if (url.pathname === "/api/catalog") {
         return await catalog(request, env, corsHeaders);
       }
 
-      if (url.pathname === '/api/health') {
+      if (url.pathname === "/api/health") {
         return await health(request, env, corsHeaders);
       }
 
       // 404 for unknown routes
-      return new Response(JSON.stringify({ error: 'Not found' }), {
+      return new Response(JSON.stringify({ error: "Not found" }), {
         status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (error) {
-      console.error('Worker error:', error);
-      return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      console.error("Worker error:", error);
+      return new Response(JSON.stringify({ error: "Internal server error" }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
   },
 
   // Scheduled CRON handler
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    console.log('CRON trigger:', event.cron);
+  async scheduled(
+    event: ScheduledEvent,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    console.log("CRON trigger:", event.cron);
     ctx.waitUntil(syncPlaybooks(env));
   },
 };
@@ -457,7 +494,7 @@ export default {
 #### Catalog Handler (`src/handlers/catalog.ts`)
 
 ```typescript
-import { Env } from '../index';
+import { Env } from "../index";
 
 export async function catalog(
   request: Request,
@@ -465,21 +502,21 @@ export async function catalog(
   corsHeaders: Record<string, string>
 ): Promise<Response> {
   const url = new URL(request.url);
-  const category = url.searchParams.get('category');
-  const search = url.searchParams.get('search');
-  const authorStatus = url.searchParams.get('author_status');
+  const category = url.searchParams.get("category");
+  const search = url.searchParams.get("search");
+  const authorStatus = url.searchParams.get("author_status");
 
-  let query = 'SELECT * FROM playbooks WHERE 1=1';
+  let query = "SELECT * FROM playbooks WHERE 1=1";
   const params: string[] = [];
 
   // Apply filters
   if (category) {
-    query += ' AND category = ?';
+    query += " AND category = ?";
     params.push(category);
   }
 
   if (authorStatus) {
-    query += ' AND author_status = ?';
+    query += " AND author_status = ?";
     params.push(authorStatus);
   }
 
@@ -493,10 +530,12 @@ export async function catalog(
     params.push(searchTerm, searchTerm, searchTerm);
   }
 
-  query += ' ORDER BY updated_at DESC';
+  query += " ORDER BY updated_at DESC";
 
   // Execute query
-  const { results } = await env.DB.prepare(query).bind(...params).all();
+  const { results } = await env.DB.prepare(query)
+    .bind(...params)
+    .all();
 
   // Parse JSON fields
   const playbooks = results.map((row: any) => ({
@@ -524,7 +563,7 @@ export async function catalog(
 
   // Get metadata
   const metadataQuery = await env.DB.prepare(
-    'SELECT key, value FROM sync_metadata'
+    "SELECT key, value FROM sync_metadata"
   ).all();
 
   const metadata: Record<string, string> = {};
@@ -544,8 +583,8 @@ export async function catalog(
     {
       headers: {
         ...corsHeaders,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=3600", // Cache for 1 hour
       },
     }
   );
@@ -555,12 +594,12 @@ export async function catalog(
 #### Sync Handler (`src/handlers/sync.ts`)
 
 ```typescript
-import { Env } from '../index';
-import { fetchPlaybooksFromGitHub } from '../services/github';
-import { validateManifest } from '../services/validator';
+import { Env } from "../index";
+import { fetchPlaybooksFromGitHub } from "../services/github";
+import { validateManifest } from "../services/validator";
 
 export async function syncPlaybooks(env: Env): Promise<void> {
-  console.log('Starting sync...');
+  console.log("Starting sync...");
 
   try {
     // Update sync status
@@ -576,12 +615,16 @@ export async function syncPlaybooks(env: Env): Promise<void> {
         // Validate manifest
         const validation = validateManifest(playbook);
         if (!validation.valid) {
-          console.error(`Invalid manifest for ${playbook.id}:`, validation.errors);
+          console.error(
+            `Invalid manifest for ${playbook.id}:`,
+            validation.errors
+          );
           continue;
         }
 
         // Upsert into database
-        await env.DB.prepare(`
+        await env.DB.prepare(
+          `
           INSERT INTO playbooks (
             id, name, version, description,
             author_name, author_email, author_url, author_status,
@@ -608,26 +651,29 @@ export async function syncPlaybooks(env: Env): Promise<void> {
             license = excluded.license,
             source_path = excluded.source_path,
             updated_at = datetime('now')
-        `).bind(
-          playbook.id,
-          playbook.name,
-          playbook.version,
-          playbook.description,
-          playbook.author.name,
-          playbook.author.email || null,
-          playbook.author.url || null,
-          playbook.author.status || 'community',
-          playbook.category,
-          JSON.stringify(playbook.tags),
-          playbook.homepage || null,
-          playbook.repository || null,
-          playbook.entry_point,
-          playbook.ansible_version,
-          JSON.stringify(playbook.os_support),
-          playbook.variables ? JSON.stringify(playbook.variables) : null,
-          playbook.license,
-          playbook.source_path
-        ).run();
+        `
+        )
+          .bind(
+            playbook.id,
+            playbook.name,
+            playbook.version,
+            playbook.description,
+            playbook.author.name,
+            playbook.author.email || null,
+            playbook.author.url || null,
+            playbook.author.status || "community",
+            playbook.category,
+            JSON.stringify(playbook.tags),
+            playbook.homepage || null,
+            playbook.repository || null,
+            playbook.entry_point,
+            playbook.ansible_version,
+            JSON.stringify(playbook.os_support),
+            playbook.variables ? JSON.stringify(playbook.variables) : null,
+            playbook.license,
+            playbook.source_path
+          )
+          .run();
 
         successCount++;
       } catch (error) {
@@ -650,7 +696,7 @@ export async function syncPlaybooks(env: Env): Promise<void> {
 
     console.log(`Sync complete: ${successCount} playbooks`);
   } catch (error) {
-    console.error('Sync failed:', error);
+    console.error("Sync failed:", error);
 
     await env.DB.prepare(
       "UPDATE sync_metadata SET value = 'error', updated_at = datetime('now') WHERE key = 'sync_status'"
@@ -664,19 +710,20 @@ export async function syncPlaybooks(env: Env): Promise<void> {
 ```typescript
 export async function fetchPlaybooksFromGitHub(token: string): Promise<any[]> {
   const playbooks: any[] = [];
-  const baseUrl = 'https://api.github.com/repos/node-pulse/playbooks/contents/catalog';
+  const baseUrl =
+    "https://api.github.com/repos/node-pulse/playbooks/contents/catalog";
 
   // Fetch all letter directories (a-z)
-  const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  const letters = "abcdefghijklmnopqrstuvwxyz".split("");
 
   for (const letter of letters) {
     try {
       const dirUrl = `${baseUrl}/${letter}`;
       const response = await fetch(dirUrl, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'NodePulse-Registry',
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "NodePulse-Registry",
         },
       });
 
@@ -693,7 +740,7 @@ export async function fetchPlaybooksFromGitHub(token: string): Promise<any[]> {
 
       // Iterate through playbook directories
       for (const item of contents) {
-        if (item.type !== 'dir') continue;
+        if (item.type !== "dir") continue;
 
         try {
           // Fetch manifest.json
@@ -709,7 +756,10 @@ export async function fetchPlaybooksFromGitHub(token: string): Promise<any[]> {
           manifest.source_path = `catalog/${letter}/${item.name}`;
           playbooks.push(manifest);
         } catch (error) {
-          console.error(`Error fetching manifest for ${letter}/${item.name}:`, error);
+          console.error(
+            `Error fetching manifest for ${letter}/${item.name}:`,
+            error
+          );
         }
       }
     } catch (error) {
@@ -734,9 +784,17 @@ export function validateManifest(manifest: any): ValidationResult {
 
   // Required fields
   const requiredFields = [
-    'id', 'name', 'version', 'description',
-    'author', 'category', 'tags', 'entry_point',
-    'ansible_version', 'os_support', 'license'
+    "id",
+    "name",
+    "version",
+    "description",
+    "author",
+    "category",
+    "tags",
+    "entry_point",
+    "ansible_version",
+    "os_support",
+    "license",
   ];
 
   for (const field of requiredFields) {
@@ -752,8 +810,13 @@ export function validateManifest(manifest: any): ValidationResult {
 
   // Validate category
   const validCategories = [
-    'monitoring', 'database', 'search', 'security',
-    'proxy', 'storage', 'dev-tools'
+    "monitoring",
+    "database",
+    "search",
+    "security",
+    "proxy",
+    "storage",
+    "dev-tools",
   ];
   if (manifest.category && !validCategories.includes(manifest.category)) {
     errors.push(`Invalid category: ${manifest.category}`);
@@ -761,17 +824,20 @@ export function validateManifest(manifest: any): ValidationResult {
 
   // Validate author
   if (manifest.author && !manifest.author.name) {
-    errors.push('Missing author.name');
+    errors.push("Missing author.name");
   }
 
   // Validate tags
-  if (manifest.tags && (!Array.isArray(manifest.tags) || manifest.tags.length === 0)) {
-    errors.push('Tags must be a non-empty array');
+  if (
+    manifest.tags &&
+    (!Array.isArray(manifest.tags) || manifest.tags.length === 0)
+  ) {
+    errors.push("Tags must be a non-empty array");
   }
 
   // Validate os_support
   if (manifest.os_support && !Array.isArray(manifest.os_support)) {
-    errors.push('os_support must be an array');
+    errors.push("os_support must be an array");
   }
 
   return {
@@ -860,16 +926,19 @@ wrangler d1 execute nodepulse_registry --command="UPDATE sync_metadata SET value
 ### Monitoring and Logs
 
 **View Logs:**
+
 ```bash
 wrangler tail nodepulse-registry
 ```
 
 **Check Sync Status:**
+
 ```bash
 curl https://registry.nodepulse.sh/api/health
 ```
 
 **Query Database:**
+
 ```bash
 # List all playbooks
 wrangler d1 execute nodepulse_registry --command="SELECT id, name, version FROM playbooks"
@@ -892,11 +961,13 @@ wrangler d1 execute nodepulse_registry --command="SELECT category, COUNT(*) FROM
 ### Cost Estimate
 
 **Cloudflare Workers Free Tier:**
+
 - 100,000 requests/day
 - 400,000 GB-s CPU time/day
 - D1: 5GB storage, 5M reads/day, 100K writes/day
 
 **Expected Usage:**
+
 - Registry API: ~10,000 requests/day (well within free tier)
 - CRON sync: 2 runs/day (~500 playbooks = 500 DB writes)
 - Database size: <10MB (thousands of playbooks)
@@ -972,6 +1043,7 @@ ansible/
 **File**: `flagship/resources/js/pages/playbooks/index.tsx`
 
 **Features:**
+
 - Two tabs: Browse (from registry) and Downloaded (from filesystem)
 - Search and category filtering
 - One-click download
@@ -982,10 +1054,12 @@ ansible/
 **File**: `flagship/resources/js/pages/deployments/create.tsx`
 
 **Playbook Path Format:**
+
 - Built-in: `nodepulse/deploy.yml`
 - Community: `catalog/f/fail2ban/playbook.yml`
 
 **Dynamic Variables:**
+
 - Parses `manifest.json` variables array
 - Generates form fields automatically
 - Supports all variable types (string, integer, boolean, select, password)
@@ -999,11 +1073,13 @@ ansible/
 **File**: `.github/workflows/syntax-check.yml`
 
 **Triggers:**
+
 - Push to `main` branch (catalog files only)
 - Pull requests (catalog files only)
 - Manual workflow dispatch
 
 **Validation Steps:**
+
 1. JSON syntax validation
 2. JSON Schema validation (Draft-07)
 3. Required fields check
@@ -1019,6 +1095,7 @@ ansible/
 ### Validation Scripts
 
 All scripts located in `scripts/` directory:
+
 - `validate-json-syntax.sh` - Check JSON syntax with jq
 - `validate-json-schema.sh` - Validate against JSON Schema with check-jsonschema
 - `validate-manifest-fields.sh` - Check required fields and ID format
@@ -1047,16 +1124,19 @@ All scripts located in `scripts/` directory:
 ### Why Self-Contained?
 
 **Reliability:**
+
 - No broken external dependencies
 - Works offline
 - Predictable behavior
 
 **Security:**
+
 - All code is reviewed
 - No supply chain attacks
 - Full transparency
 
 **Simplicity:**
+
 - One directory download
 - One command execution
 - No dependency resolution
@@ -1163,16 +1243,19 @@ A: No, all playbooks must be MIT licensed and open source.
 ## Future Enhancements
 
 1. **Automatic Updates**
+
    - Notify when installed playbooks have new versions
    - One-click update
    - Version pinning
 
 2. **Advanced Filtering**
+
    - Filter by OS compatibility
    - Sort by popularity
    - Related playbooks
 
 3. **Community Features**
+
    - Star/favorite playbooks
    - Usage statistics
    - Comments/reviews
