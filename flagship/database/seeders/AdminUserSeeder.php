@@ -24,31 +24,16 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
-        // SECURITY: Only allow in non-production environments or during initial setup
-        // Production check: If environment is production AND users exist, abort
-        if (app()->environment('production')) {
-            $userCount = User::count();
-
-            if ($userCount > 0) {
-                $this->command->error('❌ Security: Cannot run AdminUserSeeder in production when users already exist');
-                $this->command->error('💡 Use the admin panel to create additional admin users');
-
-                // Exit with error code (security prevention)
-                exit(1);
-            }
-
-            // Production + no users = initial setup (allowed)
-            $this->command->warn('⚠️  Running in PRODUCTION mode for initial setup');
-            $this->command->warn('⚠️  This should only be done during first deployment');
-        }
-
         // Check if any users exist (idempotent check)
         $existingUserCount = User::count();
         if ($existingUserCount > 0) {
             $this->command->info("ℹ️  Admin user already exists (found {$existingUserCount} user(s) in database)");
-            $this->command->info('✓ Skipping admin user creation (idempotent)');
+            $this->command->info('✓ Skipping admin user creation (idempotent - safe for updates)');
             return;
         }
+
+        // No users exist - this is initial setup
+        $this->command->info('Creating initial admin user...');
 
         // Read from environment variables (set in .env by deploy.sh)
         $name = env('ADMIN_NAME');

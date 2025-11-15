@@ -976,10 +976,19 @@ echo ""
 echo "Running admin user seeder..."
 echo ""
 
-# Capture both output and exit code
-# Note: Using -T flag to avoid TTY issues in production
-SEEDER_OUTPUT=$(docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder 2>&1)
-SEEDER_EXIT_CODE=$?
+# Run the seeder and show output in real-time
+# Note: Detect if we're in a TTY environment (local) or non-TTY (CI/CD)
+if [ -t 1 ]; then
+    # Local environment - use interactive mode (no -T flag)
+    docker compose exec flagship php artisan db:seed --class=AdminUserSeeder
+    SEEDER_EXIT_CODE=$?
+else
+    # CI/CD environment - use non-interactive mode (-T flag)
+    docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder
+    SEEDER_EXIT_CODE=$?
+fi
+
+echo ""
 
 # Now we can rely on exit codes since we fixed AdminUserSeeder to exit(1) on errors
 if [ $SEEDER_EXIT_CODE -eq 0 ]; then
@@ -997,11 +1006,7 @@ if [ $SEEDER_EXIT_CODE -eq 0 ]; then
     fi
 else
     # Actual failure (exit code != 0)
-    # Show the detailed error message from the seeder
     echo -e "${RED}✗ Admin user seeder failed (exit code: $SEEDER_EXIT_CODE)${NC}"
-    echo ""
-    echo -e "${YELLOW}The reason for failure is shown below:${NC}"
-    echo "$SEEDER_OUTPUT"
     echo ""
 
     # Don't exit the deployment script - let it continue
