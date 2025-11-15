@@ -183,6 +183,44 @@
         mode: '0600'
 
     # =========================================================================
+    # Handle Cloud-Init SSH Override (Common on Cloud Servers)
+    # =========================================================================
+
+    - name: Check if cloud-init SSH config exists
+      stat:
+        path: /etc/ssh/sshd_config.d/50-cloud-init.conf
+      register: cloud_init_ssh_config
+
+    - name: Backup cloud-init SSH config if it exists
+      copy:
+        src: /etc/ssh/sshd_config.d/50-cloud-init.conf
+        dest: "/root/ssh-backups/50-cloud-init.conf.{{ ansible_date_time.epoch }}.bak"
+        remote_src: true
+        mode: '0600'
+      when: cloud_init_ssh_config.stat.exists
+
+    - name: Fix cloud-init SSH config to disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config.d/50-cloud-init.conf
+        regexp: '^PasswordAuthentication\s+'
+        line: "PasswordAuthentication no"
+        state: present
+      when: cloud_init_ssh_config.stat.exists
+      notify: Restart SSH service
+
+    - name: Prevent cloud-init from overwriting SSH config
+      copy:
+        dest: /etc/cloud/cloud.cfg.d/99-disable-ssh-password-auth.cfg
+        content: |
+          # Prevent cloud-init from re-enabling password authentication
+          # Managed by: SSH hardening playbook
+          ssh_deletekeys: false
+          ssh_genkeytypes: []
+          disable_root: false
+        mode: '0644'
+      when: cloud_init_ssh_config.stat.exists
+
+    # =========================================================================
     # SSH Configuration Hardening
     # =========================================================================
 

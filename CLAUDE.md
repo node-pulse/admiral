@@ -599,3 +599,4 @@ DIGEST_ID=digest-2 go run cmd/digest/main.go
 
 - use @compose.development.yml for any development stuff
 - this is my local computer. if you need to check anything in production server, give me a debug script, and I will use scp to upload to production server and run it.
+- All debug scripts should start with debug in their file names
