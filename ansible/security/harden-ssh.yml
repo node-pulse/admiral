@@ -42,6 +42,9 @@
   gather_facts: true
 
   vars:
+    # Ansible connection user (fallback to ansible_user_id if ansible_user is not defined)
+    current_user: "{{ ansible_user | default(ansible_user_id) }}"
+
     # SSH Configuration
     ssh_port: 22                          # Default SSH port (change as needed)
     disable_password_auth: true           # Disable password authentication
@@ -75,7 +78,7 @@
       when: ansible_user_id != 'root' and ansible_env.SUDO_USER is not defined
 
     - name: Get Ansible connection user home directory
-      shell: "getent passwd {{ ansible_user }} | cut -d: -f6"
+      shell: "getent passwd {{ current_user }} | cut -d: -f6"
       register: ansible_user_home
       changed_when: false
       when: disable_password_auth | bool
@@ -89,14 +92,14 @@
     - name: Fail if no SSH keys found and password auth will be disabled
       fail:
         msg: |
-          ❌ CRITICAL: No SSH authorized keys found for user '{{ ansible_user }}'!
+          ❌ CRITICAL: No SSH authorized keys found for user '{{ current_user }}'!
 
           You are about to disable password authentication, but the Ansible user
-          ({{ ansible_user }}) has no SSH keys configured. This will lock you out!
+          ({{ current_user }}) has no SSH keys configured. This will lock you out!
 
           Before running this playbook:
           1. Add your SSH public key to {{ ansible_user_home.stdout }}/.ssh/authorized_keys
-          2. Test SSH key-based login: ssh -i /path/to/key {{ ansible_user }}@{{ ansible_host | default(inventory_hostname) }}
+          2. Test SSH key-based login: ssh -i /path/to/key {{ current_user }}@{{ ansible_host | default(inventory_hostname) }}
           3. Re-run this playbook after confirming key-based access works
 
           To skip this check (NOT RECOMMENDED):
@@ -111,7 +114,7 @@
           ❌ CRITICAL: You are connected as 'root' and trying to disable root login!
 
           This configuration will lock you out of the server:
-          - Current connection user: {{ ansible_user }} (root)
+          - Current connection user: {{ current_user }} (root)
           - disable_root_login: {{ disable_root_login }}
           - disable_password_auth: {{ disable_password_auth }}
 
@@ -130,14 +133,14 @@
           cp /root/.ssh/authorized_keys /home/adminuser/.ssh/
           chown -R adminuser:adminuser /home/adminuser/.ssh
       when:
-        - ansible_user == 'root'
+        - current_user == 'root'
         - disable_root_login | bool
 
     - name: Display SSH key verification success
       debug:
         msg: |
           ✅ SSH key verification passed!
-          ✅ Found authorized_keys for user '{{ ansible_user }}' ({{ authorized_keys_check.stat.size }} bytes)
+          ✅ Found authorized_keys for user '{{ current_user }}' ({{ authorized_keys_check.stat.size }} bytes)
       when:
         - disable_password_auth | bool
         - authorized_keys_check.stat.exists
@@ -147,7 +150,7 @@
       debug:
         msg: |
           ⚠️  WARNING: This playbook will disable password authentication!
-          ⚠️  SSH key-based access verified for user '{{ ansible_user }}'
+          ⚠️  SSH key-based access verified for user '{{ current_user }}'
           ⚠️  Ensure you can still access this server via SSH keys after changes.
       when: disable_password_auth | bool
 

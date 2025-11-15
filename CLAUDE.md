@@ -441,6 +441,7 @@ ansible-playbook -i inventory.yml ansible/nodepulse/uninstall.yml
 ```
 
 **Key Features:**
+
 - **Single playbook for everything** - nodepulse/deploy.yml installs and updates all components
 - **No roles complexity** - Pure playbooks with supporting template files
 - **Idempotent** - Safe to run multiple times
@@ -593,5 +594,8 @@ DIGEST_ID=digest-2 go run cmd/digest/main.go
 - **Project**: Node Pulse Agent Fleet Management
 - **Status**: Development / MVP
 - **License**: MIT
+
+## My Rules
+
 - use @compose.development.yml for any development stuff
 - this is my local computer. if you need to check anything in production server, give me a debug script, and I will use scp to upload to production server and run it.
