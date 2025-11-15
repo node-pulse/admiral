@@ -132,18 +132,28 @@ export default function PlaybooksIndex() {
             const updates: UpdateInfo[] = response.data.updates;
             setUpdatesAvailable(updates);
 
-            // Merge update info into playbooks
+            // Create a map for faster lookup
+            const updateMap = new Map(updates.map((u) => [u.id, u]));
+
+            // Merge update info into playbooks, clearing stale flags
             setPlaybooks((prev) =>
                 prev.map((pb) => {
-                    const updateInfo = updates.find((u) => u.id === pb.playbook_id);
+                    const updateInfo = updateMap.get(pb.playbook_id);
                     if (updateInfo) {
+                        // Update available
                         return {
                             ...pb,
                             update_available: true,
                             latest_version: updateInfo.latest_version,
                         };
+                    } else {
+                        // No update available - clear any stale flags
+                        return {
+                            ...pb,
+                            update_available: false,
+                            latest_version: undefined,
+                        };
                     }
-                    return pb;
                 }),
             );
         } catch (error: any) {
@@ -153,11 +163,14 @@ export default function PlaybooksIndex() {
         }
     };
 
-    // Initial load: Load from cache first, then fetch latest
+    // Initial load: Load from cache first, then fetch latest, then check updates
     useEffect(() => {
-        loadFromCache();
-        fetchPlaybooks(false);
-        checkForUpdates();
+        const loadData = async () => {
+            loadFromCache();
+            await fetchPlaybooks(false);
+            await checkForUpdates();
+        };
+        loadData();
     }, []);
 
     // Download playbook
@@ -203,9 +216,9 @@ export default function PlaybooksIndex() {
             await axios.delete(`/api/playbooks/${playbookId}`);
             toast.success(`${name} removed successfully`);
 
-            // Refresh playbook list
-            fetchPlaybooks(false);
-            checkForUpdates();
+            // Refresh playbook list, then check for updates
+            await fetchPlaybooks(false);
+            await checkForUpdates();
         } catch (error: any) {
             toast.error(
                 error.response?.data?.error || 'Failed to remove playbook',

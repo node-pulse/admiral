@@ -383,15 +383,15 @@ class PlaybookDownloader
 
         // Check if playbook is downloaded
         $downloaded = $this->listDownloaded();
-        $isDownloaded = false;
+        $localPlaybook = null;
         foreach ($downloaded as $pb) {
             if ($pb['id'] === $playbookId) {
-                $isDownloaded = true;
+                $localPlaybook = $pb;
                 break;
             }
         }
 
-        if (!$isDownloaded) {
+        if (!$localPlaybook) {
             throw new \Exception('Playbook is not downloaded. Use download() instead.');
         }
 
@@ -400,18 +400,72 @@ class PlaybookDownloader
             'source_path' => $remotePlaybook['source_path'],
         ]);
 
-        // Remove old version
-        $this->remove($playbookId);
+        // Security: Validate source path doesn't contain directory traversal
+        if (str_contains($remotePlaybook['source_path'], '..') || str_contains($remotePlaybook['source_path'], '~')) {
+            throw new \Exception('Invalid source path');
+        }
 
-        // Download new version (reuse download logic)
-        $updatedPlaybook = $this->download($playbookId, $remotePlaybook['source_path']);
+        // Security: Ensure source path starts with "catalog/"
+        if (!str_starts_with($remotePlaybook['source_path'], 'catalog/')) {
+            throw new \Exception('Source path must start with "catalog/"');
+        }
 
-        Log::info('Playbook updated successfully', [
-            'playbook_id' => $playbookId,
-            'version' => $updatedPlaybook['version'] ?? 'unknown',
-        ]);
+        // Step 1: Download new version to temporary location
+        $relativePath = str_replace('catalog/', '', $remotePlaybook['source_path']);
+        $tempPath = $this->storagePath . '/' . $relativePath . '.tmp';
 
-        return $updatedPlaybook;
+        try {
+            // Download all files to temporary directory
+            $files = $this->downloadPlaybookFiles($remotePlaybook['source_path'], $tempPath);
+
+            // Step 2: Validate the downloaded manifest
+            $manifestPath = $tempPath . '/manifest.json';
+            if (!File::exists($manifestPath)) {
+                throw new \Exception('Downloaded manifest.json not found');
+            }
+
+            $manifest = json_decode(File::get($manifestPath), true);
+            $this->validateManifest($manifest);
+
+            // Verify playbook_id matches
+            if ($manifest['id'] !== $playbookId) {
+                throw new \Exception('Playbook ID mismatch');
+            }
+
+            // Step 3: Now that download is complete and valid, remove old version
+            $oldPath = $this->storagePath . '/' . $relativePath;
+            if (File::isDirectory($oldPath)) {
+                File::deleteDirectory($oldPath);
+            }
+
+            // Step 4: Move temporary directory to final location
+            File::move($tempPath, $oldPath);
+
+            Log::info('Playbook updated successfully', [
+                'playbook_id' => $playbookId,
+                'version' => $manifest['version'] ?? 'unknown',
+                'files_count' => \count($files),
+            ]);
+
+            // Return manifest with metadata
+            $manifest['downloaded'] = true;
+            $manifest['downloaded_at'] = time();
+            $manifest['source_path'] = $remotePlaybook['source_path'];
+
+            return $manifest;
+        } catch (\Exception $e) {
+            // Cleanup temporary directory if it exists
+            if (File::isDirectory($tempPath)) {
+                File::deleteDirectory($tempPath);
+            }
+
+            Log::error('Failed to update playbook', [
+                'playbook_id' => $playbookId,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
     }
 
     /**
