@@ -6,8 +6,13 @@
 - [ ] Plausible Analytics
 - [ ] Matomo – web analytics (19k+ stars)
 - [ ] PostHog – product analytics (18k+ stars)
+- [ ] Grafana – visualization & dashboards
+- [ ] Prometheus – metrics & alerting
+- [ ] Uptime Kuma – uptime monitoring
+- [ ] Netdata – real-time performance monitoring
+- [ ] Zabbix – enterprise monitoring
 
-## Databases / Storage
+## Databases & Storage
 
 - [ ] PostgreSQL
 - [ ] MySQL / MariaDB
@@ -16,9 +21,6 @@
 - [ ] SeaweedFS
 - [ ] Seafile
 - [ ] Immich
-
-## Embeddings / Vector Databases
-
 - [ ] Qdrant – vector DB
 - [ ] Weaviate – vector & hybrid search
 - [ ] Milvus – enterprise vector DB
@@ -42,7 +44,7 @@
 - [ ] Jekyll
 - [ ] Hugo
 
-## Developer Tools
+## Developer Tools & Environments
 
 - [ ] GitLab CI/CD – included with GitLab
 - [ ] Gitea
@@ -51,6 +53,11 @@
 - [ ] Sentry (self-hosted)
 - [ ] SonarQube – code quality & security
 - [ ] Codecov – code coverage
+- [ ] Code-Server – VS Code in browser (65k+ stars)
+- [ ] Gitpod – cloud development environments (12k+ stars)
+- [ ] Backstage – Spotify's developer portal (25k+ stars)
+- [ ] Devtron – Kubernetes deployment tool
+- [ ] GlitchTip – Sentry alternative (1.5k+ stars)
 
 ## Communication
 
@@ -65,7 +72,7 @@
 - [ ] Temporal – workflow orchestration, AI pipelines
 - [ ] Apache Airflow – workflow orchestration with DAGs
 
-## AI/LLM Tools
+## AI/LLM & ML Tools
 
 - [ ] Ollama – local LLM inference
 - [ ] LocalAI – OpenAI API alternative
@@ -73,6 +80,12 @@
 - [ ] Jan – ChatGPT alternative
 - [ ] LiteLLM – LLM proxy/gateway
 - [ ] Open WebUI – ChatGPT-style interface for Ollama
+- [ ] Stable Diffusion WebUI – image generation (120k+ stars)
+- [ ] ComfyUI – node-based Stable Diffusion (35k+ stars)
+- [ ] Flowise – drag-drop LLM flows (20k+ stars)
+- [ ] Dify – LLM app development platform (30k+ stars)
+- [ ] LangChain – LLM framework
+- [ ] LlamaIndex – data framework for LLMs
 
 ## Project Management / Collaboration
 
@@ -82,12 +95,6 @@
 - [ ] Wekan – Kanban board
 - [ ] OpenProject – project management suite
 
-## Password Managers / Security
-
-- [ ] Vaultwarden – Bitwarden server
-- [ ] Passbolt – team password manager
-- [ ] Keycloak – SSO/Identity provider
-- [ ] Authentik – SSO/Identity provider
 
 ## Media / Entertainment
 
@@ -96,14 +103,6 @@
 - [ ] Navidrome – music streaming
 - [ ] Photoprism – AI-powered photo management
 - [ ] Nextcloud – file sync & share
-
-## Monitoring / Observability
-
-- [ ] Grafana – visualization & dashboards
-- [ ] Prometheus – metrics & alerting
-- [ ] Uptime Kuma – uptime monitoring
-- [ ] Netdata – real-time performance monitoring
-- [ ] Zabbix – enterprise monitoring
 
 ## Email / Calendar
 
@@ -156,16 +155,7 @@
 - [ ] ToolJet – low-code platform (25k+ stars)
 - [ ] Appsmith – low-code app builder (30k+ stars)
 
-## AI/ML Development
-
-- [ ] Stable Diffusion WebUI – image generation (120k+ stars)
-- [ ] ComfyUI – node-based Stable Diffusion (35k+ stars)
-- [ ] Flowise – drag-drop LLM flows (20k+ stars)
-- [ ] Dify – LLM app development platform (30k+ stars)
-- [ ] LangChain – LLM framework
-- [ ] LlamaIndex – data framework for LLMs
-
-## Self-hosting / Infrastructure
+## Infrastructure & Hosting
 
 - [ ] Coolify – Heroku/Netlify/Vercel alternative (20k+ stars)
 - [ ] CapRover – PaaS (12k+ stars)
@@ -173,6 +163,8 @@
 - [ ] Portainer – Docker management (28k+ stars)
 - [ ] Rancher – Kubernetes management
 - [ ] Traefik – reverse proxy & load balancer
+- [ ] Harbor – container registry (22k+ stars)
+- [ ] Portus – Docker registry UI
 
 ## Dashboards / Home Pages
 
@@ -180,13 +172,6 @@
 - [ ] Dashy – self-hosted dashboard (15k+ stars)
 - [ ] Homarr – customizable dashboard (5k+ stars)
 - [ ] Heimdall – application dashboard (7k+ stars)
-
-## Development Environments
-
-- [ ] Code-Server – VS Code in browser (65k+ stars)
-- [ ] Gitpod – cloud development environments (12k+ stars)
-- [ ] Backstage – Spotify's developer portal (25k+ stars)
-- [ ] Devtron – Kubernetes deployment tool
 
 ## Notifications
 
@@ -217,16 +202,11 @@
 - [ ] Home Assistant – home automation (68k+ stars)
 - [ ] ESPHome – ESP8266/ESP32 firmware (7k+ stars)
 
-## Error Tracking
+## Security & Identity
 
-- [ ] GlitchTip – Sentry alternative (1.5k+ stars)
-
-## Container / Image Registry
-
-- [ ] Harbor – container registry (22k+ stars)
-- [ ] Portus – Docker registry UI
-
-## Secret Management
-
-- [ ] Vault – HashiCorp Vault (29k+ stars)
+- [ ] Vaultwarden – Bitwarden server (password manager)
+- [ ] Passbolt – team password manager
+- [ ] Keycloak – SSO/Identity provider
+- [ ] Authentik – SSO/Identity provider
+- [ ] Vault – HashiCorp Vault (secret management, 29k+ stars)
 - [ ] Infisical – secret management (12k+ stars)
