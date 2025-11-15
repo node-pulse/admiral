@@ -31,7 +31,8 @@ class DeploymentQueue
             'deployment_id' => $deployment->id,
             'playbook' => $deployment->playbook,
             'server_ids' => json_encode($serverIds),
-            'variables' => json_encode($extraVars),
+            // Encode as object {} instead of array [] when empty
+            'variables' => json_encode((object) $extraVars),
             'timestamp' => now()->toIso8601String(),
         ];
 
