@@ -124,6 +124,12 @@
             remove: yes
           ignore_errors: yes
 
+        - name: Remove nodepulse group
+          group:
+            name: nodepulse
+            state: absent
+          ignore_errors: yes
+
         - name: Display agent removal status
           debug:
             msg: "✓ Node Pulse Agent removed"
