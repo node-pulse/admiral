@@ -32,8 +32,11 @@ Route::middleware(['web', 'auth'])->group(function () {
 Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('playbooks')->group(function () {
     Route::get('/', [PlaybooksController::class, 'list']);
     Route::get('/browse', [PlaybooksController::class, 'browse']);  // Browse registry catalog
+    Route::get('/updates', [PlaybooksController::class, 'checkUpdates']);  // Check for updates
     Route::get('/{playbookId}', [PlaybooksController::class, 'show']);
     Route::post('/download', [PlaybooksController::class, 'download']);
+    Route::post('/update-all', [PlaybooksController::class, 'updateAll']);  // Update all playbooks
+    Route::post('/{playbookId}/update', [PlaybooksController::class, 'updatePlaybook']);  // Update specific playbook
     Route::delete('/{playbookId}', [PlaybooksController::class, 'remove']);
 });
 

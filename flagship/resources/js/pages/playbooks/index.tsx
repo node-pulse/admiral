@@ -1,4 +1,5 @@
 import { PlaybookListItem } from '@/components/playbooks/playbook-list-item';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
@@ -6,7 +7,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { Loader2, Package, Search } from 'lucide-react';
+import { ArrowUpCircle, Loader2, Package, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -59,6 +60,17 @@ interface Playbook {
     source_path?: string; // For browse
     downloaded?: boolean; // For browse
     downloaded_at?: string | number; // For downloaded
+    update_available?: boolean;
+    latest_version?: string;
+}
+
+interface UpdateInfo {
+    id: string;
+    name: string;
+    current_version: string;
+    latest_version: string;
+    source_path: string;
+    update_available: boolean;
 }
 
 const CACHE_KEY_PLAYBOOKS = 'nodepulse_playbooks';
@@ -69,6 +81,9 @@ export default function PlaybooksIndex() {
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [updatesAvailable, setUpdatesAvailable] = useState<UpdateInfo[]>([]);
+    const [checkingUpdates, setCheckingUpdates] = useState(false);
+    const [updatingAll, setUpdatingAll] = useState(false);
 
     // Load from localStorage
     const loadFromCache = () => {
@@ -109,10 +124,40 @@ export default function PlaybooksIndex() {
         }
     };
 
+    // Check for updates
+    const checkForUpdates = async () => {
+        setCheckingUpdates(true);
+        try {
+            const response = await axios.get('/api/playbooks/updates');
+            const updates: UpdateInfo[] = response.data.updates;
+            setUpdatesAvailable(updates);
+
+            // Merge update info into playbooks
+            setPlaybooks((prev) =>
+                prev.map((pb) => {
+                    const updateInfo = updates.find((u) => u.id === pb.playbook_id);
+                    if (updateInfo) {
+                        return {
+                            ...pb,
+                            update_available: true,
+                            latest_version: updateInfo.latest_version,
+                        };
+                    }
+                    return pb;
+                }),
+            );
+        } catch (error: any) {
+            console.error('Failed to check for updates:', error);
+        } finally {
+            setCheckingUpdates(false);
+        }
+    };
+
     // Initial load: Load from cache first, then fetch latest
     useEffect(() => {
         loadFromCache();
         fetchPlaybooks(false);
+        checkForUpdates();
     }, []);
 
     // Download playbook
@@ -160,10 +205,79 @@ export default function PlaybooksIndex() {
 
             // Refresh playbook list
             fetchPlaybooks(false);
+            checkForUpdates();
         } catch (error: any) {
             toast.error(
                 error.response?.data?.error || 'Failed to remove playbook',
             );
+        }
+    };
+
+    // Update a single playbook
+    const handleUpdate = async (playbookId: string, name: string) => {
+        if (!confirm(`Update "${name}" to the latest version?`)) {
+            return;
+        }
+
+        try {
+            const response = await axios.post(`/api/playbooks/${playbookId}/update`);
+            toast.success(
+                `${name} updated to v${response.data.playbook.version}`,
+            );
+
+            // Refresh playbook list and check for updates
+            await fetchPlaybooks(false);
+            await checkForUpdates();
+        } catch (error: any) {
+            toast.error(
+                error.response?.data?.message ||
+                    error.response?.data?.error ||
+                    'Failed to update playbook',
+            );
+        }
+    };
+
+    // Update all playbooks
+    const handleUpdateAll = async () => {
+        if (updatesAvailable.length === 0) {
+            toast.info('No updates available');
+            return;
+        }
+
+        if (
+            !confirm(
+                `Update ${updatesAvailable.length} playbook(s) to the latest version?`,
+            )
+        ) {
+            return;
+        }
+
+        setUpdatingAll(true);
+        try {
+            const response = await axios.post('/api/playbooks/update-all');
+            const results = response.data.results;
+
+            if (results.success.length > 0) {
+                toast.success(
+                    `Successfully updated ${results.success.length} playbook(s)`,
+                );
+            }
+
+            if (results.failed.length > 0) {
+                toast.error(`Failed to update ${results.failed.length} playbook(s)`);
+            }
+
+            // Refresh playbook list and check for updates
+            await fetchPlaybooks(false);
+            await checkForUpdates();
+        } catch (error: any) {
+            toast.error(
+                error.response?.data?.message ||
+                    error.response?.data?.error ||
+                    'Failed to update playbooks',
+            );
+        } finally {
+            setUpdatingAll(false);
         }
     };
 
@@ -212,6 +326,37 @@ export default function PlaybooksIndex() {
                             Browse and download Ansible playbooks from the
                             community catalog
                         </p>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={checkForUpdates}
+                            disabled={checkingUpdates}
+                        >
+                            {checkingUpdates ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                            )}
+                            Check Updates
+                        </Button>
+                        {updatesAvailable.length > 0 && (
+                            <Button
+                                variant="default"
+                                size="sm"
+                                onClick={handleUpdateAll}
+                                disabled={updatingAll}
+                                className="bg-orange-500 hover:bg-orange-600"
+                            >
+                                {updatingAll ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <ArrowUpCircle className="mr-2 h-4 w-4" />
+                                )}
+                                Update All ({updatesAvailable.length})
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -271,6 +416,7 @@ export default function PlaybooksIndex() {
                                 playbook={playbook}
                                 onDownload={handleDownload}
                                 onRemove={handleRemove}
+                                onUpdate={handleUpdate}
                             />
                         ))}
                     </div>

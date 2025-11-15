@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Download, Trash2 } from 'lucide-react';
+import { ArrowUpCircle, CheckCircle2, Download, Trash2 } from 'lucide-react';
 
 interface OsSupport {
     distro: string;
@@ -43,18 +43,22 @@ interface Playbook {
     source_path?: string;
     downloaded?: boolean;
     downloaded_at?: string | number;
+    update_available?: boolean;
+    latest_version?: string;
 }
 
 interface PlaybookListItemProps {
     playbook: Playbook;
     onDownload?: (playbook: Playbook) => void;
     onRemove?: (playbookId: string, name: string) => void;
+    onUpdate?: (playbookId: string, name: string) => void;
 }
 
 export function PlaybookListItem({
     playbook,
     onDownload,
     onRemove,
+    onUpdate,
 }: PlaybookListItemProps) {
     return (
         <div className="flex items-center justify-between gap-2 px-4 pb-2 hover:bg-muted/75">
@@ -78,6 +82,22 @@ export function PlaybookListItem({
                                 <CheckCircle2 className="mr-1 h-3 w-3" />
                                 Downloaded
                             </Badge>
+                            {playbook.update_available && playbook.latest_version && (
+                                <Badge
+                                    variant="default"
+                                    className="shrink-0 cursor-pointer bg-orange-500 text-xs hover:bg-orange-600"
+                                    onClick={() =>
+                                        onUpdate?.(
+                                            playbook.playbook_id,
+                                            playbook.name,
+                                        )
+                                    }
+                                    title={`Update to v${playbook.latest_version}`}
+                                >
+                                    <ArrowUpCircle className="mr-1 h-3 w-3" />
+                                    Update to v{playbook.latest_version}
+                                </Badge>
+                            )}
                             <Badge
                                 variant="default"
                                 className="shrink-0 cursor-pointer bg-blue-500 text-xs"

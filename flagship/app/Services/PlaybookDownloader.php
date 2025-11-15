@@ -292,4 +292,163 @@ class PlaybookDownloader
 
         Log::info('Playbook removed', ['playbook_id' => $playbookId]);
     }
+
+    /**
+     * Check for available updates for downloaded playbooks
+     *
+     * @return array List of playbooks with update information
+     */
+    public function checkForUpdates(): array
+    {
+        // Get downloaded playbooks
+        $downloaded = $this->listDownloaded();
+
+        // Get registry catalog
+        $response = Http::timeout(10)->get(self::REGISTRY_URL);
+
+        if (!$response->successful()) {
+            Log::error('Failed to fetch playbooks catalog for update check', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \Exception('Failed to fetch playbooks catalog from registry');
+        }
+
+        $data = $response->json();
+        $catalogPlaybooks = $data['playbooks'] ?? [];
+
+        // Create a map of registry playbooks by ID for quick lookup
+        $catalogMap = [];
+        foreach ($catalogPlaybooks as $pb) {
+            $catalogMap[$pb['id']] = $pb;
+        }
+
+        // Check each downloaded playbook for updates
+        $updates = [];
+        foreach ($downloaded as $localPlaybook) {
+            $playbookId = $localPlaybook['id'];
+
+            if (isset($catalogMap[$playbookId])) {
+                $remotePlaybook = $catalogMap[$playbookId];
+                $localVersion = $localPlaybook['version'] ?? '0.0.0';
+                $remoteVersion = $remotePlaybook['version'] ?? '0.0.0';
+
+                // Compare versions
+                if (version_compare($remoteVersion, $localVersion, '>')) {
+                    $updates[] = [
+                        'id' => $playbookId,
+                        'name' => $localPlaybook['name'],
+                        'current_version' => $localVersion,
+                        'latest_version' => $remoteVersion,
+                        'source_path' => $remotePlaybook['source_path'],
+                        'update_available' => true,
+                    ];
+                }
+            }
+        }
+
+        return $updates;
+    }
+
+    /**
+     * Update a playbook to the latest version
+     *
+     * @param string $playbookId Playbook ID (e.g., "pb_Xk7nM2pQw9")
+     * @return array Updated playbook manifest
+     */
+    public function update(string $playbookId): array
+    {
+        // Get registry catalog to find the playbook
+        $response = Http::timeout(10)->get(self::REGISTRY_URL);
+
+        if (!$response->successful()) {
+            throw new \Exception('Failed to fetch playbooks catalog from registry');
+        }
+
+        $data = $response->json();
+        $catalogPlaybooks = $data['playbooks'] ?? [];
+
+        // Find the playbook in catalog
+        $remotePlaybook = null;
+        foreach ($catalogPlaybooks as $pb) {
+            if ($pb['id'] === $playbookId) {
+                $remotePlaybook = $pb;
+                break;
+            }
+        }
+
+        if (!$remotePlaybook) {
+            throw new \Exception('Playbook not found in registry');
+        }
+
+        // Check if playbook is downloaded
+        $downloaded = $this->listDownloaded();
+        $isDownloaded = false;
+        foreach ($downloaded as $pb) {
+            if ($pb['id'] === $playbookId) {
+                $isDownloaded = true;
+                break;
+            }
+        }
+
+        if (!$isDownloaded) {
+            throw new \Exception('Playbook is not downloaded. Use download() instead.');
+        }
+
+        Log::info('Updating playbook', [
+            'playbook_id' => $playbookId,
+            'source_path' => $remotePlaybook['source_path'],
+        ]);
+
+        // Remove old version
+        $this->remove($playbookId);
+
+        // Download new version (reuse download logic)
+        $updatedPlaybook = $this->download($playbookId, $remotePlaybook['source_path']);
+
+        Log::info('Playbook updated successfully', [
+            'playbook_id' => $playbookId,
+            'version' => $updatedPlaybook['version'] ?? 'unknown',
+        ]);
+
+        return $updatedPlaybook;
+    }
+
+    /**
+     * Update all playbooks that have available updates
+     *
+     * @return array Results of update operations
+     */
+    public function updateAll(): array
+    {
+        $updates = $this->checkForUpdates();
+        $results = [
+            'success' => [],
+            'failed' => [],
+            'total' => \count($updates),
+        ];
+
+        foreach ($updates as $update) {
+            try {
+                $updatedPlaybook = $this->update($update['id']);
+                $results['success'][] = [
+                    'id' => $update['id'],
+                    'name' => $update['name'],
+                    'version' => $updatedPlaybook['version'],
+                ];
+            } catch (\Exception $e) {
+                $results['failed'][] = [
+                    'id' => $update['id'],
+                    'name' => $update['name'],
+                    'error' => $e->getMessage(),
+                ];
+                Log::error('Failed to update playbook', [
+                    'playbook_id' => $update['id'],
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $results;
+    }
 }

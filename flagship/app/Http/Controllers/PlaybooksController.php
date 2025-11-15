@@ -136,4 +136,64 @@ class PlaybooksController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Check for available updates
+     */
+    public function checkUpdates()
+    {
+        try {
+            $updates = $this->downloader->checkForUpdates();
+
+            return response()->json([
+                'updates' => $updates,
+                'count' => \count($updates),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to check for updates',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update a specific playbook
+     */
+    public function updatePlaybook(string $playbookId)
+    {
+        try {
+            $playbook = $this->downloader->update($playbookId);
+
+            return response()->json([
+                'message' => 'Playbook updated successfully',
+                'playbook' => $playbook,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to update playbook',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update all playbooks that have available updates
+     */
+    public function updateAll()
+    {
+        try {
+            $results = $this->downloader->updateAll();
+
+            return response()->json([
+                'message' => 'Update process completed',
+                'results' => $results,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to update playbooks',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }
