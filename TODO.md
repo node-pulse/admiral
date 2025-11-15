@@ -21,11 +21,12 @@
 | **Community Playbooks**             | ✅ Production Ready | 100%       |
 | **User Management**                 | ✅ Production Ready | 100%       |
 | **Server ID Validation**            | ✅ Production Ready | 100%       |
+| **Security Playbooks (Built-in)**   | ✅ Production Ready | 100%       |
+| **Dashboard Metrics Visualization** | ✅ Production Ready | 100%       |
 | **mTLS Implementation**             | ✅ Core Complete    | 85%        |
-| **Dashboard Metrics Visualization** | ✅ Partial Complete | 60%        |
 | **Playbook Testing & Hardening**    | ⏳ Pending          | 20%        |
 
-**Overall Sprint 1 Status**: ✅ **85% Complete**
+**Overall Sprint 1 Status**: ⏳ **90% Complete** (Only playbook testing remaining)
 
 ---
 
@@ -33,58 +34,22 @@
 
 **Goal**: Complete core user-facing features and testing
 **Timeline**: November 3-17, 2025 (Extended to November 20, 2025)
-**Status**: 85% Complete - Dashboard metrics visualization and playbook testing remaining
+**Status**: 90% Complete - Only playbook testing remaining
 
-### 1.1 Dashboard Metrics Visualization ✅ COMPLETE (with optional enhancements)
+### 1.1 Dashboard Metrics Visualization ✅ COMPLETE
 
-**Why**: Backend metrics pipeline is complete, users need comprehensive visualization.
+**Status**: ✅ Production Ready (100%)
 
-**Status**: ✅ **Fully Functional** - All core features implemented, optional enhancements available
+This feature is complete and production-ready. All core functionality has been implemented and deployed.
 
-- [x] **Unified Metrics Chart** ✅ PRODUCTION READY
+**Optional Future Enhancements** (Deferred to future sprints):
 
-  - [x] Created `flagship/resources/js/components/servers/metrics-chart.tsx` (380 lines)
-  - [x] Backend pre-calculates percentages using LAG() for efficiency
-  - [x] Multi-metric support with tabs (CPU, Memory, Disk, Network)
-  - [x] Time range selector (24h, 48h, 72h, 7 days)
-  - [x] Multi-server comparison (overlay multiple servers on same chart)
-  - [x] Timestamp alignment (15-second boundaries for consistent display)
-  - [x] Recharts integration with responsive design
-  - [x] Color-coded server lines (8 distinct colors)
-  - [x] Smart null handling (gaps in data displayed correctly)
+- Specialized chart components (per-core CPU, memory breakdown, disk I/O, network packets)
+- Grid layout with all charts visible simultaneously
+- Live updates (polling every 30s)
+- Export metrics as CSV
 
-- [x] **Dashboard Integration** ✅ COMPLETE
-
-  - [x] Main dashboard at `flagship/resources/js/pages/dashboard.tsx`
-  - [x] ServerSelector component for multi-server selection
-  - [x] ProcessList component showing top processes by CPU/Memory
-  - [x] Dashboard stats cards (Total Servers, Online, Alerts)
-  - [x] Real-time server status (online if seen < 5 minutes)
-
-- [ ] **Optional Enhancements** (Nice to have, not required for Sprint 1)
-
-  - [ ] Separate specialized chart components:
-    - [ ] `flagship/resources/js/components/charts/cpu-chart.tsx` - Per-core CPU view
-    - [ ] `flagship/resources/js/components/charts/memory-chart.tsx` - Memory breakdown
-    - [ ] `flagship/resources/js/components/charts/disk-chart.tsx` - Disk I/O operations
-    - [ ] `flagship/resources/js/components/charts/network-chart.tsx` - Packet/error rates
-  - [ ] Grid layout with all charts visible simultaneously
-  - [ ] Live updates (polling every 30s)
-  - [ ] Export metrics as CSV functionality
-  - [ ] Real-time metric badges (current values without historical chart)
-
-**Reference Files:**
-
-- `/Users/yumin/ventures/node-pulse-stack/admiral/docs/metrics-architecture.md`
-- `/Users/yumin/ventures/node-pulse-stack/admiral/docs/prometheus-schema-design.md`
-- Database table: `admiral.metrics` (39 columns)
-
-**Acceptance Criteria:**
-
-- ✅ User can view CPU, memory, disk, network charts for any server
-- ✅ Charts update when time range changes
-- ✅ Accurate percentages calculated using LAG() window functions
-- ✅ Responsive design, works on mobile
+**See**: Completed Milestones (Archive) section for detailed implementation history
 
 ---
 
@@ -92,90 +57,68 @@
 
 **Why**: Ensure deployment system reliability before production use.
 
-- [ ] **Test `deploy-agent.yml`**
+- [ ] **Test `ansible/nodepulse/deploy.yml` (Unified deployment)**
 
   - [ ] Fresh Ubuntu 22.04 server test
   - [ ] Fresh Ubuntu 24.04 server test
   - [ ] Debian 12 server test
-  - [ ] Verify agent starts and sends metrics
+  - [ ] RHEL/Rocky Linux 8+ test
+  - [ ] Verify all services start (nodepulse, node_exporter, process_exporter)
+  - [ ] Verify metrics flowing to dashboard
   - [ ] Verify WAL buffer persistence
+  - [ ] Test with mTLS enabled (`tls_enabled=true`)
+  - [ ] Test without mTLS (`tls_enabled=false`)
+  - [ ] Test upgrade scenario (deploy.yml is idempotent)
+  - [ ] Test tagged deployment (`--tags nodepulse`, `--tags node-exporter`, etc.)
   - [ ] Document any issues
 
-- [ ] **Test `rollback-agent.yml`**
+- [ ] **Test `ansible/nodepulse/uninstall.yml`**
 
-  - [ ] Test rollback after upgrade
-  - [ ] Verify backup restoration
-  - [ ] Test when backup doesn't exist (should fail gracefully)
-  - [ ] Document rollback procedure
+  - [ ] Verify complete removal of all components
+  - [ ] Check no orphaned processes (nodepulse, node_exporter, process_exporter)
+  - [ ] Verify systemd services removed
+  - [ ] Verify directories cleaned up
+  - [ ] Test on servers with partial installations
+  - [ ] Document uninstall procedure
 
-- [ ] **Test `retry-failed.yml`**
+- [x] **Test `ansible/security/harden-ssh.yml`** ✅
 
-  - [ ] Test retry after failed deployment
-  - [ ] Verify idempotency
-  - [ ] Test with different failure scenarios
+- [ ] **Test `ansible/security/configure-firewall.yml`**
 
-- [ ] **Test `uninstall-agent.yml`**
+  - [ ] Test on Ubuntu/Debian (UFW)
+  - [ ] Test on RHEL/Rocky (firewalld)
+  - [ ] Test on systems without firewall installed
+  - [ ] Verify SSH port remains open
+  - [ ] Test custom port configuration
+  - [ ] Test with `firewall_enabled=false` (should disable gracefully)
+  - [ ] Verify firewall status after deployment
+  - [ ] Document any distribution-specific issues
 
-  - [ ] Verify complete removal
-  - [ ] Check no orphaned processes
-  - [ ] Test on servers with different install methods
-
-- [ ] **Documentation**
-  - [ ] Create `docs/playbook-testing-results.md`
-  - [ ] Document known issues and workarounds
-  - [ ] Add troubleshooting guide
 
 **Reference Files:**
 
-- `/Users/yumin/ventures/node-pulse-stack/admiral/ansible/playbooks/nodepulse/`
-- `/Users/yumin/ventures/node-pulse-stack/admiral/docs/ansible-reference/ansible-implementation-status.md`
+- `/Users/yumin/ventures/node-pulse-stack/admiral/ansible/nodepulse/deploy.yml` - Unified deployment playbook (26KB)
+- `/Users/yumin/ventures/node-pulse-stack/admiral/ansible/nodepulse/uninstall.yml` - Uninstall playbook (9KB)
+- `/Users/yumin/ventures/node-pulse-stack/admiral/ansible/security/harden-ssh.yml` - SSH hardening (16KB)
+- `/Users/yumin/ventures/node-pulse-stack/admiral/ansible/security/configure-firewall.yml` - Firewall config (13KB)
+- `/Users/yumin/ventures/node-pulse-stack/admiral/ansible/security/README.md` - Security playbooks documentation
 
 **Acceptance Criteria:**
 
-- ✅ All 5 core playbooks tested on at least 2 Linux distributions
-- ✅ Success rate documented
-- ✅ Known issues documented with workarounds
+- ✅ Core deployment playbook (`deploy.yml`) tested on at least 3 Linux distributions (Ubuntu, Debian, RHEL/Rocky)
+- ✅ Both mTLS and non-mTLS modes tested successfully
+- ✅ Security playbooks tested on major distros (Debian/Ubuntu with UFW, RHEL/Rocky with firewalld)
+- ✅ Uninstall playbook verified to completely remove all components
 
 ---
 
 ### 1.3 Server ID Validation Layer ✅ COMPLETE
 
-**Why**: Independent security layer that works with or without mTLS.
+**Status**: ✅ Production Ready (100%) - Implemented October 28, 2025
 
-**Status**: ✅ **Production Ready** - Implemented October 28, 2025
+Independent security layer with 99% cache hit rate, DoS protection via negative caching, and working independently of mTLS state.
 
-- [x] **Implementation** ✅ COMPLETE
-
-  - [x] Created `submarines/internal/validation/server_id.go`
-  - [x] Implemented `ValidateServerID(ctx, serverID, valkeyClient)` function
-  - [x] Cache strategy:
-    - Valid: `server:valid:{id}` → `"true"` (TTL: 3600s)
-    - Invalid: `server:valid:{id}` → `"false"` (TTL: 3600s)
-  - [x] Fallback: Query PostgreSQL if cache miss
-  - [x] Integrated into metrics ingestion handlers
-
-- [x] **Configuration** ✅ COMPLETE
-
-  - [x] Configuration supported in `submarines/internal/config/config.go`
-  - [x] Environment variable support for cache TTL
-
-- [x] **Production Deployment**
-  - [x] Currently running in production
-  - [x] Successfully validating server IDs
-  - [x] Cache hit rate > 99%
-  - [x] DoS protection active via negative caching
-
-**Reference Files:**
-
-- `submarines/internal/validation/server_id.go` (Implementation)
-- `/Users/yumin/ventures/node-pulse-stack/admiral/docs/mtls-guide.md` (Section: Server ID Validation)
-
-**Acceptance Criteria:**
-
-- ✅ 99% reduction in database queries via caching
-- ✅ Invalid server IDs rejected (403 Forbidden)
-- ✅ DoS protection via negative caching
-- ✅ Works independently of mTLS state
+**See**: Completed Milestones (Archive) section for detailed implementation history
 
 ---
 
@@ -183,97 +126,25 @@
 
 **Goal**: Custom playbook upload and security hardening
 **Timeline**: November 18 - December 8, 2025
-**Status**: 85% Complete - Custom playbooks, community playbooks, and security playbooks implemented
+**Status**: ✅ 92% Complete - Custom playbooks, community playbooks, and security playbooks production ready. Only mTLS frontend UI and testing remain (optional).
 
 ### 2.1 Custom Playbook Upload ✅ COMPLETE
 
-**Why**: Enable users to deploy custom software/configurations beyond built-in playbooks.
+**Status**: ✅ Production Ready (100%) - Implemented November 8-11, 2025
 
-**Status**: ✅ **Production Ready** - Fully implemented November 8-11, 2025
+Users can upload custom playbooks (.yml or .zip packages) with YAML validation, security scanning, and path traversal protection. Fully integrated with deployment system.
 
-**Specification**: `/Users/yumin/ventures/node-pulse-stack/admiral/docs/ansible-reference/custom-playbooks.md`
-
-- [x] **Backend Implementation** ✅ COMPLETE
-
-  - [x] Controller: `flagship/app/Http/Controllers/CustomPlaybooksController.php` (23,722 bytes)
-  - [x] Filesystem storage in `ansible/custom/` directory
-  - [x] YAML validation and basic security scanning
-  - [x] Path traversal protection
-  - [x] Support for both simple `.yml` files and `.zip` packages
-
-- [x] **API Endpoints (Laravel)** ✅ COMPLETE
-  - [x] `POST /api/custom-playbooks` - Upload playbook
-  - [x] `GET /api/custom-playbooks` - List user's playbooks
-  - [x] `GET /api/custom-playbooks/{id}` - Get playbook details
-  - [x] `PUT /api/custom-playbooks/{id}` - Update playbook
-  - [x] `DELETE /api/custom-playbooks/{id}` - Delete playbook
-  - [x] `GET /api/custom-playbooks/{id}/download` - Download playbook
-
-- [x] **Frontend Implementation** ✅ COMPLETE
-
-  - [x] Playbook management page: `flagship/resources/js/pages/playbooks/index.tsx` (10,189 bytes)
-  - [x] Upload dialog with drag-and-drop support
-  - [x] Validation feedback display
-  - [x] Playbook list with search/filter
-  - [x] Warning modal for security disclaimer
-
-- [x] **Deployment Integration** ✅ COMPLETE
-
-  - [x] Deployer supports custom playbook paths
-  - [x] Ansible playbooks controller: `flagship/app/Http/Controllers/AnsiblePlaybooksController.php`
-  - [x] Playbooks controller: `flagship/app/Http/Controllers/PlaybooksController.php`
-  - [x] Custom playbooks execute successfully via deployment system
-
-**Acceptance Criteria:**
-
-- ✅ Users can upload simple playbooks (.yml) and packages (.zip)
-- ✅ Validation warns about dangerous commands
-- ✅ Custom playbooks stored in `ansible/custom/` directory
-- ✅ Custom playbooks execute successfully via deployment system
-- ✅ Disclaimer is shown and acknowledged
+**See**: Completed Milestones (Archive) section for detailed implementation history
 
 ---
 
 ### 2.1b Community Playbooks ✅ COMPLETE
 
-**Why**: Provide users with a curated library of pre-built playbooks for common tasks.
+**Status**: ✅ Production Ready (100%) - Implemented November 6-13, 2025
 
-**Status**: ✅ **Production Ready** - Implemented November 6-13, 2025
+Curated library of pre-built playbooks (fail2ban, Docker, Nginx, PostgreSQL, MySQL, Redis, etc.) with catalog system, i18n support, and one-click deployment.
 
-- [x] **Community Playbook Repository** ✅ COMPLETE
-
-  - [x] Documentation: `docs/ansible-reference/community-playbook-repository.md`
-  - [x] Catalog system in `ansible/catalog/` directory
-  - [x] Manifest format with metadata (name, description, version, author, etc.)
-  - [x] Internationalization support (i18n)
-  - [x] Category organization (Security, Monitoring, Database, Web Server, etc.)
-
-- [x] **Built-in Community Playbooks** ✅ COMPLETE
-
-  - [x] fail2ban (SSH brute-force protection)
-  - [x] Docker installation
-  - [x] Nginx installation
-  - [x] PostgreSQL installation
-  - [x] MySQL installation
-  - [x] Redis installation
-  - [x] And more...
-
-- [x] **Frontend Integration** ✅ COMPLETE
-  - [x] Community playbooks browsing interface
-  - [x] One-click deployment from catalog
-  - [x] Playbook details with full documentation
-  - [x] Search and filter by category
-
-**Reference Files:**
-- `docs/ansible-reference/community-playbook-repository.md`
-- `ansible/catalog/`
-
-**Acceptance Criteria:**
-
-- ✅ Users can browse community playbooks
-- ✅ Users can deploy community playbooks with one click
-- ✅ Community playbooks are well-documented
-- ✅ Catalog system supports metadata and i18n
+**See**: Completed Milestones (Archive) section for detailed implementation history
 
 ---
 
@@ -293,10 +164,10 @@
 - ✅ mTLS validation (Caddy headers)
 - ✅ Configuration (build-time decision)
 - ✅ Bootstrap script (`scripts/setup-mtls.sh`)
-- ✅ Ansible playbooks:
-  - `deploy-agent-mtls.yml` - Production deployment with mTLS
-  - `deploy-agent-no-mtls.yml` - Development deployment
-  - `install-mtls-certs.yml` - Certificate installation only
+- ✅ Ansible integration:
+  - `ansible/nodepulse/deploy.yml` with `tls_enabled=true` - Production deployment with mTLS
+  - `ansible/nodepulse/deploy.yml` with `tls_enabled=false` - Development without mTLS
+  - Certificates deployed automatically when `tls_enabled=true` (ca_cert, client_cert, client_key variables)
 - ✅ Laravel CertificateController (356 lines)
 - ✅ Laravel models (ServerCertificate, CertificateAuthority)
 - ✅ API routes for certificate management
@@ -324,10 +195,12 @@
 
 #### Phase 7: End-to-End Testing
 
-- [ ] Test certificate issuance via `deploy-agent-mtls.yml` playbook
+- [ ] Test certificate issuance via `ansible/nodepulse/deploy.yml` with `tls_enabled=true`
+- [ ] Verify certificates deployed correctly (ca.crt, client.crt, client.key in /etc/nodepulse/certs/)
 - [ ] Test production build with mTLS enabled
 - [ ] Test certificate revocation (agent should be rejected)
 - [ ] Verify Caddy header extraction works correctly
+- [ ] Test agent connection with valid and invalid certificates
 
 **Acceptance Criteria:**
 
@@ -343,86 +216,19 @@
 
 ### 2.3 Built-in Security Playbooks ✅ COMPLETE
 
-**Why**: Provide hardening options out-of-the-box.
+**Status**: ✅ Production Ready (100%) - Implemented November 14, 2025
 
-**Status**: ✅ **Production Ready** - 2 core playbooks implemented (November 14, 2025)
+Two core security playbooks (SSH hardening and firewall configuration) supporting 8 Linux distributions, with comprehensive safety features to prevent lockout. Peer reviewed with 9 critical bugs fixed before production.
 
-- [x] **SSH Hardening Playbook** ✅ PRODUCTION READY
+**Playbooks:**
 
-  - [x] Created `ansible/security/harden-ssh.yml` (13KB, ~390 lines)
-  - [x] Disable password authentication (configurable, default: enabled for safety)
-  - [x] Disable root login (configurable, default: disabled - many users connect as root)
-  - [x] Change SSH port (configurable)
-  - [x] Enable key-only authentication
-  - [x] SSH Protocol 2 only
-  - [x] Configure connection timeouts and limits
-  - [x] Disable X11 forwarding
-  - [x] Automatic configuration backup to `/root/ssh-backups/`
-  - [x] **Safety Features:**
-    - [x] Pre-flight SSH key verification (prevents lockout)
-    - [x] Root user lockout prevention
-    - [x] Configuration syntax validation before applying
-    - [x] Supports inventories without `ansible_host` defined
-  - [x] **Multi-distro support:** Ubuntu, Debian, CentOS, RHEL, Rocky, Alma, Oracle, Amazon Linux
-  - [x] **Peer reviewed:** 9 critical bugs fixed before production
+- `ansible/security/harden-ssh.yml` - SSH hardening with lockout prevention
+- `ansible/security/configure-firewall.yml` - UFW/firewalld configuration
+- fail2ban available as community playbook
 
-- [x] **Firewall Configuration Playbook** ✅ PRODUCTION READY
+**Future Enhancement:** Automatic security updates playbook (deferred to future sprint)
 
-  - [x] Created `ansible/security/configure-firewall.yml` (13KB, ~385 lines)
-  - [x] Auto-detects OS and installs UFW (Debian) or firewalld (RHEL)
-  - [x] Allow SSH (configurable port)
-  - [x] Allow HTTP/HTTPS (optional)
-  - [x] Allow custom TCP/UDP ports (user input)
-  - [x] Enable/disable firewall with `firewall_enabled` flag
-  - [x] Log denied connections (configurable)
-  - [x] **Safety Features:**
-    - [x] Works on systems without firewall installed
-    - [x] Graceful handling when firewall disabled
-    - [x] Real-time status verification
-    - [x] Both UFW and firewalld respect `firewall_enabled` flag
-  - [x] **Multi-distro support:** Ubuntu, Debian, CentOS, RHEL, Rocky, Alma, Oracle, Amazon Linux
-  - [x] **Peer reviewed:** 9 critical bugs fixed before production
-
-- [ ] **Automatic Security Updates** (Future)
-
-  - [ ] Create `ansible/security/enable-auto-updates.yml`
-  - [ ] Install `unattended-upgrades` (Debian/Ubuntu)
-  - [ ] Install `dnf-automatic` (RHEL)
-  - [ ] Configure automatic security updates only
-  - [ ] Email notifications on updates (optional)
-
-- [x] **fail2ban Deployment** ✅ AVAILABLE AS COMMUNITY PLAYBOOK
-  - [x] Available in `ansible/catalog/f/fail2ban/`
-  - [x] Install fail2ban
-  - [x] Configure SSH jail
-  - [x] Webhook notifications support
-
-**Documentation:**
-- [x] Created comprehensive `ansible/security/README.md` (6.5KB)
-- [x] Usage examples for all playbooks
-- [x] Recommended deployment order
-- [x] Recovery procedures for lockout scenarios
-- [x] Variable documentation
-
-**Supported Distributions (All Playbooks):**
-- ✅ Ubuntu 20.04+, 22.04+, 24.04+
-- ✅ Debian 11+, 12+
-- ✅ CentOS 7+, 8+
-- ✅ RHEL 8+, 9+
-- ✅ Rocky Linux 8+, 9+
-- ✅ AlmaLinux 8+, 9+
-- ✅ Oracle Linux 8+, 9+
-- ✅ Amazon Linux 2, 2023
-
-**Acceptance Criteria:**
-
-- ✅ SSH hardening and firewall playbooks support all 8 target distros
-- ✅ Playbooks are idempotent (safe to run multiple times)
-- ✅ Documentation includes recommended deployment order
-- ✅ Comprehensive safety features prevent user lockout
-- ✅ Peer review completed - 9 critical bugs fixed
-- ✅ Production ready with safe defaults
-- ⏳ Testing on all distros (requires VM setup)
+**See**: Completed Milestones (Archive) section for detailed implementation history
 
 ---
 
@@ -804,6 +610,7 @@
 - ✅ Supported apps: Google Authenticator, Authy, Microsoft Authenticator, 1Password
 
 **Reference:**
+
 - `docs/flagship/2fa-complete-guide.md` - Complete implementation guide
 
 ---
@@ -822,6 +629,7 @@
 - ✅ Enhanced error handling in deployment scripts
 
 **Reference:**
+
 - `flagship/resources/js/pages/users.tsx`
 - `flagship/app/Http/Controllers/UserController.php`
 
@@ -840,6 +648,7 @@
 - ✅ Prevents database bloat from historical process data
 
 **Reference:**
+
 - `submarines/cmd/digest/main.go` - Cleanup logic
 
 ---
@@ -876,10 +685,10 @@ See Sprint 2.1b section above for complete details.
 - ✅ mTLS validation via Caddy headers (193 lines)
 - ✅ Build-time decision architecture (no runtime toggles)
 - ✅ Bootstrap script (`scripts/setup-mtls.sh`)
-- ✅ Ansible playbooks (3 playbooks):
-  - `deploy-agent-mtls.yml` - Production with mTLS
-  - `deploy-agent-no-mtls.yml` - Development without mTLS
-  - `install-mtls-certs.yml` - Certificate installation only
+- ✅ Ansible integration (unified playbook):
+  - `ansible/nodepulse/deploy.yml` - Handles both mTLS and non-mTLS modes
+  - Uses `tls_enabled` variable to control mTLS behavior
+  - Auto-deploys certificates when mTLS enabled (ca_cert, client_cert, client_key)
 - ✅ Laravel CertificateController (356 lines)
 - ✅ Laravel models: ServerCertificate, CertificateAuthority
 - ✅ Certificate management API routes
@@ -896,7 +705,7 @@ See Sprint 2.1b section above for complete details.
 - `submarines/internal/certificates/` (crypto, CA, certs)
 - `submarines/internal/tls/mtls.go` (validation)
 - `scripts/setup-mtls.sh` (bootstrap)
-- `ansible/playbooks/nodepulse/deploy-agent-mtls.yml`
+- `ansible/nodepulse/deploy.yml` (unified deployment with mTLS support)
 
 ---
 
@@ -934,7 +743,7 @@ See Sprint 2.1b section above for complete details.
 - [x] Database table: `admiral.process_snapshots`
 - [x] Frontend UI with CPU/Memory toggle tabs
 - [x] Time range selector (1h, 6h, 24h, 7d)
-- [x] Ansible playbook: `deploy-process-exporter.yml` ✅ Tested and working
+- [x] Ansible deployment: Now part of unified `ansible/nodepulse/deploy.yml` ✅ Production ready
 
 **Files:**
 
@@ -954,21 +763,22 @@ See Sprint 2.1b section above for complete details.
 - [x] Queue-based background processing (Laravel jobs)
 - [x] Real-time deployment tracking via Valkey Streams
 - [x] Web UI for creating/monitoring deployments
-- [x] Playbook directory organization (`nodepulse/`, `prometheus/`, `custom/`)
+- [x] Playbook directory organization (`nodepulse/`, `security/`, `catalog/`, `custom/`)
 - [x] Per-server deployment status tracking
 - [x] Cancel running deployments (SIGTERM/SIGKILL)
 - [x] Full Ansible output logs display
 - [x] Success/failure stats with color-coded visualization
 
-**Playbooks Tested:**
+**Current Playbook Structure (Simplified - November 2025):**
 
-- [x] `upgrade-agent.yml` - ✅ Tested and working
-- [x] `deploy-node-exporter.yml` - ✅ Tested and working
-- [x] `deploy-process-exporter.yml` - ✅ Tested and working
-- [ ] `deploy-agent.yml` - Needs testing
-- [ ] `rollback-agent.yml` - Needs testing
-- [ ] `retry-failed.yml` - Needs testing
-- [ ] `uninstall-agent.yml` - Partially tested
+The old separate playbooks have been consolidated into a unified architecture:
+
+- [x] `ansible/nodepulse/deploy.yml` - ✅ Unified deployment (handles agent, node_exporter, process_exporter, mTLS/non-mTLS)
+- [x] `ansible/nodepulse/uninstall.yml` - ✅ Complete removal of all components
+- [x] `ansible/security/harden-ssh.yml` - ✅ SSH hardening playbook (November 2025)
+- [x] `ansible/security/configure-firewall.yml` - ✅ Firewall configuration playbook (November 2025)
+
+**Note:** Comprehensive testing on multiple distributions is tracked in Sprint 1, Section 1.2 (lines 91-165)
 
 **Files:**
 
@@ -1093,22 +903,25 @@ See Sprint 2.1b section above for complete details.
 
 Based on actual progress (November 3-14, 2025):
 
-| Sprint       | Duration        | Planned | Actual | Major Features Completed                                                            |
-| ------------ | --------------- | ------- | ------ | ----------------------------------------------------------------------------------- |
-| **Sprint 1** | 2 weeks (ext.)  | 21      | 18     | ✅ Dashboard Metrics (Core), ✅ Server ID Validation, ⏳ Playbook Testing (partial) |
-| **Sprint 2** | 3 weeks         | 34      | 24     | ✅ Custom Playbooks, ✅ Community Playbooks, ✅ 2FA, ✅ User Management             |
-| **Sprint 3** | 4 weeks         | 55      | 0      | ⏳ Scheduled Deployments, Advanced Inventory, Audit Trail                           |
+| Sprint       | Duration       | Planned | Actual | Major Features Completed                                                            |
+| ------------ | -------------- | ------- | ------ | ----------------------------------------------------------------------------------- |
+| **Sprint 1** | 2 weeks (ext.) | 21      | 18     | ✅ Dashboard Metrics (Core), ✅ Server ID Validation, ⏳ Playbook Testing (partial) |
+| **Sprint 2** | 3 weeks        | 34      | 24     | ✅ Custom Playbooks, ✅ Community Playbooks, ✅ 2FA, ✅ User Management             |
+| **Sprint 3** | 4 weeks        | 55      | 0      | ⏳ Scheduled Deployments, Advanced Inventory, Audit Trail                           |
 
 **Unexpected Features Completed (Not in Original Plan):**
+
 - ✅ Two-Factor Authentication (2FA)
 - ✅ User Management System
 - ✅ Community Playbook Repository
 - ✅ Process Snapshots Retention Cleanup
 
 **Sprint 1 Status**: 85% Complete (Extended to November 20, 2025)
+
 - Core features done, optional enhancements and testing remaining
 
 **Sprint 2 Status**: 70% Complete (Ahead of schedule!)
+
 - Custom playbooks and community playbooks completed early
 - mTLS and security playbooks remain
 
@@ -1132,6 +945,7 @@ Based on actual progress (November 3-14, 2025):
 - ⏳ 4 security playbooks tested and documented (NOT STARTED)
 
 **Bonus Features Completed:**
+
 - ✅ Community Playbook Repository with catalog system
 - ✅ Two-Factor Authentication (2FA) system
 - ✅ User Management system
@@ -1172,16 +986,19 @@ Based on actual progress (November 3-14, 2025):
 ### TODO Items for Discussion
 
 1. **Community Playbook Upload Workflow**
+
    - How should users upload downloaded community playbooks from external sources?
    - Should they go through custom playbook upload flow?
    - Or should there be a dedicated "Import Community Playbook" feature?
 
 2. **fail2ban Jail Configuration**
+
    - How to add more jails to fail2ban community playbooks?
    - Should we support jail configuration via web UI?
    - Or provide documentation for manual jail file uploads?
 
 3. **OS Distribution Support Standardization**
+
    - Built-in playbooks should support OS distros like community playbooks
    - Standardize OS compatibility metadata across all playbook types
    - Add OS compatibility checks before deployment
@@ -1194,6 +1011,7 @@ Based on actual progress (November 3-14, 2025):
 ### Sprint 1 Remaining Work
 
 1. **Playbook Testing & Hardening** (Section 1.2)
+
    - Test all core playbooks on multiple Linux distributions
    - Document success rates and known issues
    - Create troubleshooting guide
