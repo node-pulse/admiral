@@ -173,6 +173,39 @@ class DeploymentsController extends Controller
             ], $storedVariables);
         }
 
+        // Process array variables (convert comma-separated strings to arrays)
+        $arrayVariables = ['custom_tcp_ports', 'custom_udp_ports'];
+        foreach ($arrayVariables as $varName) {
+            if (isset($storedVariables[$varName]) && is_string($storedVariables[$varName])) {
+                $value = trim($storedVariables[$varName]);
+                if ($value === '') {
+                    // Empty string -> empty array
+                    $storedVariables[$varName] = [];
+                } else {
+                    // Convert "8080,3000,9000" -> [8080, 3000, 9000]
+                    $ports = array_map('trim', explode(',', $value));
+                    // Convert to integers
+                    $storedVariables[$varName] = array_map('intval', $ports);
+                }
+            }
+        }
+
+        // Process boolean variables (convert string "true"/"false" to actual booleans)
+        $booleanVariables = ['allow_http', 'allow_https', 'disable_password_auth', 'disable_root_login'];
+        foreach ($booleanVariables as $varName) {
+            if (isset($storedVariables[$varName]) && is_string($storedVariables[$varName])) {
+                $storedVariables[$varName] = filter_var($storedVariables[$varName], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+
+        // Process integer variables
+        $integerVariables = ['ssh_port'];
+        foreach ($integerVariables as $varName) {
+            if (isset($storedVariables[$varName]) && is_string($storedVariables[$varName])) {
+                $storedVariables[$varName] = intval($storedVariables[$varName]);
+            }
+        }
+
         // Create deployment record
         $deployment = Deployment::create([
             'name' => $validated['name'],

@@ -311,7 +311,32 @@ func runAnsiblePlaybook(ctx context.Context, playbook string, serverIDs []string
 
 	// Add extra vars
 	for key, value := range variables {
-		args = append(args, "-e", fmt.Sprintf("%s=%v", key, value))
+		// Handle different value types for Ansible
+		var formattedValue string
+		switch v := value.(type) {
+		case []any:
+			// Array: convert to JSON format for Ansible
+			jsonValue, err := json.Marshal(v)
+			if err != nil {
+				logger.Printf("[WARNING] Failed to marshal array variable %s: %v", key, err)
+				formattedValue = fmt.Sprintf("%v", v)
+			} else {
+				formattedValue = string(jsonValue)
+			}
+		case map[string]any:
+			// Object: convert to JSON format for Ansible
+			jsonValue, err := json.Marshal(v)
+			if err != nil {
+				logger.Printf("[WARNING] Failed to marshal object variable %s: %v", key, err)
+				formattedValue = fmt.Sprintf("%v", v)
+			} else {
+				formattedValue = string(jsonValue)
+			}
+		default:
+			// Primitive types (string, int, bool, etc.)
+			formattedValue = fmt.Sprintf("%v", v)
+		}
+		args = append(args, "-e", fmt.Sprintf("%s=%s", key, formattedValue))
 	}
 
 	logger.Printf("[ANSIBLE] Running: ansible-playbook %s", strings.Join(args, " "))
