@@ -980,11 +980,11 @@ echo ""
 # Note: Detect if we're in a TTY environment (local) or non-TTY (CI/CD)
 if [ -t 1 ]; then
     # Local environment - use interactive mode (no -T flag)
-    docker compose exec flagship php artisan db:seed --class=AdminUserSeeder
+    docker compose exec flagship php artisan db:seed --class=AdminUserSeeder --force
     SEEDER_EXIT_CODE=$?
 else
     # CI/CD environment - use non-interactive mode (-T flag)
-    docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder
+    docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder --force
     SEEDER_EXIT_CODE=$?
 fi
 
