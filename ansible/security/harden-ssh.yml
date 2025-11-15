@@ -1,0 +1,388 @@
+---
+# ==============================================================================
+# SSH Hardening Playbook
+# ==============================================================================
+#
+# This playbook hardens SSH configuration for security best practices:
+#   - Disables password authentication (key-only)
+#   - Disables root login
+#   - Changes SSH port (configurable)
+#   - Applies security settings (protocol, ciphers, etc.)
+#
+# Usage:
+#   # Use default settings (port 22, disable password auth):
+#   ansible-playbook -i inventory.yml harden-ssh.yml
+#
+#   # Change SSH port to 2222:
+#   ansible-playbook -i inventory.yml harden-ssh.yml -e "ssh_port=2222"
+#
+#   # Keep password authentication enabled (not recommended):
+#   ansible-playbook -i inventory.yml harden-ssh.yml -e "disable_password_auth=false"
+#
+# ⚠️  WARNING:
+#   - Ensure you have SSH key-based access configured before running!
+#   - Changing the SSH port may require firewall updates
+#   - You may lose access if not configured properly
+#
+# Supported Distributions:
+#   - Ubuntu 20.04+, 22.04+, 24.04+
+#   - Debian 11+, 12+
+#   - CentOS 7+, 8+
+#   - RHEL 8+, 9+
+#   - Rocky Linux 8+, 9+
+#   - AlmaLinux 8+, 9+
+#   - Oracle Linux 8+, 9+
+#   - Amazon Linux 2, 2023
+#
+# ==============================================================================
+
+- name: Harden SSH Configuration
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    # SSH Configuration
+    ssh_port: 22                          # Default SSH port (change as needed)
+    disable_password_auth: true           # Disable password authentication
+    disable_root_login: false             # Disable root login (false by default - many users connect as root)
+    permit_empty_passwords: false         # Never allow empty passwords
+
+    # Security Settings
+    protocol_version: 2                   # SSH Protocol 2 only
+    max_auth_tries: 3                     # Maximum authentication attempts
+    login_grace_time: 60                  # Time allowed for authentication (seconds)
+    client_alive_interval: 300            # Send keepalive every 5 minutes
+    client_alive_count_max: 2             # Disconnect after 2 missed keepalives
+
+    # SSH Config paths by OS family
+    sshd_config_path: >-
+      {{
+        '/etc/ssh/sshd_config' if ansible_os_family in ['Debian', 'RedHat'] else
+        '/etc/ssh/sshd_config'
+      }}
+
+    sshd_service_name: >-
+      {{
+        'ssh' if ansible_os_family == 'Debian' else
+        'sshd'
+      }}
+
+  pre_tasks:
+    - name: Check if running as root or with sudo
+      fail:
+        msg: "This playbook must be run with root privileges (become: true)"
+      when: ansible_user_id != 'root' and ansible_env.SUDO_USER is not defined
+
+    - name: Get Ansible connection user home directory
+      shell: "getent passwd {{ ansible_user }} | cut -d: -f6"
+      register: ansible_user_home
+      changed_when: false
+      when: disable_password_auth | bool
+
+    - name: Check if current user has SSH authorized keys
+      stat:
+        path: "{{ ansible_user_home.stdout }}/.ssh/authorized_keys"
+      register: authorized_keys_check
+      when: disable_password_auth | bool
+
+    - name: Fail if no SSH keys found and password auth will be disabled
+      fail:
+        msg: |
+          ❌ CRITICAL: No SSH authorized keys found for user '{{ ansible_user }}'!
+
+          You are about to disable password authentication, but the Ansible user
+          ({{ ansible_user }}) has no SSH keys configured. This will lock you out!
+
+          Before running this playbook:
+          1. Add your SSH public key to {{ ansible_user_home.stdout }}/.ssh/authorized_keys
+          2. Test SSH key-based login: ssh -i /path/to/key {{ ansible_user }}@{{ ansible_host | default(inventory_hostname) }}
+          3. Re-run this playbook after confirming key-based access works
+
+          To skip this check (NOT RECOMMENDED):
+          ansible-playbook ... -e "disable_password_auth=false"
+      when:
+        - disable_password_auth | bool
+        - not authorized_keys_check.stat.exists or authorized_keys_check.stat.size == 0
+
+    - name: Fail if connecting as root and disabling root login
+      fail:
+        msg: |
+          ❌ CRITICAL: You are connected as 'root' and trying to disable root login!
+
+          This configuration will lock you out of the server:
+          - Current connection user: {{ ansible_user }} (root)
+          - disable_root_login: {{ disable_root_login }}
+          - disable_password_auth: {{ disable_password_auth }}
+
+          After this playbook runs, you won't be able to SSH as root anymore!
+
+          Solutions:
+          1. Connect using a non-root user with sudo privileges
+          2. Create a non-root user first, add SSH keys, test sudo access
+          3. Keep root login enabled: -e "disable_root_login=false" (NOT RECOMMENDED)
+
+          Example: Create alternate user first:
+          adduser adminuser
+          usermod -aG sudo adminuser  # Ubuntu/Debian
+          usermod -aG wheel adminuser # RHEL/CentOS
+          mkdir -p /home/adminuser/.ssh
+          cp /root/.ssh/authorized_keys /home/adminuser/.ssh/
+          chown -R adminuser:adminuser /home/adminuser/.ssh
+      when:
+        - ansible_user == 'root'
+        - disable_root_login | bool
+
+    - name: Display SSH key verification success
+      debug:
+        msg: |
+          ✅ SSH key verification passed!
+          ✅ Found authorized_keys for user '{{ ansible_user }}' ({{ authorized_keys_check.stat.size }} bytes)
+      when:
+        - disable_password_auth | bool
+        - authorized_keys_check.stat.exists
+        - authorized_keys_check.stat.size > 0
+
+    - name: Warning about SSH key requirement
+      debug:
+        msg: |
+          ⚠️  WARNING: This playbook will disable password authentication!
+          ⚠️  SSH key-based access verified for user '{{ ansible_user }}'
+          ⚠️  Ensure you can still access this server via SSH keys after changes.
+      when: disable_password_auth | bool
+
+    - name: Display OS information
+      debug:
+        msg: |
+          Operating System: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          OS Family: {{ ansible_os_family }}
+          SSH Config: {{ sshd_config_path }}
+          SSH Service: {{ sshd_service_name }}
+
+  tasks:
+    # =========================================================================
+    # Backup Current Configuration
+    # =========================================================================
+
+    - name: Create backup directory
+      file:
+        path: /root/ssh-backups
+        state: directory
+        mode: '0700'
+
+    - name: Backup current SSH configuration
+      copy:
+        src: "{{ sshd_config_path }}"
+        dest: "/root/ssh-backups/sshd_config.{{ ansible_date_time.epoch }}.bak"
+        remote_src: true
+        mode: '0600'
+
+    # =========================================================================
+    # SSH Configuration Hardening
+    # =========================================================================
+
+    - name: Set SSH port
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?Port\s+'
+        line: "Port {{ ssh_port }}"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Set SSH Protocol to 2 only
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?Protocol\s+'
+        line: "Protocol {{ protocol_version }}"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Disable root login
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?PermitRootLogin\s+'
+        line: "PermitRootLogin {{ 'no' if disable_root_login else 'yes' }}"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Disable password authentication
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?PasswordAuthentication\s+'
+        line: "PasswordAuthentication {{ 'no' if disable_password_auth else 'yes' }}"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Disable challenge-response authentication
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?ChallengeResponseAuthentication\s+'
+        line: "ChallengeResponseAuthentication no"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+      when: ansible_distribution_major_version | int < 9 or ansible_os_family == 'Debian'
+
+    - name: Disable keyboard-interactive authentication (newer systems)
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?KbdInteractiveAuthentication\s+'
+        line: "KbdInteractiveAuthentication no"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+      when: ansible_distribution_major_version | int >= 9 and ansible_os_family == 'RedHat'
+
+    - name: Disable empty passwords
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?PermitEmptyPasswords\s+'
+        line: "PermitEmptyPasswords {{ 'no' if not permit_empty_passwords else 'yes' }}"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Enable public key authentication
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?PubkeyAuthentication\s+'
+        line: "PubkeyAuthentication yes"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Set MaxAuthTries
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?MaxAuthTries\s+'
+        line: "MaxAuthTries {{ max_auth_tries }}"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Set LoginGraceTime
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?LoginGraceTime\s+'
+        line: "LoginGraceTime {{ login_grace_time }}"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Set ClientAliveInterval
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?ClientAliveInterval\s+'
+        line: "ClientAliveInterval {{ client_alive_interval }}"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Set ClientAliveCountMax
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?ClientAliveCountMax\s+'
+        line: "ClientAliveCountMax {{ client_alive_count_max }}"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Disable X11 forwarding
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?X11Forwarding\s+'
+        line: "X11Forwarding no"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Set strict mode for home directory permissions
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?StrictModes\s+'
+        line: "StrictModes yes"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Disable host-based authentication
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?HostbasedAuthentication\s+'
+        line: "HostbasedAuthentication no"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    - name: Disable .rhosts files
+      lineinfile:
+        path: "{{ sshd_config_path }}"
+        regexp: '^#?IgnoreRhosts\s+'
+        line: "IgnoreRhosts yes"
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart SSH service
+
+    # =========================================================================
+    # Verify Configuration
+    # =========================================================================
+
+    - name: Test SSH configuration syntax
+      command: sshd -t -f {{ sshd_config_path }}
+      register: sshd_test
+      changed_when: false
+
+    - name: Display SSH configuration test result
+      debug:
+        msg: "✅ SSH configuration syntax is valid"
+      when: sshd_test.rc == 0
+
+    # =========================================================================
+    # Final Summary
+    # =========================================================================
+
+    - name: Display hardening summary
+      debug:
+        msg: |
+          ================================================================================
+          SSH Hardening Complete!
+          ================================================================================
+
+          Applied Settings:
+          - SSH Port: {{ ssh_port }}
+          - Password Authentication: {{ 'Disabled' if disable_password_auth else 'Enabled' }}
+          - Root Login: {{ 'Disabled' if disable_root_login else 'Enabled' }}
+          - Public Key Authentication: Enabled
+          - Protocol: SSH v2 only
+          - Max Auth Tries: {{ max_auth_tries }}
+          - Login Grace Time: {{ login_grace_time }}s
+          - Client Alive Interval: {{ client_alive_interval }}s
+          - X11 Forwarding: Disabled
+
+          ⚠️  IMPORTANT NEXT STEPS:
+          {% if ssh_port != 22 %}
+          1. Update your firewall to allow port {{ ssh_port }}
+          2. Update your SSH client config to use port {{ ssh_port }}
+          {% endif %}
+          3. Test SSH connection in a NEW terminal before closing this one
+          4. If using fail2ban, update the SSH port in jail configuration
+          5. Backup saved to: /root/ssh-backups/
+
+          {% if disable_password_auth %}
+          🔐 Password authentication is now DISABLED.
+          🔑 Ensure your SSH keys are properly configured!
+          {% endif %}
+
+          Connect with: ssh -p {{ ssh_port }} user@{{ ansible_host | default(inventory_hostname) }}
+          ================================================================================
+
+  handlers:
+    - name: Restart SSH service
+      systemd:
+        name: "{{ sshd_service_name }}"
+        state: restarted
+        enabled: true

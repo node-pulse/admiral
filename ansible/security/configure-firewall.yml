@@ -1,0 +1,379 @@
+---
+# ==============================================================================
+# Firewall Configuration Playbook
+# ==============================================================================
+#
+# This playbook configures firewall (UFW or firewalld) based on OS:
+#   - Ubuntu/Debian: UFW (Uncomplicated Firewall)
+#   - RHEL/CentOS/Rocky/Alma/Oracle/Amazon: firewalld
+#   - Configurable allowed ports
+#   - Logging of denied connections
+#
+# Usage:
+#   # Use default settings (SSH port 22, HTTP/HTTPS):
+#   ansible-playbook -i inventory.yml configure-firewall.yml
+#
+#   # Custom SSH port:
+#   ansible-playbook -i inventory.yml configure-firewall.yml -e "ssh_port=2222"
+#
+#   # Disable HTTP/HTTPS:
+#   ansible-playbook -i inventory.yml configure-firewall.yml -e "allow_http=false allow_https=false"
+#
+#   # Add custom ports:
+#   ansible-playbook -i inventory.yml configure-firewall.yml -e "custom_tcp_ports=[3000,8080] custom_udp_ports=[5353]"
+#
+# ⚠️  WARNING:
+#   - Ensure SSH port is correct to avoid locking yourself out!
+#   - Test firewall rules before disconnecting
+#
+# Supported Distributions:
+#   - Ubuntu 20.04+, 22.04+, 24.04+
+#   - Debian 11+, 12+
+#   - CentOS 7+, 8+
+#   - RHEL 8+, 9+
+#   - Rocky Linux 8+, 9+
+#   - AlmaLinux 8+, 9+
+#   - Oracle Linux 8+, 9+
+#   - Amazon Linux 2, 2023
+#
+# ==============================================================================
+
+- name: Configure Firewall (UFW/firewalld)
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    # Port Configuration
+    ssh_port: 22                          # SSH port to allow
+    allow_http: true                      # Allow HTTP (port 80)
+    allow_https: true                     # Allow HTTPS (port 443)
+
+    # Custom ports (can be overridden with -e)
+    custom_tcp_ports: []                  # Example: [3000, 8080, 9000]
+    custom_udp_ports: []                  # Example: [5353, 1194]
+
+    # Logging
+    enable_logging: true                  # Log denied connections
+    log_level: "low"                      # UFW: off, low, medium, high, full
+
+    # Firewall state
+    firewall_enabled: true                # Enable firewall after configuration
+
+  pre_tasks:
+    - name: Check if running as root or with sudo
+      fail:
+        msg: "This playbook must be run with root privileges (become: true)"
+      when: ansible_user_id != 'root' and ansible_env.SUDO_USER is not defined
+
+    - name: Display OS information
+      debug:
+        msg: |
+          Operating System: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          OS Family: {{ ansible_os_family }}
+          Firewall: {{ 'UFW' if ansible_os_family == 'Debian' else 'firewalld' }}
+
+    - name: Warning about SSH port
+      debug:
+        msg: |
+          ⚠️  WARNING: SSH port {{ ssh_port }} will be allowed through the firewall.
+          ⚠️  Ensure this matches your SSH configuration to avoid lockout!
+
+  tasks:
+    # =========================================================================
+    # Ubuntu/Debian - UFW Configuration
+    # =========================================================================
+
+    - name: Install UFW (Ubuntu/Debian)
+      apt:
+        name: ufw
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian" and firewall_enabled | bool
+
+    - name: Reset UFW to default (Ubuntu/Debian)
+      ufw:
+        state: reset
+      when: ansible_os_family == "Debian" and firewall_enabled | bool
+      ignore_errors: true
+
+    - name: Set UFW default incoming policy to deny (Ubuntu/Debian)
+      ufw:
+        direction: incoming
+        policy: deny
+      when: ansible_os_family == "Debian" and firewall_enabled | bool
+
+    - name: Set UFW default outgoing policy to allow (Ubuntu/Debian)
+      ufw:
+        direction: outgoing
+        policy: allow
+      when: ansible_os_family == "Debian" and firewall_enabled | bool
+
+    - name: Allow SSH port through UFW (Ubuntu/Debian)
+      ufw:
+        rule: allow
+        port: "{{ ssh_port }}"
+        proto: tcp
+        comment: "SSH access"
+      when: ansible_os_family == "Debian" and firewall_enabled | bool
+
+    - name: Allow HTTP through UFW (Ubuntu/Debian)
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+        comment: "HTTP access"
+      when: ansible_os_family == "Debian" and firewall_enabled | bool and allow_http | bool
+
+    - name: Allow HTTPS through UFW (Ubuntu/Debian)
+      ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+        comment: "HTTPS access"
+      when: ansible_os_family == "Debian" and firewall_enabled | bool and allow_https | bool
+
+    - name: Allow custom TCP ports through UFW (Ubuntu/Debian)
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+        comment: "Custom TCP port"
+      loop: "{{ custom_tcp_ports }}"
+      when: ansible_os_family == "Debian" and firewall_enabled | bool and custom_tcp_ports | length > 0
+
+    - name: Allow custom UDP ports through UFW (Ubuntu/Debian)
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: udp
+        comment: "Custom UDP port"
+      loop: "{{ custom_udp_ports }}"
+      when: ansible_os_family == "Debian" and firewall_enabled | bool and custom_udp_ports | length > 0
+
+    - name: Enable UFW logging (Ubuntu/Debian)
+      ufw:
+        logging: "{{ log_level }}"
+      when: ansible_os_family == "Debian" and firewall_enabled | bool and enable_logging | bool
+
+    - name: Enable UFW (Ubuntu/Debian)
+      ufw:
+        state: enabled
+      when: ansible_os_family == "Debian" and firewall_enabled | bool
+
+    - name: Disable UFW (Ubuntu/Debian)
+      ufw:
+        state: disabled
+      when: ansible_os_family == "Debian" and not firewall_enabled | bool
+      ignore_errors: true
+
+    - name: Get UFW status (Ubuntu/Debian)
+      command: ufw status verbose
+      register: ufw_status
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    # =========================================================================
+    # RHEL/CentOS/Rocky/Alma/Oracle/Amazon - firewalld Configuration
+    # =========================================================================
+
+    - name: Install firewalld (RHEL-based)
+      package:
+        name: firewalld
+        state: present
+      when: ansible_os_family == "RedHat" and firewall_enabled | bool
+
+    - name: Start and enable firewalld service (RHEL-based)
+      systemd:
+        name: firewalld
+        state: started
+        enabled: true
+      when: ansible_os_family == "RedHat" and firewall_enabled | bool
+
+    - name: Allow SSH port through firewalld (RHEL-based)
+      firewalld:
+        port: "{{ ssh_port }}/tcp"
+        permanent: true
+        state: enabled
+        immediate: true
+      when: ansible_os_family == "RedHat" and firewall_enabled | bool
+
+    - name: Allow HTTP through firewalld (RHEL-based)
+      firewalld:
+        service: http
+        permanent: true
+        state: enabled
+        immediate: true
+      when: ansible_os_family == "RedHat" and firewall_enabled | bool and allow_http | bool
+
+    - name: Allow HTTPS through firewalld (RHEL-based)
+      firewalld:
+        service: https
+        permanent: true
+        state: enabled
+        immediate: true
+      when: ansible_os_family == "RedHat" and firewall_enabled | bool and allow_https | bool
+
+    - name: Allow custom TCP ports through firewalld (RHEL-based)
+      firewalld:
+        port: "{{ item }}/tcp"
+        permanent: true
+        state: enabled
+        immediate: true
+      loop: "{{ custom_tcp_ports }}"
+      when: ansible_os_family == "RedHat" and firewall_enabled | bool and custom_tcp_ports | length > 0
+
+    - name: Allow custom UDP ports through firewalld (RHEL-based)
+      firewalld:
+        port: "{{ item }}/udp"
+        permanent: true
+        state: enabled
+        immediate: true
+      loop: "{{ custom_udp_ports }}"
+      when: ansible_os_family == "RedHat" and firewall_enabled | bool and custom_udp_ports | length > 0
+
+    - name: Configure firewalld logging for denied packets (RHEL-based)
+      firewalld:
+        zone: public
+        log_denied: "{{ 'all' if enable_logging else 'off' }}"
+        permanent: true
+        state: enabled
+        immediate: true
+      when: ansible_os_family == "RedHat" and firewall_enabled | bool
+
+    - name: Reload firewalld (RHEL-based)
+      command: firewall-cmd --reload
+      when: ansible_os_family == "RedHat" and firewall_enabled | bool
+      changed_when: false
+
+    - name: Stop and disable firewalld service (RHEL-based)
+      systemd:
+        name: firewalld
+        state: stopped
+        enabled: false
+      when: ansible_os_family == "RedHat" and not firewall_enabled | bool
+      ignore_errors: true
+
+    - name: Get firewalld status (RHEL-based)
+      command: firewall-cmd --list-all
+      register: firewalld_status
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    # =========================================================================
+    # Verification
+    # =========================================================================
+
+    - name: Verify firewall is active (Ubuntu/Debian)
+      command: ufw status
+      register: firewall_active_check
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Verify firewall is active (RHEL-based)
+      command: firewall-cmd --state
+      register: firewall_active_check
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    # =========================================================================
+    # Final Summary
+    # =========================================================================
+
+    - name: Display firewall configuration summary (Ubuntu/Debian)
+      debug:
+        msg: |
+          ================================================================================
+          Firewall Configuration Complete (UFW)!
+          ================================================================================
+
+          Firewall: UFW (Uncomplicated Firewall)
+          Status: {{ firewall_active_check.stdout | default('Unknown') }}
+
+          Allowed Ports:
+          - SSH: {{ ssh_port }}/tcp
+          {% if allow_http %}
+          - HTTP: 80/tcp
+          {% endif %}
+          {% if allow_https %}
+          - HTTPS: 443/tcp
+          {% endif %}
+          {% if custom_tcp_ports | length > 0 %}
+          - Custom TCP: {{ custom_tcp_ports | join(', ') }}
+          {% endif %}
+          {% if custom_udp_ports | length > 0 %}
+          - Custom UDP: {{ custom_udp_ports | join(', ') }}
+          {% endif %}
+
+          Logging: {{ 'Enabled (' + log_level + ')' if enable_logging else 'Disabled' }}
+
+          Default Policies:
+          - Incoming: DENY
+          - Outgoing: ALLOW
+
+          Current Status:
+          {{ ufw_status.stdout }}
+
+          ⚠️  IMPORTANT NEXT STEPS:
+          1. Test SSH connection in a NEW terminal before closing this one
+          2. Verify you can still access required services
+          3. If locked out, use console/KVM access to disable firewall with:
+             sudo ufw disable
+
+          Commands:
+          - Check status: sudo ufw status verbose
+          - Allow port: sudo ufw allow <port>/tcp
+          - Delete rule: sudo ufw delete allow <port>/tcp
+          - Disable firewall: sudo ufw disable
+          ================================================================================
+      when: ansible_os_family == "Debian"
+
+    - name: Display firewall configuration summary (RHEL-based)
+      debug:
+        msg: |
+          ================================================================================
+          Firewall Configuration Complete (firewalld)!
+          ================================================================================
+
+          Firewall: firewalld
+          Status: {{ firewall_active_check.stdout | default('Unknown') }}
+
+          Allowed Ports:
+          - SSH: {{ ssh_port }}/tcp
+          {% if allow_http %}
+          - HTTP: 80/tcp (service)
+          {% endif %}
+          {% if allow_https %}
+          - HTTPS: 443/tcp (service)
+          {% endif %}
+          {% if custom_tcp_ports | length > 0 %}
+          - Custom TCP: {{ custom_tcp_ports | join(', ') }}
+          {% endif %}
+          {% if custom_udp_ports | length > 0 %}
+          - Custom UDP: {{ custom_udp_ports | join(', ') }}
+          {% endif %}
+
+          Logging: {{ 'Enabled (denied packets)' if enable_logging else 'Disabled' }}
+
+          Default Zone: public
+
+          Current Configuration:
+          {{ firewalld_status.stdout }}
+
+          ⚠️  IMPORTANT NEXT STEPS:
+          1. Test SSH connection in a NEW terminal before closing this one
+          2. Verify you can still access required services
+          3. If locked out, use console/KVM access to disable firewall with:
+             sudo systemctl stop firewalld
+
+          Commands:
+          - Check status: sudo firewall-cmd --list-all
+          - Allow port: sudo firewall-cmd --add-port=<port>/tcp --permanent && sudo firewall-cmd --reload
+          - Remove port: sudo firewall-cmd --remove-port=<port>/tcp --permanent && sudo firewall-cmd --reload
+          - Disable firewall: sudo systemctl stop firewalld && sudo systemctl disable firewalld
+          ================================================================================
+      when: ansible_os_family == "RedHat"
