@@ -39,6 +39,12 @@
 # 3️⃣  INSTALL SPECIFIC VERSION (recommended for production)
 #   ansible-playbook -i inventory.yml docker.yml \
 #     -e "docker_version=25.0"
+#   # Accepts any 25.0.x patch version (25.0.3, 25.0.5, etc.)
+#
+# 3️⃣ b. INSTALL EXACT PATCH VERSION
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_version=25.0.4"
+#   # Requires exact 25.0.4, will upgrade/downgrade if needed
 #
 # 4️⃣  PRODUCTION DEPLOYMENT (all security features)
 #   # Get checksum: curl -sL https://get.docker.com | sha256sum
@@ -163,8 +169,11 @@
     # DOCKER VERSION
     # Specific Docker version to install (leave empty for latest)
     # - "": Latest stable version (not recommended for production)
-    # - "25.0": Specific major.minor version (recommended)
-    # - "24.0.7": Exact version
+    # - "25.0": Major.minor version (accepts any 25.0.x patch, recommended)
+    # - "24.0.7": Exact version (will upgrade/downgrade to match exactly)
+    # Version comparison:
+    #   - "25.0" matches 25.0.3, 25.0.5, etc. (major.minor only)
+    #   - "25.0.4" requires exact 25.0.4 (will upgrade from 25.0.3)
     # Get available versions: https://docs.docker.com/engine/release-notes/
     docker_version: ""
 
@@ -318,7 +327,30 @@
 
     - name: "📊 Parse installed Docker version"
       set_fact:
-        docker_installed_version: "{{ docker_installed.stdout | regex_search('Docker version ([0-9.]+)', '\\1') | default('') }}"
+        docker_installed_version: "{{ docker_installed.stdout | regex_search('Docker version ([0-9.]+)', '\\1') | default('', true) }}"
+      when: docker_installed.rc == 0
+
+    - name: "📊 Determine version comparison strategy"
+      set_fact:
+        # Count dots to determine if user specified patch version
+        docker_version_dots: "{{ docker_version.split('.') | length if docker_version != '' else 0 }}"
+        docker_installed_dots: "{{ docker_installed_version.split('.') | length if docker_installed_version != '' else 0 }}"
+      when: docker_installed.rc == 0
+
+    - name: "📊 Normalize versions for comparison"
+      set_fact:
+        # If user specified major.minor (2 parts), compare only major.minor
+        # If user specified major.minor.patch (3 parts), compare exact version
+        docker_version_normalized: >-
+          {{
+            docker_version.split('.')[:2] | join('.') if docker_version_dots | int == 2
+            else docker_version
+          }}
+        docker_installed_normalized: >-
+          {{
+            docker_installed_version.split('.')[:2] | join('.') if docker_version_dots | int == 2
+            else docker_installed_version
+          }}
       when: docker_installed.rc == 0
 
     - name: "✅ Docker already installed"
@@ -326,6 +358,10 @@
         msg: |
           Current installation: {{ docker_installed.stdout }}
           Requested version: {{ docker_version if docker_version != '' else 'latest' }}
+          {% if docker_version != '' %}
+          Comparison mode: {{ 'major.minor only' if docker_version_dots | int == 2 else 'exact version match' }}
+          Comparing: {{ docker_installed_normalized }} (installed) vs {{ docker_version_normalized }} (requested)
+          {% endif %}
       when: docker_installed.rc == 0
 
     - name: "🔧 Determine installation action required"
@@ -333,7 +369,7 @@
         docker_needs_install: >-
           {{
             docker_installed.rc != 0 or
-            (docker_version != "" and docker_installed_version != docker_version)
+            (docker_version != "" and docker_installed_normalized != docker_version_normalized)
           }}
 
     - name: "📋 Installation plan"
@@ -595,3 +631,4 @@
         name: docker
         state: restarted
         daemon_reload: yes
+      when: docker_service_state in ['started', 'restarted']
