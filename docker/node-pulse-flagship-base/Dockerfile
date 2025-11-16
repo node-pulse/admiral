@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     bcmath \
     pcntl \
+    posix \
     pdo_pgsql \
     pgsql \
     opcache \
