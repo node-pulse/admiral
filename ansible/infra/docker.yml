@@ -1,0 +1,597 @@
+---
+# ==============================================================================
+# Docker Installation Playbook (Production-Hardened)
+# ==============================================================================
+#
+# DESCRIPTION:
+#   Installs and configures Docker Engine with advanced user management,
+#   security hardening, and flexible configuration options.
+#
+# SUPPORTED PLATFORMS:
+#   ✅ Ubuntu 20.04+, Debian 10+
+#   ✅ CentOS 7+, Rocky Linux 8+, RHEL 7+
+#   ✅ Fedora 35+, Amazon Linux 2
+#
+# SECURITY FEATURES:
+#   🔒 SHA256 checksum verification (prevents MITM attacks)
+#   🔒 Automatic user creation with locked passwords (SSH keys only)
+#   🔒 Configurable daemon.json merge strategies
+#   🔒 Version pinning for reproducible deployments
+#
+# IDEMPOTENCY FEATURES:
+#   ♻️  Smart version comparison (enables upgrades/downgrades/repairs)
+#   ♻️  Preserves existing daemon.json configuration
+#   ♻️  Respects service enabled/disabled state
+#   ♻️  Creates users only if missing
+#
+# ==============================================================================
+# QUICK START EXAMPLES
+# ==============================================================================
+#
+# 1️⃣  BASIC INSTALLATION (default: root user, latest Docker)
+#   ansible-playbook -i inventory.yml docker.yml
+#
+# 2️⃣  CREATE DEDICATED DOCKER USER
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_primary_user=dockeradmin"
+#   # Creates 'dockeradmin' user if missing, grants Docker access
+#
+# 3️⃣  INSTALL SPECIFIC VERSION (recommended for production)
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_version=25.0"
+#
+# 4️⃣  PRODUCTION DEPLOYMENT (all security features)
+#   # Get checksum: curl -sL https://get.docker.com | sha256sum
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_version=25.0" \
+#     -e "docker_install_script_checksum=YOUR_CHECKSUM_HERE" \
+#     -e "docker_primary_user=dockeradmin" \
+#     -e "docker_daemon_merge_strategy=existing-wins"
+#
+# 5️⃣  UPGRADE EXISTING INSTALLATION
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_version=26.0"
+#   # Automatically detects version mismatch and upgrades
+#
+# 6️⃣  MULTIPLE USERS (primary + additional)
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_primary_user=dockeradmin" \
+#     -e "docker_users=['ubuntu','developer','ops']"
+#   # All 4 users can run docker without sudo
+#
+# 7️⃣  CI/CD PIPELINE SETUP
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_primary_user=cicd" \
+#     -e "docker_user_create_home=false" \
+#     -e "install_compose=true"
+#
+# ==============================================================================
+# ADVANCED CONFIGURATION
+# ==============================================================================
+#
+# DAEMON.JSON MERGE STRATEGIES:
+#   • existing-wins (default): Preserves manual changes, adds new keys
+#   • playbook-wins: Enforces playbook config, overrides conflicts
+#
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_daemon_merge_strategy=playbook-wins"
+#
+# CUSTOM USER SETTINGS:
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_primary_user=myuser" \
+#     -e "docker_user_shell=/bin/zsh" \
+#     -e "docker_user_create_home=true"
+#
+# DISABLE AUTO-USER CREATION:
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_create_user_if_missing=false"
+#   # Only use existing users, don't create new ones
+#
+# INSTALL WITHOUT STARTING SERVICE:
+#   ansible-playbook -i inventory.yml docker.yml \
+#     -e "docker_service_enabled=false"
+#   # Useful for custom startup procedures
+#
+# ==============================================================================
+# REQUIREMENTS
+# ==============================================================================
+#
+# SYSTEM:
+#   • Linux distribution (see supported platforms above)
+#   • Root/sudo access (become: true)
+#   • Internet connectivity
+#   • 2GB+ free disk space
+#
+# ANSIBLE:
+#   • Ansible 2.10+
+#   • Python 3.6+
+#   • Collections: ansible.builtin
+#
+# ==============================================================================
+
+- name: Install Docker Engine
+  hosts: all
+  become: true
+  gather_facts: yes
+
+  vars:
+    # =========================================================================
+    # 👤 USER MANAGEMENT
+    # =========================================================================
+
+    # PRIMARY DOCKER USER
+    # The main user for Docker operations (default: root)
+    # - If user doesn't exist, it will be created automatically
+    # - User is automatically added to 'docker' group for passwordless access
+    # - Note: Docker installation always requires root/sudo, regardless of this setting
+    # Examples: "root", "dockeradmin", "ubuntu", "cicd"
+    docker_primary_user: "root"
+
+    # AUTO-CREATE USER IF MISSING
+    # Create docker_primary_user if it doesn't exist on the system
+    # - true: Creates user with settings below (non-root only)
+    # - false: Only use existing users, skip if missing
+    docker_create_user_if_missing: true
+
+    # USER SHELL (for new users only)
+    # Default shell for created users
+    # Examples: "/bin/bash", "/bin/zsh", "/bin/sh"
+    docker_user_shell: "/bin/bash"
+
+    # CREATE HOME DIRECTORY (for new users only)
+    # Whether to create /home/username directory
+    # - true: Create home directory (recommended for interactive users)
+    # - false: No home directory (useful for service accounts)
+    docker_user_create_home: true
+
+    # USER PASSWORD (for new users only)
+    # - "!": Locked password (SSH keys required) - RECOMMENDED
+    # - "$6$...": Encrypted password hash
+    # Security: Locked passwords prevent password-based login
+    docker_user_password: "!"
+
+    # ADDITIONAL DOCKER USERS
+    # List of extra users to add to docker group (must already exist)
+    # docker_primary_user is added automatically, don't include it here
+    # Example: ["ubuntu", "developer", "ops", "monitoring"]
+    docker_users: []
+
+    # =========================================================================
+    # 🐳 DOCKER VERSION & INSTALLATION
+    # =========================================================================
+
+    # DOCKER VERSION
+    # Specific Docker version to install (leave empty for latest)
+    # - "": Latest stable version (not recommended for production)
+    # - "25.0": Specific major.minor version (recommended)
+    # - "24.0.7": Exact version
+    # Get available versions: https://docs.docker.com/engine/release-notes/
+    docker_version: ""
+
+    # INSTALL DOCKER COMPOSE PLUGIN
+    # Whether to install docker-compose-plugin alongside Docker
+    # - true: Install Docker Compose v2 (recommended)
+    # - false: Skip Docker Compose installation
+    install_compose: true
+
+    # =========================================================================
+    # 🔒 SECURITY SETTINGS
+    # =========================================================================
+
+    # INSTALL SCRIPT CHECKSUM (SHA256)
+    # Checksum for Docker's convenience script (prevents MITM attacks)
+    # - "": DISABLED - Skip verification (NOT RECOMMENDED for production)
+    # - "abc123...": SHA256 checksum
+    # Get current: curl -sL https://get.docker.com | sha256sum
+    # Update monthly or when Docker updates the script
+    docker_install_script_checksum: ""
+
+    # INSTALL SCRIPT URL
+    # URL to Docker's official installation script
+    # Only change if using a mirror or custom script
+    docker_install_script_url: "https://get.docker.com"
+
+    # =========================================================================
+    # ⚙️  DAEMON CONFIGURATION
+    # =========================================================================
+
+    # DOCKER DAEMON SETTINGS
+    # Configuration applied to /etc/docker/daemon.json
+    # These settings control Docker engine behavior
+    docker_daemon_config:
+      # Log driver for container logs
+      log-driver: "json-file"
+
+      # Log rotation settings
+      log-opts:
+        max-size: "10m"   # Max size per log file
+        max-file: "3"     # Number of log files to keep
+
+      # Storage driver (overlay2 recommended for modern kernels)
+      storage-driver: "overlay2"
+
+      # Uncomment to add custom settings:
+      # live-restore: true                    # Keep containers running during Docker restart
+      # registry-mirrors: ["https://..."]    # Docker Hub mirror
+      # insecure-registries: ["registry:5000"] # Allow HTTP registries
+
+    # DAEMON.JSON MERGE MODE
+    # Whether to merge with existing /etc/docker/daemon.json
+    # - true: Merge new settings with existing (RECOMMENDED)
+    # - false: Overwrite entire file (DESTRUCTIVE - use with caution)
+    docker_daemon_merge: true
+
+    # DAEMON.JSON MERGE STRATEGY
+    # How to handle conflicting settings (only used if docker_daemon_merge=true)
+    # - "existing-wins": Preserve manual changes, add new keys (RECOMMENDED)
+    #   Example: Manual registry-mirrors preserved, new log-driver added
+    # - "playbook-wins": Playbook settings override existing (for enforcing config)
+    #   Example: Playbook log-driver replaces manual setting
+    docker_daemon_merge_strategy: "existing-wins"
+
+    # =========================================================================
+    # 🔧 SERVICE MANAGEMENT
+    # =========================================================================
+
+    # ENABLE DOCKER SERVICE ON BOOT
+    # Whether Docker starts automatically at system boot
+    # - true: Enable (systemctl enable docker)
+    # - false: Disable (systemctl disable docker)
+    docker_service_enabled: true
+
+    # DOCKER SERVICE STATE
+    # Current state of Docker service after playbook runs
+    # - Auto-calculated based on docker_service_enabled
+    # - Override if needed: "started", "stopped", "restarted"
+    docker_service_state: "{{ 'started' if docker_service_enabled else 'stopped' }}"
+
+  tasks:
+    # =========================================================================
+    # 👤 USER MANAGEMENT
+    # =========================================================================
+
+    - name: "📋 Display primary Docker user configuration"
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════╗
+          ║  PRIMARY DOCKER USER CONFIGURATION                         ║
+          ╠════════════════════════════════════════════════════════════╣
+          ║  User: {{ docker_primary_user }}
+          ║  Auto-create if missing: {{ docker_create_user_if_missing }}
+          ║  Additional users: {{ docker_users | length }} user(s)
+          ╚════════════════════════════════════════════════════════════╝
+          Note: Docker installation always requires root/sudo privileges.
+                The primary user will be granted passwordless Docker access.
+
+    - name: "🔍 Check if primary user '{{ docker_primary_user }}' exists"
+      getent:
+        database: passwd
+        key: "{{ docker_primary_user }}"
+      register: docker_user_check
+      failed_when: false
+
+    - name: "📊 Display user existence status"
+      debug:
+        msg: "{{ '✅ User exists' if docker_user_check.ansible_facts.getent_passwd is defined else '⚠️  User does not exist (will be created)' }}: {{ docker_primary_user }}"
+
+    - name: "👤 Create primary Docker user '{{ docker_primary_user }}'"
+      user:
+        name: "{{ docker_primary_user }}"
+        shell: "{{ docker_user_shell }}"
+        create_home: "{{ docker_user_create_home }}"
+        password: "{{ docker_user_password }}"
+        state: present
+        comment: "Docker primary user (created by Ansible)"
+      when:
+        - docker_primary_user != "root"
+        - docker_create_user_if_missing
+        - docker_user_check.ansible_facts.getent_passwd is not defined
+      register: docker_user_created
+
+    - name: "✅ User creation successful"
+      debug:
+        msg: |
+          Created user: {{ docker_primary_user }}
+          Home directory: /home/{{ docker_primary_user }}
+          Shell: {{ docker_user_shell }}
+          Password: Locked (use SSH keys for authentication)
+      when:
+        - docker_user_created is defined
+        - docker_user_created is changed
+
+    - name: "🔧 Add primary user to docker_users list"
+      set_fact:
+        docker_users: "{{ ([docker_primary_user] + docker_users) | unique }}"
+      when:
+        - docker_primary_user != "root"
+        - docker_primary_user not in docker_users
+
+    # =========================================================================
+    # 🔍 PRE-INSTALLATION CHECKS
+    # =========================================================================
+
+    - name: "🔍 Check Docker installation status"
+      command: docker --version
+      register: docker_installed
+      changed_when: false
+      failed_when: false
+
+    - name: "📊 Parse installed Docker version"
+      set_fact:
+        docker_installed_version: "{{ docker_installed.stdout | regex_search('Docker version ([0-9.]+)', '\\1') | default('') }}"
+      when: docker_installed.rc == 0
+
+    - name: "✅ Docker already installed"
+      debug:
+        msg: |
+          Current installation: {{ docker_installed.stdout }}
+          Requested version: {{ docker_version if docker_version != '' else 'latest' }}
+      when: docker_installed.rc == 0
+
+    - name: "🔧 Determine installation action required"
+      set_fact:
+        docker_needs_install: >-
+          {{
+            docker_installed.rc != 0 or
+            (docker_version != "" and docker_installed_version != docker_version)
+          }}
+
+    - name: "📋 Installation plan"
+      debug:
+        msg: "{{ '🔄 Docker will be installed/upgraded' if docker_needs_install else '✅ Docker version is correct, no changes needed' }}"
+
+    # =========================================================================
+    # 🐳 DOCKER INSTALLATION
+    # =========================================================================
+
+    - name: "⬇️  Download Docker installation script"
+      get_url:
+        url: "{{ docker_install_script_url }}"
+        dest: /tmp/get-docker.sh
+        mode: '0755'
+        timeout: 60
+        checksum: "{{ 'sha256:' + docker_install_script_checksum if docker_install_script_checksum != '' else omit }}"
+      when: docker_needs_install
+
+    - name: "🔒 Checksum verification status"
+      debug:
+        msg: "{{ '✅ Checksum verification ENABLED' if docker_install_script_checksum != '' else '⚠️  WARNING: Checksum verification DISABLED (NOT recommended for production)' }}"
+      when: docker_needs_install
+
+    - name: "⚠️  SECURITY WARNING"
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════╗
+          ║  ⚠️  CRITICAL SECURITY WARNING                            ║
+          ╠════════════════════════════════════════════════════════════╣
+          ║  Checksum verification is DISABLED!                        ║
+          ║  This allows arbitrary root code execution if the          ║
+          ║  download is compromised via MITM or CDN attack.           ║
+          ║                                                            ║
+          ║  For production, get checksum:                             ║
+          ║  curl -sL https://get.docker.com | sha256sum               ║
+          ║                                                            ║
+          ║  Then run with:                                            ║
+          ║  -e "docker_install_script_checksum=YOUR_HASH"             ║
+          ╚════════════════════════════════════════════════════════════╝
+      when:
+        - docker_needs_install
+        - docker_install_script_checksum == ""
+
+    - name: "🚀 Run Docker installation script (version: {{ docker_version if docker_version != '' else 'latest' }})"
+      shell: |
+        {% if docker_version != "" %}
+        VERSION={{ docker_version }} sh /tmp/get-docker.sh
+        {% else %}
+        sh /tmp/get-docker.sh
+        {% endif %}
+      args:
+        creates: "{{ '/usr/bin/docker' if docker_installed.rc != 0 else omit }}"
+      register: docker_install
+      when: docker_needs_install
+
+    - name: "🧹 Cleanup installation script"
+      file:
+        path: /tmp/get-docker.sh
+        state: absent
+      when: docker_needs_install
+
+    # =========================================================================
+    # Configure Docker Daemon
+    # =========================================================================
+
+    - name: Ensure Docker configuration directory exists
+      file:
+        path: /etc/docker
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Check if daemon.json exists
+      stat:
+        path: /etc/docker/daemon.json
+      register: daemon_json_stat
+
+    - name: Read existing daemon.json
+      slurp:
+        path: /etc/docker/daemon.json
+      register: daemon_json_existing
+      when:
+        - daemon_json_stat.stat.exists
+        - docker_daemon_merge
+
+    - name: Parse existing daemon.json
+      set_fact:
+        daemon_json_existing_config: "{{ daemon_json_existing.content | b64decode | from_json }}"
+      when:
+        - daemon_json_stat.stat.exists
+        - docker_daemon_merge
+        - daemon_json_existing is defined
+
+    - name: Merge daemon configuration (playbook-wins strategy)
+      set_fact:
+        daemon_json_merged: "{{ daemon_json_existing_config | default({}) | combine(docker_daemon_config, recursive=true) }}"
+      when:
+        - docker_daemon_merge
+        - docker_daemon_merge_strategy == "playbook-wins"
+
+    - name: Merge daemon configuration (existing-wins strategy)
+      set_fact:
+        daemon_json_merged: "{{ docker_daemon_config | combine(daemon_json_existing_config | default({}), recursive=true) }}"
+      when:
+        - docker_daemon_merge
+        - docker_daemon_merge_strategy == "existing-wins"
+
+    - name: Deploy Docker daemon configuration (merged)
+      copy:
+        content: "{{ daemon_json_merged | to_nice_json }}"
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Docker
+      when: docker_daemon_merge
+
+    - name: Deploy Docker daemon configuration (overwrite)
+      copy:
+        content: "{{ docker_daemon_config | to_nice_json }}"
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Docker
+      when: not docker_daemon_merge
+
+    - name: Display daemon.json merge warning
+      debug:
+        msg: |
+          ⚠️  WARNING: docker_daemon_merge is disabled.
+          Existing /etc/docker/daemon.json will be overwritten.
+          Enable docker_daemon_merge to preserve existing configuration.
+      when:
+        - not docker_daemon_merge
+        - daemon_json_stat.stat.exists
+
+    # =========================================================================
+    # Install Docker Compose (if requested)
+    # =========================================================================
+
+    - name: Check if Docker Compose plugin is installed
+      command: docker compose version
+      register: compose_installed
+      changed_when: false
+      failed_when: false
+      when: install_compose
+
+    - name: Install Docker Compose plugin
+      apt:
+        name: docker-compose-plugin
+        state: present
+        update_cache: yes
+      when:
+        - install_compose
+        - compose_installed.rc != 0
+        - ansible_os_family == "Debian"
+
+    - name: Install Docker Compose plugin (RHEL/CentOS)
+      yum:
+        name: docker-compose-plugin
+        state: present
+      when:
+        - install_compose
+        - compose_installed.rc != 0
+        - ansible_os_family == "RedHat"
+
+    # =========================================================================
+    # User Configuration
+    # =========================================================================
+
+    - name: Display current user info
+      debug:
+        msg: |
+          Current Ansible user: {{ ansible_user | default(ansible_env.USER) }}
+          Note: If running as root, you already have Docker access without group membership.
+          Non-root users need to be added to 'docker' group to run Docker without sudo.
+
+    - name: Filter out root user from docker_users (root doesn't need docker group)
+      set_fact:
+        docker_users_filtered: "{{ docker_users | reject('in', ['root']) | list }}"
+
+    - name: Add non-root users to docker group
+      user:
+        name: "{{ item }}"
+        groups: docker
+        append: yes
+      loop: "{{ docker_users_filtered }}"
+      when:
+        - docker_users | length > 0
+        - docker_users_filtered | length > 0
+
+    - name: Display docker group membership
+      debug:
+        msg: "Users added to docker group: {{ docker_users_filtered | join(', ') }}"
+      when:
+        - docker_users | length > 0
+        - docker_users_filtered | length > 0
+
+    - name: Display root user info
+      debug:
+        msg: "⚠️  Note: root user was in docker_users list but skipped (root has Docker access by default)"
+      when:
+        - docker_users | length > 0
+        - "'root' in docker_users"
+
+    # =========================================================================
+    # Service Management
+    # =========================================================================
+
+    - name: Manage Docker service
+      systemd:
+        name: docker
+        enabled: "{{ docker_service_enabled }}"
+        state: "{{ docker_service_state }}"
+        daemon_reload: yes
+
+    - name: Verify Docker installation
+      command: docker --version
+      register: docker_version_output
+      changed_when: false
+
+    - name: Verify Docker Compose installation
+      command: docker compose version
+      register: compose_version_output
+      changed_when: false
+      when: install_compose
+
+    # =========================================================================
+    # Display Installation Summary
+    # =========================================================================
+
+    - name: Display installation summary
+      debug:
+        msg:
+          - "==================================================================="
+          - "Docker Installation Summary"
+          - "==================================================================="
+          - "Docker Version: {{ docker_version_output.stdout }}"
+          - "{% if install_compose %}Docker Compose: {{ compose_version_output.stdout }}{% endif %}"
+          - "{% if docker_users | length > 0 %}Docker Group Users: {{ docker_users | join(', ') }}{% endif %}"
+          - "Service Enabled: {{ docker_service_enabled }}"
+          - "==================================================================="
+          - ""
+          - "⚠️  IMPORTANT: Users added to the docker group must log out and"
+          - "    log back in for the changes to take effect!"
+          - ""
+          - "Verify installation:"
+          - "  docker --version"
+          - "  docker compose version"
+          - "  docker run hello-world"
+          - "==================================================================="
+
+  handlers:
+    - name: Restart Docker
+      systemd:
+        name: docker
+        state: restarted
+        daemon_reload: yes
