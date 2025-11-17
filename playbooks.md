@@ -12,6 +12,36 @@
 - [ ] Netdata – real-time performance monitoring
 - [ ] Zabbix – enterprise monitoring
 
+## AI / LLM Applications (GPU-Free, VPS-Friendly)
+
+### 🔵 Core LLM Stack
+
+- [ ] Ollama – local LLM inference (CPU-friendly small models)
+- [ ] LocalAI – OpenAI-compatible API server (CPU-only mode)
+- [ ] LiteLLM – unified LLM proxy/gateway (OpenAI/DeepSeek/Claude/Groq)
+- [ ] Open WebUI – ChatGPT-style interface for Ollama/LocalAI/OpenAI
+
+### 🟢 Document Q&A / RAG Systems
+
+- [ ] AnythingLLM – document knowledge base & RAG (Highly Recommended)
+- [ ] DocsGPT – self-hosted documentation Q&A
+- [ ] Flowise – drag-and-drop LLM pipelines / agents
+
+### 🟡 Document Management / OCR
+
+- [ ] PaddleOCR – lightweight OCR engine (CPU OK, ideal for VPS)
+- [ ] Paperless-ngx – document OCR + archive (OCRmyPDF backend)
+- [ ] Mayan EDMS – enterprise electronic document system (heavier)
+
+### 🟣 Vector DB & Embedding Infra
+
+- [ ] ChromaDB – lightweight local vector DB (CPU-friendly)
+- [ ] Weaviate (CPU mode) – scalable vector database
+
+### ⚠️ Optional / Heavier (Still VPS-compatible but more resource usage)
+
+- [ ] Dify – AI app development platform (needs 2C/4–8GB RAM)
+
 ## Databases & Storage
 
 - [ ] PostgreSQL
@@ -72,21 +102,6 @@
 - [ ] Temporal – workflow orchestration, AI pipelines
 - [ ] Apache Airflow – workflow orchestration with DAGs
 
-## AI/LLM & ML Tools
-
-- [ ] Ollama – local LLM inference
-- [ ] LocalAI – OpenAI API alternative
-- [ ] Text Generation WebUI – LLM frontend
-- [ ] Jan – ChatGPT alternative
-- [ ] LiteLLM – LLM proxy/gateway
-- [ ] Open WebUI – ChatGPT-style interface for Ollama
-- [ ] Stable Diffusion WebUI – image generation (120k+ stars)
-- [ ] ComfyUI – node-based Stable Diffusion (35k+ stars)
-- [ ] Flowise – drag-drop LLM flows (20k+ stars)
-- [ ] Dify – LLM app development platform (30k+ stars)
-- [ ] LangChain – LLM framework
-- [ ] LlamaIndex – data framework for LLMs
-
 ## Project Management / Collaboration
 
 - [ ] Taiga – agile project management
@@ -94,7 +109,6 @@
 - [ ] Focalboard – Trello/Notion alternative
 - [ ] Wekan – Kanban board
 - [ ] OpenProject – project management suite
-
 
 ## Media / Entertainment
 
