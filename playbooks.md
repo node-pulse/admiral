@@ -32,6 +32,9 @@
 - [ ] PaddleOCR – lightweight OCR engine (CPU OK, ideal for VPS)
 - [ ] Paperless-ngx – document OCR + archive (OCRmyPDF backend)
 - [ ] Mayan EDMS – enterprise electronic document system (heavier)
+- [ ] EasyOCR
+- [ ] OCRmyPDF
+- [ ] Tesseract OCR
 
 ### 🟣 Vector DB & Embedding Infra
 
