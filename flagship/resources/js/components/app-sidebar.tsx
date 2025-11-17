@@ -142,7 +142,7 @@ const getMainNavSections = (isAdmin: boolean): NavSection[] => {
             ],
         },
         {
-            label: 'Fleet Operations',
+            label: 'One Click Deployments',
             items: [
                 {
                     title: 'Ansible Playbooks',

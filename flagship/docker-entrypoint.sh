@@ -10,12 +10,21 @@ mkdir -p /var/www/html/storage/logs \
 # Create log file if it doesn't exist
 touch /var/www/html/storage/logs/laravel.log
 
-# Set correct ownership for all storage
+# Set correct ownership for storage (laravel only)
 chown -R laravel:laravel /var/www/html/storage
 
-# Set correct permissions
+# Set correct permissions for storage
 chmod -R 775 /var/www/html/storage
 chmod 664 /var/www/html/storage/logs/laravel.log
+
+# Ensure ansible/catalog directory exists
+# This is shared between flagship (laravel) and submarines-deployer (root)
+# Use world-writable permissions so both users can write
+mkdir -p /var/www/html/ansible/catalog
+
+# Set permissions for shared access (both laravel and root can write)
+# We use 777 because the directory is shared across containers with different users
+chmod -R 777 /var/www/html/ansible/catalog
 
 # Add initialization message to verify it's working
 echo "[$(date)] Laravel storage initialized by entrypoint script" >> /var/www/html/storage/logs/laravel.log

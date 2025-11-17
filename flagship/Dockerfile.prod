@@ -114,6 +114,10 @@ RUN mkdir -p \
     && touch storage/logs/php-fpm-slow.log storage/logs/php-fpm-error.log \
     && chown laravel:laravel storage/logs/php-fpm-*.log
 
+# Note: ansible/ directory is NOT created in Dockerfile
+# It will be mounted from host at runtime (shared with submarines-deployer)
+# Permissions are handled by entrypoint script to support both laravel and root users
+
 # Copy entrypoint script for Laravel caching at startup
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

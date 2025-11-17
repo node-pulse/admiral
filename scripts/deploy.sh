@@ -849,6 +849,31 @@ MASTER_KEY_FILE="$SECRETS_DIR/master.key"
 # Ensure secrets directory exists
 mkdir -p "$SECRETS_DIR"
 
+# =============================================================================
+# Ensure Ansible Directory Structure Exists
+# =============================================================================
+echo -e "${BLUE}Ensuring ansible directory structure...${NC}"
+
+ANSIBLE_DIR="$PROJECT_ROOT/ansible"
+CATALOG_DIR="$ANSIBLE_DIR/catalog"
+
+# Create ansible/catalog directory if it doesn't exist
+if [ ! -d "$CATALOG_DIR" ]; then
+    mkdir -p "$CATALOG_DIR"
+    echo -e "${GREEN}✓ Created ansible/catalog directory${NC}"
+else
+    echo -e "${GREEN}✓ ansible/catalog directory already exists${NC}"
+fi
+
+# Set proper permissions for shared access
+# The ansible/catalog directory is shared between:
+# - flagship container (runs as laravel user, UID 1000)
+# - submarines-deployer container (runs as root, UID 0)
+# Use 777 on catalog to allow both users to write
+chmod -R 777 "$CATALOG_DIR"
+
+echo ""
+
 if [ ! -f "$MASTER_KEY_FILE" ]; then
     echo -e "${RED}✗ Master key file not found!${NC}"
     echo "  Expected location: $MASTER_KEY_FILE"

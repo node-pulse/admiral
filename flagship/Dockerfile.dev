@@ -99,6 +99,10 @@ RUN mkdir -p \
     && chown -R laravel:laravel storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+# Note: ansible/ directory is NOT created in Dockerfile
+# It will be mounted from host at runtime (shared with submarines-deployer)
+# Permissions are handled by entrypoint script to support both laravel and root users
+
 # Expose Nginx port
 EXPOSE 8090
 
