@@ -1057,12 +1057,22 @@ echo ""
 echo -e "${CYAN}Note: Ensure DNS points to this server and Caddy has valid certificates${NC}"
 echo ""
 
-echo -e "${GREEN}Admin Login Credentials:${NC}"
-echo "  Email:    ${CONFIG[ADMIN_EMAIL]}"
-echo "  Password: ${CONFIG[ADMIN_PASSWORD]}"
-echo ""
-echo -e "${YELLOW}⚠️  Save these credentials - they won't be shown again!${NC}"
-echo ""
+# Only show admin credentials if they were just created (not when using existing .env)
+if [ -n "${CONFIG[ADMIN_EMAIL]}" ] && [ -n "${CONFIG[ADMIN_PASSWORD]}" ]; then
+    echo -e "${GREEN}Admin Login Credentials:${NC}"
+    echo "  Email:    ${CONFIG[ADMIN_EMAIL]}"
+    echo "  Password: ${CONFIG[ADMIN_PASSWORD]}"
+    echo ""
+    echo -e "${YELLOW}⚠️  Save these credentials - they won't be shown again!${NC}"
+    echo ""
+else
+    echo -e "${GREEN}Admin User:${NC}"
+    echo "  Using existing admin account from database"
+    echo ""
+    echo -e "${CYAN}To update admin credentials, run:${NC}"
+    echo "  sudo ./update-admin.sh"
+    echo ""
+fi
 echo ""
 
 echo -e "${YELLOW}Configuration Files:${NC}"

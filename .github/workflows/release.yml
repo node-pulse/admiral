@@ -161,6 +161,7 @@ jobs:
           cp .env.example release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
           cp scripts/deploy.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
           cp scripts/setup-mtls.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
+          cp scripts/update-admin.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
 
           # Copy Caddy configuration (keep as Caddyfile.prod)
           mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/caddy
@@ -170,6 +171,11 @@ jobs:
           mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/flagship
           cp flagship/docker-entrypoint.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/flagship/
           chmod +x release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/flagship/docker-entrypoint.sh
+
+          # Make scripts executable
+          chmod +x release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/deploy.sh
+          chmod +x release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/setup-mtls.sh
+          chmod +x release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/update-admin.sh
 
           # Copy Ansible playbooks (needed at runtime)
           # Exclude catalog/ (downloaded from registry) and custom/ (user-specific uploads)
@@ -235,6 +241,7 @@ jobs:
           - `compose.yml` - Docker Compose configuration (pulls pre-built images)
           - `deploy.sh` - Interactive deployment script
           - `setup-mtls.sh` - mTLS certificate bootstrap script
+          - `update-admin.sh` - Update admin user credentials
           - `.env.example` - Environment variables template
           - `caddy/` - Reverse proxy configuration
           - `flagship/` - Flagship container initialization scripts
@@ -260,6 +267,21 @@ jobs:
           - Docker Compose v2.20+
           - Root/sudo access
           - Minimum 2GB RAM, 2 CPU cores
+
+          ## Managing Admin Credentials
+
+          **Update admin email or password:**
+
+          ```bash
+          cd /opt/admiral
+          sudo ./update-admin.sh
+          ```
+
+          The script provides options to:
+          - Update password only
+          - Update email only
+          - Update both email and password
+          - Create a new admin user
 
           ## Documentation
 
