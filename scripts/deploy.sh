@@ -899,7 +899,8 @@ else
 
     # Verify permissions
     PERMS=$(stat -f "%A" "$MASTER_KEY_FILE" 2>/dev/null || stat -c "%a" "$MASTER_KEY_FILE" 2>/dev/null)
-    if [ "$PERMS" != "644" ]; then
+    # Check if permissions are correct (macOS returns 644, Linux returns 0644)
+    if [ "$PERMS" != "644" ] && [ "$PERMS" != "0644" ]; then
         echo -e "${YELLOW}⚠  Fixing file permissions (should be 644 for container access)${NC}"
         chmod 644 "$MASTER_KEY_FILE"
         echo -e "${GREEN}✓ Permissions corrected${NC}"
