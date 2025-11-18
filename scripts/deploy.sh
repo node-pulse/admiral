@@ -374,6 +374,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     # Sessions & Cache (hardcoded - using Valkey/Redis for production)
     CONFIG["SESSION_DRIVER"]="redis"
     CONFIG["SESSION_LIFETIME"]="120"
+    CONFIG["SESSION_SECURE_COOKIE"]="true"  # Always true for production (HTTPS required)
     CONFIG["CACHE_STORE"]="redis"
     CONFIG["QUEUE_CONNECTION"]="redis"
     CONFIG["REDIS_CLIENT"]="phpredis"
@@ -384,6 +385,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     CONFIG["REDIS_PASSWORD"]="${CONFIG[VALKEY_PASSWORD]}"
 
     echo -e "${CYAN}Sessions, Cache, Queue configured to use Redis (Valkey)${NC}"
+    echo -e "${CYAN}SESSION_SECURE_COOKIE set to 'true' (requires HTTPS in production)${NC}"
     echo -e "${CYAN}REDIS_HOST, REDIS_PORT, REDIS_PASSWORD auto-set from Valkey config${NC}"
     echo ""
 
@@ -756,6 +758,7 @@ DB_USERNAME=\${POSTGRES_USER}
 # Sessions & Cache (references Valkey config)
 SESSION_DRIVER=${CONFIG[SESSION_DRIVER]}
 SESSION_LIFETIME=${CONFIG[SESSION_LIFETIME]}
+SESSION_SECURE_COOKIE=${CONFIG[SESSION_SECURE_COOKIE]}
 CACHE_STORE=${CONFIG[CACHE_STORE]}
 QUEUE_CONNECTION=${CONFIG[QUEUE_CONNECTION]}
 REDIS_CLIENT=${CONFIG[REDIS_CLIENT]}
