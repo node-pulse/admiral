@@ -1190,5 +1190,5 @@ echo "  3. Update domain DNS to point to this server"
 echo "  4. Review logs for any startup issues"
 echo ""
 
-echo -e "${GREEN}Happy Monitoring! 🚀${NC}"
+echo -e "${GREEN}Thank you for choosing Node Pulse Admiral! 🚀${NC}"
 echo ""
