@@ -2,7 +2,7 @@
 
 ## Analytics & Monitoring
 
-- [ ] Umami website analytics
+- [x] Umami website analytics
 - [ ] Plausible Analytics
 - [ ] Matomo – web analytics (19k+ stars)
 - [ ] PostHog – product analytics (18k+ stars)
