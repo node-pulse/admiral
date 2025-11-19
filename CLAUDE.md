@@ -601,3 +601,5 @@ DIGEST_ID=digest-2 go run cmd/digest/main.go
 - this is my local computer. if you need to check anything in production server, give me a debug script, and I will use scp to upload to production server and run it.
 - All debug scripts should start with debug in their file names
 - move debug scripts to root directory
+- if there is a bug, i want a permanent fix, do not use some script
+- the only change we need a script is for debugging

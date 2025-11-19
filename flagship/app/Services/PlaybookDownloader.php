@@ -149,13 +149,31 @@ class PlaybookDownloader
 
         // Step 1: Download manifest.json
         $manifestUrl = self::REPO_RAW_BASE . '/' . $sourcePath . '/manifest.json';
-        $manifestResponse = Http::get($manifestUrl);
 
-        if (!$manifestResponse->successful()) {
-            throw new \Exception('Failed to download manifest.json');
+        try {
+            $manifestResponse = Http::timeout(30)
+                ->withHeaders([
+                    'User-Agent' => 'Node-Pulse-Admiral/1.0',
+                ])
+                ->get($manifestUrl);
+
+            if (!$manifestResponse->successful()) {
+                Log::error('Failed to download manifest.json', [
+                    'url' => $manifestUrl,
+                    'status' => $manifestResponse->status(),
+                    'body' => $manifestResponse->body(),
+                ]);
+                throw new \Exception('Failed to download manifest.json: HTTP ' . $manifestResponse->status());
+            }
+
+            $manifest = $manifestResponse->json();
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('Connection failed while downloading manifest', [
+                'url' => $manifestUrl,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to connect to GitHub: ' . $e->getMessage());
         }
-
-        $manifest = $manifestResponse->json();
 
         // Step 2: Validate manifest against expected schema
         $this->validateManifest($manifest);
@@ -200,25 +218,67 @@ class PlaybookDownloader
         $downloadedFiles = [];
 
         // Fetch directory contents from GitHub API
-        $response = Http::get(self::REPO_API_BASE . '/contents/' . $sourcePath);
+        $url = self::REPO_API_BASE . '/contents/' . $sourcePath;
 
-        if (!$response->successful()) {
-            throw new \Exception('Failed to fetch playbook directory contents');
+        Log::debug('Fetching directory contents from GitHub', [
+            'url' => $url,
+            'source_path' => $sourcePath,
+        ]);
+
+        try {
+            $response = Http::timeout(30)
+                ->withHeaders([
+                    'Accept' => 'application/vnd.github.v3+json',
+                    'User-Agent' => 'Node-Pulse-Admiral/1.0',
+                ])
+                ->get($url);
+
+            if (!$response->successful()) {
+                Log::error('GitHub API request failed', [
+                    'url' => $url,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                throw new \Exception('Failed to fetch playbook directory contents: HTTP ' . $response->status());
+            }
+
+            $contents = $response->json();
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('GitHub API connection failed', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to connect to GitHub API: ' . $e->getMessage());
         }
-
-        $contents = $response->json();
 
         foreach ($contents as $item) {
             if ($item['type'] === 'file') {
                 // Download file
-                $fileResponse = Http::get($item['download_url']);
+                try {
+                    $fileResponse = Http::timeout(30)
+                        ->withHeaders([
+                            'User-Agent' => 'Node-Pulse-Admiral/1.0',
+                        ])
+                        ->get($item['download_url']);
 
-                if ($fileResponse->successful()) {
-                    $localFilePath = $destinationPath . '/' . $item['name'];
-                    File::put($localFilePath, $fileResponse->body());
-                    $downloadedFiles[] = $localFilePath;
+                    if ($fileResponse->successful()) {
+                        $localFilePath = $destinationPath . '/' . $item['name'];
+                        File::put($localFilePath, $fileResponse->body());
+                        $downloadedFiles[] = $localFilePath;
 
-                    Log::debug('Downloaded file', ['path' => $localFilePath]);
+                        Log::debug('Downloaded file', ['path' => $localFilePath]);
+                    } else {
+                        Log::warning('Failed to download file', [
+                            'url' => $item['download_url'],
+                            'status' => $fileResponse->status(),
+                        ]);
+                    }
+                } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                    Log::error('Failed to download file', [
+                        'url' => $item['download_url'],
+                        'error' => $e->getMessage(),
+                    ]);
+                    throw new \Exception('Failed to download file: ' . $e->getMessage());
                 }
             } elseif ($item['type'] === 'dir') {
                 // Recursively download subdirectories (templates/, files/, etc.)
