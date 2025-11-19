@@ -900,11 +900,14 @@ else
     echo -e "${GREEN}✓ Master key file exists${NC}"
     echo "  Location: $MASTER_KEY_FILE"
 
-    # Verify permissions
-    PERMS=$(stat -f "%A" "$MASTER_KEY_FILE" 2>/dev/null || stat -c "%a" "$MASTER_KEY_FILE" 2>/dev/null)
-    # Check if permissions are correct (macOS returns 644, Linux returns 0644)
-    if [ "$PERMS" != "644" ] && [ "$PERMS" != "0644" ]; then
+    # Verify permissions (only fix if actually incorrect)
+    # Use ls to check permissions (more portable than stat)
+    CURRENT_PERMS=$(ls -l "$MASTER_KEY_FILE" | awk '{print $1}')
+    EXPECTED_PERMS="-rw-r--r--"  # Symbolic representation of 644
+
+    if [ "$CURRENT_PERMS" != "$EXPECTED_PERMS" ]; then
         echo -e "${YELLOW}⚠  Fixing file permissions (should be 644 for container access)${NC}"
+        echo -e "${YELLOW}   Current: $CURRENT_PERMS, Expected: $EXPECTED_PERMS${NC}"
         chmod 644 "$MASTER_KEY_FILE"
         echo -e "${GREEN}✓ Permissions corrected${NC}"
     fi
