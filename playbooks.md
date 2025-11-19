@@ -19,11 +19,33 @@
 - [ ] LiteLLM – unified LLM proxy/gateway (OpenAI/DeepSeek/Claude/Groq)
 - [ ] Open WebUI – ChatGPT-style interface for Ollama/LocalAI/OpenAI
 
+### 🤖 AI Coding Assistants (Self-hosted Copilot)
+
+- [ ] Tabby – self-hosted GitHub Copilot alternative (Highly Recommended)
+  - Single binary/Docker deployment, lightweight
+  - CPU quantization mode (GPU optional)
+  - VS Code / IntelliJ plugins available
+  - ⭐⭐ Deployment difficulty: Very low
+- [ ] Continue – AI programming assistant gateway
+  - Connects to local Ollama or Tabby
+  - VS Code Chat, Autocomplete, Refactor features
+  - Lightweight and extensible
+
+### 🔍 AI Search Engine (Self-hosted Perplexity)
+
+- [ ] Perplexica – open-source Perplexity AI alternative (🔥 2025 trending)
+  - Combines SearXNG meta-search with local LLM
+  - Generates answers with citations/references
+  - Docker Compose one-click deployment
+  - No ads, private search experience
+
 ### 🟢 Document Q&A / RAG Systems
 
 - [ ] AnythingLLM – document knowledge base & RAG (Highly Recommended)
 - [ ] DocsGPT – self-hosted documentation Q&A
-- [ ] Flowise – drag-and-drop LLM pipelines / agents
+- [ ] Flowise – drag-and-drop LLM pipelines / agents (LangChain visual UI)
+  - Visual node-based RAG builder (PDF → split → vectorize → Q&A)
+  - More AI-focused than n8n
 
 ### 🟡 Document Management / OCR
 
@@ -39,9 +61,29 @@
 - [ ] ChromaDB – lightweight local vector DB (CPU-friendly)
 - [ ] Weaviate (CPU mode) – scalable vector database
 
+### 🗣️ Voice & Audio (TTS & Voice Conversion)
+
+- [ ] OpenAI-Edge-TTS – Microsoft Edge TTS API wrapper
+  - Free, no GPU needed, near-zero resource usage
+  - Natural-sounding voices (same as short video narration)
+  - Works with Open WebUI or Home Assistant
+  - Extremely lightweight
+- [ ] RVC (Retrieval-based Voice Conversion) – voice cloning/conversion
+  - Entertainment-focused, fun for content creators
+  - Requires some GPU for training but can run inference on CPU
+
+### 🧠 AI Agents & Workflow Automation
+
+- [ ] Dify – LLM application development platform (⚠️ Heavier but extremely powerful)
+  - Most popular open-source AI platform in China
+  - Enterprise AI knowledge base solution
+  - Needs 8-9 containers (Redis, Postgres, Weaviate, Sandbox, etc.)
+  - Recommended: 2C/4–8GB RAM minimum
+  - High value if packaged as One-Click Playbook
+
 ### ⚠️ Optional / Heavier (Still VPS-compatible but more resource usage)
 
-- [ ] Dify – AI app development platform (needs 2C/4–8GB RAM)
+- [ ] (See Dify above – moved to AI Agents section)
 
 ## Databases & Storage
 

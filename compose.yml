@@ -183,7 +183,10 @@ services:
       - ./flagship/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh:ro
       - ./ansible:/var/www/html/ansible # Mount Ansible playbooks (writable for community/custom playbooks)
       - ./logs/flagship:/var/www/html/storage/logs # Mount logs for persistence
-      - ./secrets:/secrets:ro # Mount shared secrets directory (read-only)
+      - ./secrets:/secrets:rw # Mount shared secrets directory (writable for mTLS setup)
+      - ./compose.yml:/config/compose.yml:rw # For mTLS setup (uncomment CA mount)
+      - ./caddy:/caddy:rw # For mTLS setup (uncomment TLS block)
+      - /var/run/docker.sock:/var/run/docker.sock:rw # For container restart via Docker API
     networks:
       - node-pulse-admiral
     healthcheck:

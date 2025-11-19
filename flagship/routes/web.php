@@ -78,6 +78,10 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('dashboard')->group(fun
         Route::get('/', [SystemSettingsController::class, 'index'])->name('system-settings');
         Route::put('/{key}', [SystemSettingsController::class, 'update'])->name('system-settings.update');
         Route::post('/{key}/toggle', [SystemSettingsController::class, 'toggle'])->name('system-settings.toggle');
+
+        // mTLS management
+        Route::post('/mtls/enable', [SystemSettingsController::class, 'enableMtls'])->name('system-settings.mtls.enable');
+        Route::post('/mtls/disable', [SystemSettingsController::class, 'disableMtls'])->name('system-settings.mtls.disable');
     });
 
     // Deployments management (admin only)

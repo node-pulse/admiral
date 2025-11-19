@@ -31,9 +31,25 @@ sudo ./scripts/deploy.sh
 
 ## Scripts Overview
 
-### `setup-mtls.sh` - Bootstrap mTLS Infrastructure
+### `setup-mtls.sh` - Bootstrap mTLS Infrastructure (Emergency/Advanced)
+
+**⚠️ Note:** For most users, enable mTLS via the Flagship UI instead (System Settings > Enable mTLS).
+
+This script is for **emergency/troubleshooting** scenarios when the UI is unavailable.
 
 Bootstraps the mTLS (mutual TLS) infrastructure for production deployments.
+
+**When to use:**
+- ✅ Flagship UI is broken or inaccessible
+- ✅ You're SSH'd into server with no browser access
+- ✅ You need detailed debugging output
+- ✅ You're recovering from a failed UI setup
+
+**For automation:** Use the API endpoint instead:
+```bash
+curl -X POST "https://your-domain/dashboard/system-settings/mtls/enable" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
 
 **Usage:**
 ```bash
@@ -62,9 +78,9 @@ Bootstraps the mTLS (mutual TLS) infrastructure for production deployments.
 1. Generates master encryption key (if not exists)
 2. Creates self-signed Certificate Authority via Submarines API
 3. Exports CA certificate for Caddy (`secrets/certs/ca.crt`)
-4. Verifies setup
-5. **Rebuilds submarines-ingest with production Dockerfile (mTLS enabled)**
-6. **Restarts submarines-ingest service automatically**
+4. Updates compose.yml and Caddyfile.prod
+5. Restarts Caddy to apply mTLS configuration
+6. Verifies setup
 
 **Requirements:**
 - Submarines ingest service must be running
@@ -76,8 +92,6 @@ Deploy agents with certificates using Ansible:
 ```bash
 ansible-playbook flagship/ansible/playbooks/nodepulse/deploy-agent.yml
 ```
-
-**Note:** The script automatically rebuilds and restarts submarines-ingest. This is **mandatory** - without the rebuild, mTLS will not be enabled.
 
 ### `release.sh` - Create Release Package
 
@@ -108,13 +122,19 @@ Creates a deployment package containing only necessary files (no source code).
 
 ### `deploy.sh` - Interactive Deployment
 
+**One-click deployment script** - no mTLS prompts, just core setup!
+
 Fully automated, interactive deployment script that:
 1. Prompts for configuration (or reuses existing)
 2. Creates `.env` file with user-provided values
 3. Generates secure random secrets
 4. Pulls Docker images from GHCR
 5. Starts all services via Docker Compose
-6. Installs systemd cleaner service
+6. Creates admin user account
+
+**mTLS setup** is deferred to post-deployment:
+- Enable via Flagship UI (System Settings > Enable mTLS) - recommended
+- OR run `./scripts/setup-mtls.sh` manually
 
 **Usage:**
 ```bash
@@ -122,6 +142,7 @@ sudo ./deploy.sh
 ```
 
 **Features:**
+- ✅ **One-click** - No interruptions for optional features
 - ✅ **Idempotent** - Safe to run multiple times
 - ✅ **Interactive** - Prompts for all configuration
 - ✅ **Smart defaults** - Suggests sensible values

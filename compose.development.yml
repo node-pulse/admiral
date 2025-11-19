@@ -235,7 +235,10 @@ services:
       - ./flagship:/var/www/html # Mount entire app for hot reload
       - ./ansible:/var/www/html/ansible # Mount Ansible playbooks (writable for community/custom playbooks)
       - ./logs/flagship:/var/www/html/storage/logs
-      - ./secrets:/secrets:ro
+      - ./secrets:/secrets:rw  # Changed to :rw for mTLS setup (writing ca.crt)
+      - ./compose.yml:/config/compose.yml:rw # For mTLS setup (uncomment CA mount)
+      - ./caddy:/caddy:rw # For mTLS setup (uncomment TLS block)
+      - /var/run/docker.sock:/var/run/docker.sock:rw # For container restart via Docker API
       - ./flagship/docker-entrypoint-dev.sh:/usr/local/bin/docker-entrypoint-dev.sh:ro
     networks:
       - node-pulse-admiral

@@ -967,16 +967,6 @@ fi
 
 echo ""
 
-# Check mTLS CA certificate (optional - for agent authentication)
-if [ -f "$PROJECT_ROOT/secrets/certs/ca.crt" ] && openssl x509 -in "$PROJECT_ROOT/secrets/certs/ca.crt" -noout &>/dev/null 2>&1; then
-    echo -e "${GREEN}✓ mTLS CA certificate found and valid${NC}"
-    echo -e "${YELLOW}  Remember to uncomment CA cert mount in compose.yml and tls block in Caddyfile.prod${NC}"
-else
-    echo -e "${YELLOW}⚠️  mTLS not configured (optional)${NC}"
-    echo -e "${CYAN}  mTLS provides secure client certificate authentication for agents.${NC}"
-    echo -e "${CYAN}  To set up mTLS later, run: ./setup-mtls.sh${NC}"
-fi
-
 # =============================================================================
 # Start services
 # =============================================================================
@@ -1113,84 +1103,18 @@ echo ""
 echo "⚠️  WITHOUT THIS KEY, YOU CANNOT DECRYPT SSH PRIVATE KEYS!"
 echo ""
 
-# =============================================================================
-# Production mTLS Setup (Optional)
-# =============================================================================
-echo ""
-echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}Production Security Setup - mTLS (Optional)${NC}"
-echo -e "${BLUE}================================================${NC}"
-echo ""
-
-# Check if mTLS CA already exists (and is not empty placeholder)
-CA_CERT_PATH="$PROJECT_ROOT/secrets/certs/ca.crt"
-
-if [ -f "$CA_CERT_PATH" ] && [ -s "$CA_CERT_PATH" ]; then
-    # File exists and is not empty = real CA certificate
-    echo -e "${GREEN}✓ mTLS CA already configured${NC}"
-    echo "  Certificate: $CA_CERT_PATH"
-    echo ""
-    echo "To renew/rotate the CA, run:"
-    echo "  sudo ./setup-mtls.sh --force"
-    echo ""
-else
-    # File doesn't exist or is empty placeholder
-    echo -e "${CYAN}mTLS (mutual TLS) provides cryptographic authentication"
-    echo "for all agents connecting to the ingest service."
-    echo ""
-    echo "Production builds have mTLS support built-in."
-    echo "You can configure it now or skip and configure later."
-    echo ""
-
-    read -p "Do you want to configure mTLS now? (y/N): " setup_mtls
-
-    if [[ "$setup_mtls" =~ ^[Yy]$ ]]; then
-        echo ""
-        echo -e "${CYAN}Setting up mTLS...${NC}"
-        echo ""
-
-        # Look for setup-mtls.sh in project root
-        if [ -f "$PROJECT_ROOT/setup-mtls.sh" ]; then
-            bash "$PROJECT_ROOT/setup-mtls.sh"
-
-            if [ $? -eq 0 ]; then
-                echo ""
-                echo -e "${GREEN}✓ mTLS setup complete${NC}"
-                echo ""
-            else
-                echo ""
-                echo -e "${RED}✗ mTLS setup failed${NC}"
-                echo ""
-                echo -e "${YELLOW}You can run setup-mtls.sh manually later:${NC}"
-                echo "  sudo ./setup-mtls.sh"
-                echo ""
-            fi
-        else
-            echo -e "${YELLOW}⚠  setup-mtls.sh not found in: $PROJECT_ROOT${NC}"
-            echo ""
-            echo "To configure mTLS later:"
-            echo "  1. Ensure setup-mtls.sh is in the project root"
-            echo "  2. Run: sudo ./setup-mtls.sh"
-            echo ""
-        fi
-    else
-        echo ""
-        echo -e "${YELLOW}Skipping mTLS configuration${NC}"
-        echo ""
-        echo "To enable mTLS later, run:"
-        echo "  sudo ./setup-mtls.sh"
-        echo ""
-        echo -e "${CYAN}Agents will connect without mTLS (server_id validation only)${NC}"
-        echo ""
-    fi
-fi
-
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo "  1. Configure your agents to send metrics"
-echo "  2. Access the Flagship dashboard at https://${CONFIG[FLAGSHIP_DOMAIN]}"
-echo "  3. Update domain DNS to point to this server"
-echo "  4. Review logs for any startup issues"
+echo "  1. Access the Flagship dashboard at https://${CONFIG[FLAGSHIP_DOMAIN]}"
+echo "  2. Enable mTLS authentication in System Settings (recommended if you need monitoring)"
+echo "  3. Configure your agents to send metrics"
+echo "  4. Update domain DNS to point to this server"
+echo "  5. Review logs for any startup issues"
+echo ""
+echo -e "${CYAN}ℹ️  Optional Security:${NC}"
+echo "  To enable mTLS authentication for agents:"
+echo "  • Login to Flagship > System Settings > Enable mTLS (one-click)"
+echo "  • OR run: sudo ./scripts/setup-mtls.sh (CLI option)"
 echo ""
 
 echo -e "${GREEN}Thank you for choosing Node Pulse Admiral! 🚀${NC}"

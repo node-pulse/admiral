@@ -62,6 +62,31 @@ export default function SystemSettings({ settings, mtls }: Props) {
     const [updating, setUpdating] = useState<string | null>(null);
     const [editingValues, setEditingValues] = useState<Record<string, any>>({});
     const [searchQuery, setSearchQuery] = useState('');
+    const [enablingMtls, setEnablingMtls] = useState(false);
+
+    const handleEnableMtls = () => {
+        if (!confirm('This will enable mTLS authentication for all agent connections. Caddy will be restarted. Continue?')) {
+            return;
+        }
+
+        setEnablingMtls(true);
+
+        router.post('/dashboard/system-settings/mtls/enable', {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('mTLS enabled successfully! Caddy has been restarted.');
+                // Reload page to show updated status
+                router.reload();
+            },
+            onError: (errors: any) => {
+                const errorMessage = errors.error || errors.detail || 'Failed to enable mTLS';
+                toast.error(errorMessage);
+            },
+            onFinish: () => {
+                setEnablingMtls(false);
+            },
+        });
+    };
 
     const handleToggle = (key: string) => {
         setUpdating(key);
@@ -350,13 +375,22 @@ export default function SystemSettings({ settings, mtls }: Props) {
                                     )}
                                 </div>
                             </div>
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm">
-                                        <Info className="mr-2 h-4 w-4" />
-                                        How to Change
+                            <div className="flex gap-2">
+                                {!mtls.enabled && mtls.reachable && (
+                                    <Button
+                                        onClick={handleEnableMtls}
+                                        disabled={enablingMtls}
+                                    >
+                                        {enablingMtls ? 'Enabling...' : 'Enable mTLS'}
                                     </Button>
-                                </DialogTrigger>
+                                )}
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" size="sm">
+                                            <Info className="mr-2 h-4 w-4" />
+                                            {mtls.enabled ? 'About mTLS' : 'Manual Setup'}
+                                        </Button>
+                                    </DialogTrigger>
                                 <DialogContent className="max-w-4xl!">
                                     <DialogHeader>
                                         <DialogTitle>
@@ -441,6 +475,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
                                     </div>
                                 </DialogContent>
                             </Dialog>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
