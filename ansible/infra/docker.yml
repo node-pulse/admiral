@@ -219,8 +219,10 @@
       # Storage driver (overlay2 recommended for modern kernels)
       storage-driver: "overlay2"
 
+      # Keep containers running during Docker daemon restart (production-recommended)
+      live-restore: true
+
       # Uncomment to add custom settings:
-      # live-restore: true                    # Keep containers running during Docker restart
       # registry-mirrors: ["https://..."]    # Docker Hub mirror
       # insecure-registries: ["registry:5000"] # Allow HTTP registries
 
@@ -538,6 +540,33 @@
         - install_compose
         - compose_installed.rc != 0
         - ansible_os_family == "RedHat"
+
+    # =========================================================================
+    # 🐍 Python Dependencies (Critical for Ansible Docker Modules)
+    # =========================================================================
+
+    - name: Install pip (Python package manager)
+      package:
+        name: python3-pip
+        state: present
+
+    - name: Install Docker SDK for Python
+      pip:
+        name: docker
+        state: present
+        executable: pip3
+      # Note: Some distributions may require --break-system-packages flag
+      # If this task fails with externally-managed-environment error, uncomment below:
+      # extra_args: "--break-system-packages"
+
+    - name: Verify Docker SDK installation
+      command: python3 -c "import docker; print(docker.__version__)"
+      register: docker_sdk_version
+      changed_when: false
+
+    - name: Display Docker SDK version
+      debug:
+        msg: "✅ Docker SDK for Python installed: {{ docker_sdk_version.stdout }}"
 
     # =========================================================================
     # User Configuration
