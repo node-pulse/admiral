@@ -1,6 +1,5 @@
 -- Up Migration
 -- Add private_keys table for SSH key management
--- Supports Coolify-inspired SSH key management system
 
 -- ============================================================
 -- SECTION 1: Private Keys Table

@@ -9,8 +9,6 @@
 - [ ] Grafana – visualization & dashboards
 - [x] Prometheus – metrics & alerting
 - [ ] Uptime Kuma – uptime monitoring
-- [ ] Netdata – real-time performance monitoring
-- [ ] Zabbix – enterprise monitoring
 
 ## AI / LLM Applications (GPU-Free, VPS-Friendly)
 
@@ -68,6 +66,11 @@
 - [ ] Paperless-ngx
 - [ ] Meilisearch
 
+## Productivity / Office Tools
+
+- [ ] Stirling-PDF – powerful PDF toolbox (merge, split, convert, OCR) – fully local processing
+- [ ] FileBrowser – web-based file manager with sharing capabilities
+
 ## CMS / Blogging
 
 - [ ] WordPress
@@ -79,7 +82,7 @@
 
 ## Developer Tools & Environments
 
-- [ ] GitLab CI/CD – included with GitLab
+- [ ] GitLab CI/CD – included with GitLab (起步 4GB RAM，推荐 8GB)
 - [ ] Gitea
 - [ ] Drone CI
 - [ ] Jenkins
@@ -89,7 +92,6 @@
 - [ ] Code-Server – VS Code in browser (65k+ stars)
 - [ ] Gitpod – cloud development environments (12k+ stars)
 - [ ] Backstage – Spotify's developer portal (25k+ stars)
-- [ ] Devtron – Kubernetes deployment tool
 - [ ] GlitchTip – Sentry alternative (1.5k+ stars)
 
 ## Communication
@@ -162,7 +164,6 @@
 
 - [ ] Typebot – conversational forms
 - [ ] Formbricks – open-source Typeform alternative
-- [ ] LimeSurvey – survey platform
 
 ## Low-code / No-code Platforms
 
@@ -174,12 +175,10 @@
 
 ## Infrastructure & Hosting
 
-- [ ] Coolify – Heroku/Netlify/Vercel alternative (20k+ stars)
-- [ ] CapRover – PaaS (12k+ stars)
-- [ ] Dokku – mini-Heroku (26k+ stars)
 - [ ] Portainer – Docker management (28k+ stars)
-- [ ] Rancher – Kubernetes management
 - [ ] Traefik – reverse proxy & load balancer
+- [ ] Nginx Proxy Manager (NPM) – visual SSL cert management, beginner-friendly
+- [ ] Cloudflared – Cloudflare Tunnel for exposing services without public IP
 - [ ] Harbor – container registry (22k+ stars)
 - [ ] Portus – Docker registry UI
 
@@ -205,8 +204,6 @@
 ## Bookmarks / Read-later
 
 - [ ] Linkwarden – bookmark manager (6k+ stars)
-- [ ] Wallabag – Pocket alternative (9k+ stars)
-- [ ] Linkding – bookmark manager (5k+ stars)
 
 ## Finance / Budgeting
 
