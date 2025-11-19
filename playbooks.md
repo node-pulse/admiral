@@ -7,7 +7,7 @@
 - [ ] Matomo – web analytics (19k+ stars)
 - [ ] PostHog – product analytics (18k+ stars)
 - [ ] Grafana – visualization & dashboards
-- [ ] Prometheus – metrics & alerting
+- [x] Prometheus – metrics & alerting
 - [ ] Uptime Kuma – uptime monitoring
 - [ ] Netdata – real-time performance monitoring
 - [ ] Zabbix – enterprise monitoring
