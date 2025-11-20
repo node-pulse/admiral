@@ -550,8 +550,6 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     # Use APP_DOMAIN as default for FLAGSHIP_DOMAIN
     prompt_config "FLAGSHIP_DOMAIN" "${CONFIG[APP_DOMAIN]}" "Dashboard application domain (aka Flagship)"
-    prompt_config "INGEST_DOMAIN" "ingest.example.com" "Ingest API domain (aka Submarines Ingest)"
-    prompt_config "STATUS_DOMAIN" "status.example.com" "Status page domain"
 
     echo ""
 
@@ -626,10 +624,8 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         fi
         echo ""
 
-        echo -e "${GREEN}Production Domains (Caddy):${NC}"
+        echo -e "${GREEN}Production Domain (Caddy):${NC}"
         echo "  Flagship: ${CONFIG[FLAGSHIP_DOMAIN]}"
-        echo "  Ingest:   ${CONFIG[INGEST_DOMAIN]}"
-        echo "  Status:   ${CONFIG[STATUS_DOMAIN]}"
         echo ""
 
         echo -e "${GREEN}Mail Configuration:${NC}"
@@ -807,8 +803,6 @@ RECAPTCHA_V3_SCORE_THRESHOLD=${CONFIG[RECAPTCHA_V3_SCORE_THRESHOLD]}
 # Production Domain Configuration (Caddy)
 # =============================================================================
 FLAGSHIP_DOMAIN=${CONFIG[FLAGSHIP_DOMAIN]}
-INGEST_DOMAIN=${CONFIG[INGEST_DOMAIN]}
-STATUS_DOMAIN=${CONFIG[STATUS_DOMAIN]}
 
 # =============================================================================
 # Admin User Registration (Temporary - removed after seeding)
@@ -1048,8 +1042,8 @@ echo ""
 
 echo -e "${GREEN}Access URLs:${NC}"
 echo "  Flagship Dashboard:  https://${CONFIG[FLAGSHIP_DOMAIN]}"
-echo "  Submarines Ingest:   https://${CONFIG[INGEST_DOMAIN]}"
-echo "  Submarines Status:   https://${CONFIG[STATUS_DOMAIN]}"
+echo "  Metrics Ingestion:   https://${CONFIG[FLAGSHIP_DOMAIN]}/ingest/metrics/prometheus"
+echo "  SSH WebSocket:       wss://${CONFIG[FLAGSHIP_DOMAIN]}/ssh/"
 echo ""
 echo -e "${CYAN}Note: Ensure DNS points to this server and Caddy has valid certificates${NC}"
 echo ""

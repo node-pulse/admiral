@@ -51,13 +51,16 @@ http://localhost:5173     # Vite HMR
 
 Use `Caddyfile.prod` for production with automatic HTTPS:
 
-1. **Set environment variables** in `.env`:
+1. **Set environment variable** in `.env`:
 
    ```bash
-   ADMIN_DOMAIN=admin.example.com
-   INGEST_DOMAIN=ingest.example.com
-   STATUS_DOMAIN=status.example.com
+   FLAGSHIP_DOMAIN=example.com
    ```
+
+   All services will be available under this single domain:
+   - Dashboard: `https://example.com/`
+   - Metrics Ingestion: `https://example.com/ingest/metrics/prometheus`
+   - SSH WebSocket: `wss://example.com/ssh/`
 
 2. **Update compose.yml** to use production Caddyfile:
 

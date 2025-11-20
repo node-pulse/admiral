@@ -3,14 +3,14 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Ingest Domain
+    | Flagship Domain
     |--------------------------------------------------------------------------
     |
-    | The domain where Submarines ingest service is accessible.
-    | This is used as the default endpoint for agents to send metrics.
+    | The primary domain where all services are accessible.
+    | Agents send metrics to: {FLAGSHIP_DOMAIN}/metrics/prometheus
     |
     */
 
-    'ingest_domain' => env('INGEST_DOMAIN', 'localhost:8080'),
+    'flagship_domain' => env('FLAGSHIP_DOMAIN', 'localhost:8000'),
 
 ];

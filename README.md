@@ -644,7 +644,7 @@ For production:
 4. Set `APP_ENV=production` and `APP_DEBUG=false` for Flagship
 5. Run `php artisan optimize` for Laravel optimization
 6. Build frontend assets with `npm run build`
-7. Configure proper domains in `.env` (ADMIN_DOMAIN, INGEST_DOMAIN, etc.)
+7. Configure proper domain in `.env` (FLAGSHIP_DOMAIN)
 8. Use `Caddyfile.prod` for automatic HTTPS via Let's Encrypt
 9. Set up proper backup strategy for PostgreSQL
 10. Configure monitoring and alerting

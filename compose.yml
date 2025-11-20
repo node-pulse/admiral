@@ -118,23 +118,8 @@ services:
       flagship-migrate:
         condition: service_completed_successfully
     volumes:
-      - ./ansible:/app/ansible  # Mount Ansible playbooks (writable for custom playbooks)
-      - ./secrets:/secrets:ro  # Mount master key for SSH key decryption (read-only)
-    networks:
-      - node-pulse-admiral
-
-  # Go Submarines Status - Public status pages and badges (read-only)
-  submarines-status:
-    image: ghcr.io/node-pulse/node-pulse-submarines-status:latest
-    container_name: node-pulse-submarines-status
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - ./ansible:/app/ansible # Mount Ansible playbooks (writable for custom playbooks)
+      - ./secrets:/secrets:ro # Mount master key for SSH key decryption (read-only)
     networks:
       - node-pulse-admiral
 
@@ -166,8 +151,12 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
-    command: ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+    entrypoint:
+      - /usr/local/bin/docker-entrypoint.sh
+    command:
+      - /usr/bin/supervisord
+      - -c
+      - /etc/supervisor/conf.d/supervisord.conf
     expose:
       - "8090" # Nginx port (not exposed to host, only to Caddy)
     depends_on:
@@ -207,9 +196,7 @@ services:
       - .env
     environment:
       # Domain configuration (use env vars for flexibility)
-      FLAGSHIP_DOMAIN: ${FLAGSHIP_DOMAIN:-admin.localhost}
-      INGEST_DOMAIN: ${INGEST_DOMAIN:-ingest.localhost}
-      STATUS_DOMAIN: ${STATUS_DOMAIN:-status.localhost}
+      FLAGSHIP_DOMAIN: ${FLAGSHIP_DOMAIN}
     ports:
       - "80:80"
       - "443:443"

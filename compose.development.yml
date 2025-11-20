@@ -163,27 +163,6 @@ services:
     networks:
       - node-pulse-admiral
 
-  # Go Submarines Status - Public status pages and badges (read-only)
-  submarines-status:
-    platform: linux/amd64
-    build:
-      context: ./submarines
-      dockerfile: Dockerfile.status.dev
-    container_name: node-pulse-submarines-status
-    env_file:
-      - .env
-    environment:
-      <<: *common-variables
-    ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./submarines:/app
-    networks:
-      - node-pulse-admiral
-
   # Go Submarines SSH WebSocket - Interactive terminal access
   submarines-sshws:
     platform: linux/amd64
@@ -274,7 +253,6 @@ services:
     depends_on:
       - flagship
       - submarines-ingest
-      - submarines-status
     networks:
       - node-pulse-admiral
     healthcheck:

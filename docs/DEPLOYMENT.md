@@ -154,13 +154,16 @@ Production uses Caddy reverse proxy with automatic SSL/TLS via Let's Encrypt.
 
 ### Production Configuration
 
-1. **Configure domains in `.env`**:
+1. **Configure domain in `.env`**:
 
 ```bash
-ADMIN_DOMAIN=admin.yourdomain.com
-INGEST_DOMAIN=ingest.yourdomain.com
-STATUS_DOMAIN=status.yourdomain.com
+FLAGSHIP_DOMAIN=yourdomain.com
 ```
+
+All services will be available under this single domain:
+- Dashboard: `https://yourdomain.com/`
+- Metrics Ingestion: `https://yourdomain.com/ingest/metrics/prometheus`
+- SSH WebSocket: `wss://yourdomain.com/ssh/`
 
 2. **Update compose.yml to use production Caddyfile**:
 

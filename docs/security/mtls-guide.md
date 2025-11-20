@@ -633,20 +633,25 @@ Server ID Validation ✅ (Valkey + PostgreSQL)
 **Caddyfile:** `caddy/Caddyfile.prod`
 
 ```caddyfile
-{$INGEST_DOMAIN} {
-    # Enable mTLS for agent authentication
-    tls {
-        client_auth {
-            mode require_and_verify
-            trusted_ca_cert_file /certs/ca.crt
-        }
+{$FLAGSHIP_DOMAIN} {
+    # Metrics ingestion endpoint with mTLS
+    @ingest {
+        path /metrics/*
     }
+    handle @ingest {
+        # Enable mTLS for agent authentication
+        tls {
+            client_auth {
+                mode require_and_verify
+                trusted_ca_cert_file /certs/ca.crt
+            }
+        }
 
-    reverse_proxy submarines-ingest:8080 {
-        # Pass client certificate information to backend
-        header_up X-Client-Cert-Serial {http.request.tls.client.serial_number}
-        header_up X-Client-Cert-Subject {http.request.tls.client.subject}
-        header_up X-Client-Cert-CN {http.request.tls.client.subject.common_name}
+        reverse_proxy submarines-ingest:8080 {
+            # Pass client certificate information to backend
+            header_up X-Client-Cert-Serial {http.request.tls.client.serial_number}
+            header_up X-Client-Cert-Subject {http.request.tls.client.subject}
+            header_up X-Client-Cert-CN {http.request.tls.client.subject.common_name}
         header_up X-Client-Cert-Fingerprint {http.request.tls.client.fingerprint}
     }
 }

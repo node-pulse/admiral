@@ -166,7 +166,7 @@ class DeploymentsController extends Controller
 
         // If this is an agent deployment playbook, set defaults
         if (str_contains($validated['playbook'], 'nodepulse/')) {
-            $defaultEndpoint = 'http://' . config('submarines.ingest_domain') . '/metrics/prometheus';
+            $defaultEndpoint = 'https://' . config('submarines.flagship_domain') . '/ingest/metrics/prometheus';
             $storedVariables = array_merge([
                 'agent_version' => 'latest',
                 'ingest_endpoint' => $defaultEndpoint,
