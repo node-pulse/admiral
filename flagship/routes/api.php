@@ -5,6 +5,7 @@ use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\CustomPlaybooksController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeploymentsController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PlaybooksController;
 use App\Http\Controllers\ProcessController;
 use App\Http\Controllers\UsersController;
@@ -20,6 +21,12 @@ Route::middleware(['web', 'auth'])->group(function () {
     // Process monitoring
     Route::prefix('processes')->group(function () {
         Route::get('/top', [ProcessController::class, 'top']);
+    });
+
+    // Locale management
+    Route::prefix('locale')->group(function () {
+        Route::get('/available', [LocaleController::class, 'available']);
+        Route::post('/update', [LocaleController::class, 'update']);
     });
 
     Route::prefix('fleetops')->group(function () {

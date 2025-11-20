@@ -15,21 +15,25 @@ const sidebarNavItems: NavItem[] = [
         title: 'Profile',
         href: edit(),
         icon: null,
+        display: true,
     },
     {
         title: 'Password',
         href: editPassword(),
         icon: null,
+        display: true,
     },
     {
         title: 'Two-Factor Auth',
         href: show(),
         icon: null,
+        display: true,
     },
     {
         title: 'Appearance',
         href: editAppearance(),
         icon: null,
+        display: true,
     },
 ];
 
