@@ -42,7 +42,7 @@ Laravel Application
 
 **Why this architecture?**
 
-- **Caddy**: Handles TLS termination, automatic HTTPS, and routes traffic between multiple services (flagship, submarines-ingest, submarines-status, submarines-sshws)
+- **Caddy**: Handles TLS termination, automatic HTTPS, and routes traffic between multiple services (flagship, submarines-ingest, submarines-sshws)
 - **Nginx**: Battle-tested PHP web server, serves static files efficiently, mature FastCGI implementation, Laravel-optimized configuration
 - **PHP-FPM**: Efficient PHP process management
 

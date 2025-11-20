@@ -25,6 +25,7 @@ Production deployment was returning 502/503 errors for the Flagship dashboard. M
 
 **Problem:**
 All Submarine services (ingest, status, sshws, deployer, digest) shared the same `config.go` which read from a generic `PORT` environment variable. This caused:
+
 - Docker Compose warnings about undefined `PORT`
 - Potential port conflicts if `PORT` was set globally
 - Confusion about which service uses which port
@@ -33,6 +34,7 @@ All Submarine services (ingest, status, sshws, deployer, digest) shared the same
 Shared configuration struct with generic port variable instead of hardcoded ports per service.
 
 **Files Affected:**
+
 - `submarines/internal/config/config.go`
 - `compose.yml`
 - `.env.example`
@@ -51,6 +53,7 @@ The flagship base image went through an architectural change between versions:
 When the base image changed, the Dockerfile and configurations weren't updated to match the new architecture.
 
 **Issues Caused:**
+
 1. Missing Nginx configuration files (base image had defaults, but we needed custom configs)
 2. Nginx and PHP-FPM weren't properly configured to work together
 3. Sites-available/sites-enabled symlinks weren't created
@@ -64,11 +67,13 @@ Base image change from Alpine (PHP-FPM only) to Debian (Nginx + PHP-FPM) was not
 The original Alpine architecture attempted to connect Caddy directly to PHP-FPM, but this approach has several technical limitations:
 
 1. **FastCGI Protocol Complexity**
+
    - PHP-FPM speaks FastCGI, not HTTP
    - While Caddy supports FastCGI, it's designed as a reverse proxy (HTTP → HTTP), not as a web server frontend for PHP-FPM
    - Caddy's FastCGI implementation lacks fine-grained control compared to Nginx's mature `fastcgi_pass` module
 
 2. **Static File Serving**
+
    - Laravel requires a web server to handle static files (CSS, JS, images) from `public/`
    - Caddy can serve static files, but when combined with PHP-FPM, it becomes complex to route:
      - Static files → Serve directly
@@ -77,12 +82,14 @@ The original Alpine architecture attempted to connect Caddy directly to PHP-FPM,
    - Nginx handles this elegantly with `try_files $uri $uri/ /index.php?$query_string`
 
 3. **Laravel's Public Directory Pattern**
+
    - Laravel's entry point is `public/index.php`
    - All requests must route through this file unless they're static assets
    - Nginx is specifically designed for this pattern (common in PHP frameworks)
    - Caddy requires more manual configuration to replicate this behavior
 
 4. **PHP-FPM Process Management**
+
    - PHP-FPM is designed to work behind a traditional web server (Nginx, Apache)
    - It expects the web server to handle:
      - HTTP request parsing
@@ -120,18 +127,23 @@ External Request → Caddy (HTTPS termination, reverse proxy)
 - **Error Handling**: Better error pages and upstream failure handling
 
 **Original Architecture (v1 - Alpine):**
+
 ```
 Caddy → PHP-FPM (port 9000 or socket)
 ```
-*Issue: Caddy acting as both reverse proxy AND web server for PHP-FPM*
+
+_Issue: Caddy acting as both reverse proxy AND web server for PHP-FPM_
 
 **New Architecture (v2 - Debian):**
+
 ```
 Caddy → Nginx (port 8090) → PHP-FPM (port 9000)
 ```
-*Fixed: Proper separation - Caddy for routing, Nginx for web serving, PHP-FPM for PHP*
+
+_Fixed: Proper separation - Caddy for routing, Nginx for web serving, PHP-FPM for PHP_
 
 **Files Affected:**
+
 - `flagship/Dockerfile.prod` (needed to copy Nginx config explicitly)
 - `flagship/docker/nginx/default.conf` (needed to match new architecture)
 - Base image: `ghcr.io/node-pulse/node-pulse-flagship-base:latest`
@@ -141,6 +153,7 @@ Caddy → Nginx (port 8090) → PHP-FPM (port 9000)
 ### Issue 3: Flagship Nginx Port Mismatch
 
 **Problem:**
+
 - Nginx config listening on port **8000**
 - Caddy and compose.yml expecting port **8090**
 - Resulted in "no upstreams available" 503 errors
@@ -149,6 +162,7 @@ Caddy → Nginx (port 8090) → PHP-FPM (port 9000)
 `flagship/docker/nginx/default.conf` had incorrect port (leftover from development config).
 
 **Files Affected:**
+
 - `flagship/docker/nginx/default.conf`
 
 ---
@@ -157,6 +171,7 @@ Caddy → Nginx (port 8090) → PHP-FPM (port 9000)
 
 **Problem:**
 PHP-FPM crashed on startup with:
+
 ```
 ERROR: Unable to create or open slowlog(/var/log/php-fpm/slow.log): No such file or directory
 ```
@@ -165,6 +180,7 @@ ERROR: Unable to create or open slowlog(/var/log/php-fpm/slow.log): No such file
 `flagship/docker/php/www.conf` referenced `/var/log/php-fpm/` directory which didn't exist in the container. The directory was never created in the Dockerfile.
 
 **Files Affected:**
+
 - `flagship/docker/php/www.conf`
 - `flagship/Dockerfile.prod`
 
@@ -179,6 +195,7 @@ Caddy health check was using `health_uri /` which returned 500 (APP_KEY error), 
 Health check should use `/health` endpoint (Nginx static response) instead of `/` (Laravel app).
 
 **Files Affected:**
+
 - `caddy/Caddyfile.prod`
 
 ---
@@ -192,6 +209,7 @@ Laravel throwing "No application encryption key has been specified" even though 
 Dockerfile ran `php artisan config:cache` during **build time**, caching config without APP_KEY. The cached config persisted even after container started with proper .env variables. PHP OPcache made it worse by caching the old cached config.
 
 **Files Affected:**
+
 - `flagship/Dockerfile.prod`
 
 ---
@@ -204,8 +222,8 @@ Dockerfile ran `php artisan config:cache` during **build time**, caching config 
 **Changed to:** Hardcoded ports in each service's `main.go`
 
 **Port Assignments:**
+
 - `submarines-ingest`: 8080 (hardcoded in `cmd/ingest/main_prod.go` and `main_dev.go`)
-- `submarines-status`: 8081 (hardcoded in `cmd/status/main.go`)
 - `submarines-sshws`: 6001 (hardcoded in `cmd/sshws/main.go`)
 - `submarines-deployer`: N/A (background worker, no port)
 - `submarines-digest`: N/A (background worker, no port)
@@ -214,6 +232,7 @@ Dockerfile ran `php artisan config:cache` during **build time**, caching config 
 **Changes Made:**
 
 **File: `submarines/internal/config/config.go`**
+
 ```diff
  type Config struct {
      // Database
@@ -227,6 +246,7 @@ Dockerfile ran `php artisan config:cache` during **build time**, caching config 
 Removed the entire `Port` field and `getServicePort()` function.
 
 **File: `submarines/cmd/ingest/main_prod.go`**
+
 ```diff
      // Start server
 -    addr := ":" + cfg.Port
@@ -236,6 +256,7 @@ Removed the entire `Port` field and `getServicePort()` function.
 ```
 
 **File: `submarines/cmd/status/main.go`**
+
 ```diff
      // Start server
 -    addr := ":" + cfg.Port
@@ -245,6 +266,7 @@ Removed the entire `Port` field and `getServicePort()` function.
 ```
 
 **File: `.env.example`**
+
 ```diff
  # Server settings
 -PORT=8080
@@ -252,7 +274,6 @@ Removed the entire `Port` field and `getServicePort()` function.
 -STATUS_PORT=8082
 +# NOTE: Ports are hardcoded in each service's main.go:
 +# - submarines-ingest: 8080
-+# - submarines-status: 8081
 +# - submarines-sshws: 6001
 +# - submarines-deployer: background worker (no port)
 +# - submarines-digest: background worker (no port)
@@ -261,6 +282,7 @@ Removed the entire `Port` field and `getServicePort()` function.
 ```
 
 **File: `compose.yml`**
+
 - No `PORT` or `SERVICE_PORT` environment variables needed
 - Services use hardcoded ports from their binaries
 
@@ -300,6 +322,7 @@ Added explicit config file management:
 4. **Overwrite base defaults**: Our configs take precedence over base image configs
 
 **Architecture Flow (After Fix):**
+
 ```
 External Request → Caddy (reverse proxy)
                      ↓
@@ -315,6 +338,7 @@ External Request → Caddy (reverse proxy)
 ### 3. Flagship Nginx Port Fix
 
 **File: `flagship/docker/nginx/default.conf`**
+
 ```diff
  server {
 -    listen 8000;
@@ -324,6 +348,7 @@ External Request → Caddy (reverse proxy)
 ```
 
 **File: `flagship/Dockerfile.prod`**
+
 ```diff
 +# Copy Nginx, PHP-FPM, and Supervisor configurations
 +COPY docker/nginx/default.conf /etc/nginx/sites-available/default
@@ -342,6 +367,7 @@ External Request → Caddy (reverse proxy)
 ### 4. PHP-FPM Log Directory Fix
 
 **File: `flagship/docker/php/www.conf`**
+
 ```diff
  ; Timeouts
  request_terminate_timeout = 300
@@ -358,6 +384,7 @@ External Request → Caddy (reverse proxy)
 ```
 
 **File: `flagship/Dockerfile.prod`**
+
 ```diff
  # Create storage directories and set permissions
  RUN mkdir -p \
@@ -370,6 +397,7 @@ External Request → Caddy (reverse proxy)
 ```
 
 Also updated user/group in `www.conf`:
+
 ```diff
 -user = www
 -group = www
@@ -382,6 +410,7 @@ Also updated user/group in `www.conf`:
 ### 5. Caddy Health Check Fix
 
 **File: `caddy/Caddyfile.prod`**
+
 ```diff
      reverse_proxy flagship:8090 {
          ...
@@ -401,6 +430,7 @@ The `/health` endpoint is a static Nginx response (200 OK) that doesn't require 
 ### 6. Laravel Config Caching Fix
 
 **File: `flagship/Dockerfile.prod`**
+
 ```diff
      && touch storage/logs/php-fpm-slow.log storage/logs/php-fpm-error.log \
      && chown laravel:laravel storage/logs/php-fpm-*.log
@@ -429,14 +459,15 @@ Consider adding config caching to the entrypoint script for production performan
 ### Manual Testing Steps
 
 1. **Verify ports are correct:**
+
    ```bash
    # Check each service listens on correct port
    docker compose exec caddy wget -q -O- http://submarines-ingest:8080/health
-   docker compose exec caddy wget -q -O- http://submarines-status:8081/health
    docker compose exec caddy wget -q -O- http://flagship:8090/health
    ```
 
 2. **Verify Flagship components:**
+
    ```bash
    # Check Nginx is running
    docker compose exec flagship pidof nginx
@@ -449,6 +480,7 @@ Consider adding config caching to the entrypoint script for production performan
    ```
 
 3. **Verify Laravel config:**
+
    ```bash
    # Check APP_KEY is loaded
    docker compose exec flagship php artisan tinker --execute="echo config('app.key');"
@@ -509,6 +541,7 @@ docker compose logs flagship --tail=50
 ## Prevention & Best Practices
 
 ### 1. Base Image Management
+
 - **Do:** Document base image architecture and dependencies in README
 - **Do:** Pin base image versions in production (`flagship-base:v2` not `:latest`)
 - **Do:** Test base image updates in staging before production
@@ -516,26 +549,31 @@ docker compose logs flagship --tail=50
 - **Why:** Base image changes can break application assumptions about available services
 
 ### 2. Port Management
+
 - **Do:** Hardcode ports in service binaries where each service has a unique default
 - **Don't:** Use generic environment variables like `PORT` shared across multiple services
 - **Why:** Reduces configuration complexity and prevents conflicts
 
 ### 3. Docker Build vs Runtime
+
 - **Do:** Only cache static build artifacts (vendor, compiled assets)
 - **Don't:** Cache runtime-dependent configs (Laravel config cache with .env values)
 - **Why:** Build-time caching can't access runtime environment variables
 
 ### 4. Health Checks
+
 - **Do:** Use dedicated `/health` endpoints that don't depend on application logic
 - **Don't:** Use main application routes for health checks
 - **Why:** Application errors won't cascade into infrastructure availability issues
 
 ### 5. Configuration Files
+
 - **Do:** Explicitly copy and validate config files in Dockerfile
 - **Don't:** Rely on base images to have correct configs
 - **Why:** Makes builds reproducible and errors visible at build time (e.g., `nginx -t`)
 
 ### 6. Log Paths
+
 - **Do:** Use existing writable directories (like Laravel's `storage/logs`)
 - **Don't:** Reference directories that don't exist in the container
 - **Why:** Prevents service crashes due to missing paths
@@ -566,6 +604,7 @@ docker compose logs flagship --tail=50
 3. **Separate build-time from runtime concerns**: Docker image builds should not cache runtime-dependent data.
 
 4. **Test incrementally**: When multiple services are involved, test each layer:
+
    - Container → Service (health check)
    - Service → Service (internal networking)
    - Proxy → Service (Caddy → flagship)
@@ -584,6 +623,7 @@ docker compose logs flagship --tail=50
 A comprehensive diagnostic script was created: `debug-flagship.sh`
 
 This script checks:
+
 - Container status
 - Supervisor status
 - PHP-FPM status
@@ -596,6 +636,7 @@ This script checks:
 - File permissions
 
 **Usage:**
+
 ```bash
 cd /opt/admiral
 ./debug-flagship.sh

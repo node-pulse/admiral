@@ -1,4 +1,4 @@
-.PHONY: help deploy install pull update mtls-setup mtls-renew health env-check version push dev-up dev-down dev-logs dev-restart dev-rebuild dev-clean prod-up prod-down prod-logs prod-restart prod-rebuild prod-clean db-backup subs-logs subs-restart ingest-logs digest-logs status-logs flagship-logs caddy-logs valkey-cli
+.PHONY: help deploy install pull update mtls-setup mtls-renew health env-check version push dev-up dev-down dev-logs dev-restart dev-rebuild dev-clean prod-up prod-down prod-logs prod-restart prod-rebuild prod-clean db-backup subs-logs subs-restart ingest-logs digest-logs flagship-logs caddy-logs valkey-cli
 
 # Default target - show help
 help:
@@ -83,11 +83,8 @@ health:
 	@echo "Ingest Service:"
 	@curl -sf http://localhost:8080/health | jq || echo "✗ Not responding"
 	@echo ""
-	@echo "Status Service:"
-	@curl -sf http://localhost:8081/health | jq || echo "✗ Not responding"
-	@echo ""
 	@echo "Caddy Proxy:"
-	@curl -sf http://localhost/health || echo "✗ Not responding"
+	@curl -sf http://localhost:8000/health || echo "✗ Not responding"
 
 env-check:
 	@echo "Checking .env configuration..."

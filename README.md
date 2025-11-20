@@ -132,7 +132,6 @@ make up           # Start services
    - PostgreSQL (port 5432)
    - Valkey (port 6379)
    - Submarines Ingest (port 8080)
-   - Submarines Status (port 8081)
    - Submarines SSH WS (port 6001)
    - Submarines Digest (background worker)
    - Submarines Deployer (background worker)
@@ -169,7 +168,6 @@ Once all services are running (development mode):
 - **Flagship (Admin Dashboard)**: http://localhost:9000 (direct access)
 - **Vite Dev Server** (HMR): http://localhost:5173
 - **Submarines Ingest**: http://localhost:8080 (metrics endpoint)
-- **Submarines Status**: http://localhost:8081 (public status pages)
 - **Submarines SSH WS**: http://localhost:6001 (WebSocket terminal)
 - **PostgreSQL**: localhost:5432
 - **Valkey**: localhost:6379
@@ -516,7 +514,6 @@ PostgreSQL (:5432) - admiral.metrics + admiral.process_snapshots
 
 - **Ingest** (:8080) - Receives metrics from agents, publishes to Valkey Stream (~5ms response)
 - **Digest** (worker) - Consumes from stream, batch writes to PostgreSQL
-- **Status** (:8081) - Public status pages and health badges (read-only)
 - **Deployer** (worker) - Executes Ansible playbooks for agent deployment
 - **SSH WS** (:6001) - WebSocket terminal for server access
 

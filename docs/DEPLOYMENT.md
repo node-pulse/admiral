@@ -81,7 +81,6 @@ docker compose down
 | ---- | ------------------- | --------------------- |
 | 80   | Flagship (Laravel)  | http://localhost      |
 | 8080 | Submarines Ingest   | http://localhost:8080 |
-| 8082 | Submarines Status   | http://localhost:8082 |
 | 5173 | Vite HMR (dev only) | http://localhost:5173 |
 | 5432 | PostgreSQL          | localhost:5432        |
 | 6379 | Valkey (Redis)      | localhost:6379        |
@@ -90,7 +89,6 @@ docker compose down
 
 ```bash
 curl http://localhost:8080/health       # Submarines Ingest
-curl http://localhost:8082/health       # Submarines Status
 curl http://localhost/                  # Flagship (via Caddy)
 ```
 
@@ -161,6 +159,7 @@ FLAGSHIP_DOMAIN=yourdomain.com
 ```
 
 All services will be available under this single domain:
+
 - Dashboard: `https://yourdomain.com/`
 - Metrics Ingestion: `https://yourdomain.com/ingest/metrics/prometheus`
 - SSH WebSocket: `wss://yourdomain.com/ssh/`
@@ -198,7 +197,6 @@ docker compose ps
 | --------------------- | ----------------- | ------------------------- |
 | admin.yourdomain.com  | Flagship          | Admin dashboard (PHP-FPM) |
 | ingest.yourdomain.com | Submarines Ingest | Agent API (port 8080)     |
-| status.yourdomain.com | Submarines Status | Public status (port 8082) |
 
 ---
 

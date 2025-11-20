@@ -41,7 +41,6 @@ docker compose up -d
 # Access services
 http://localhost          # Flagship (Laravel)
 http://localhost:8080     # Submarines Ingest
-http://localhost:8082     # Submarines Status
 http://localhost:5173     # Vite HMR
 ```
 
@@ -56,6 +55,7 @@ Use `Caddyfile.prod` for production with automatic HTTPS:
    ```
 
    All services will be available under this single domain:
+
    - Dashboard: `https://example.com/`
    - Metrics Ingestion: `https://example.com/ingest/metrics/prometheus`
    - SSH WebSocket: `wss://example.com/ssh/`
@@ -148,7 +148,6 @@ Logs are written to `./logs/caddy/`:
 
 - `admin-access.log` - Flagship access logs
 - `ingest-access.log` - Ingest API access logs
-- `status-access.log` - Status pages access logs
 
 All logs use JSON format for easy parsing.
 

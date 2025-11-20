@@ -14,7 +14,6 @@
 | **Process Monitoring**              | ✅ Production Ready | 100%       |
 | **Ansible Deployment System**       | ✅ Production Ready | 100%       |
 | **SSH WebSocket Terminal**          | ✅ Production Ready | 100%       |
-| **Public Status Pages**             | ✅ Production Ready | 100%       |
 | **Data Retention**                  | ✅ Production Ready | 100%       |
 | **Two-Factor Authentication (2FA)** | ✅ Production Ready | 100%       |
 | **Custom Playbook Upload**          | ✅ Production Ready | 100%       |
@@ -94,7 +93,6 @@ This feature is complete and production-ready. All core functionality has been i
   - [ ] Verify firewall status after deployment
   - [ ] Document any distribution-specific issues
 
-
 **Reference Files:**
 
 - `/Users/yumin/ventures/node-pulse-stack/admiral/ansible/nodepulse/deploy.yml` - Unified deployment playbook (26KB)
@@ -154,6 +152,7 @@ Curated library of pre-built playbooks (fail2ban, Docker, Nginx, PostgreSQL, MyS
 
 **Current Status**: ✅ 95% complete (20/21 tasks) - Production ready with UI management
 **Reference**:
+
 - `/Users/yumin/ventures/node-pulse-stack/admiral/docs/mtls-guide.md`
 - `/Users/yumin/ventures/node-pulse-stack/admiral/docs/security/mtls-refactoring-plan.md`
 
@@ -600,12 +599,14 @@ Two core security playbooks (SSH hardening and firewall configuration) supportin
 **Features Implemented:**
 
 - ✅ **Deploy.sh Refactoring** - Removed mTLS prompts for true one-click automation
+
   - Removed ~70 lines of interactive mTLS setup code
   - Updated deployment summary to guide users to UI
   - Updated scripts/README.md documentation
   - Positioned setup-mtls.sh as emergency/CLI option
 
 - ✅ **UI-Based mTLS Setup** - One-click enable from System Settings
+
   - Created SystemSettingsController::enableMtls() endpoint
   - Automatic CA creation via Submarines API
   - Automatic file updates (compose.yml, Caddyfile.prod)
@@ -614,6 +615,7 @@ Two core security playbooks (SSH hardening and firewall configuration) supportin
   - Three-tier approach: UI (primary), API (automation), CLI (emergency)
 
 - ✅ **mTLS Status Fixes** - Accurate status detection
+
   - Fixed getMtlsStatus() to check CA existence (not build type)
   - Status now shows "Enabled" or "Disabled" (not "Production Build")
   - Checks both filesystem (ca.crt) and database (active CA)
@@ -849,23 +851,6 @@ The old separate playbooks have been consolidated into a unified architecture:
 - `submarines/internal/sshws/session.go`
 - `flagship/resources/js/components/servers/ssh-terminal.tsx`
 - `flagship/resources/js/pages/ssh-sessions.tsx`
-
----
-
-#### 5. Public Status Pages and Badges
-
-**Completion Date**: October 2025
-**Status**: Production Ready
-
-- [x] `submarines-status` service (port 8081)
-- [x] Read-only public status pages
-- [x] Server uptime badges
-- [x] No authentication required
-
-**Files:**
-
-- `submarines/cmd/status/main.go`
-- Dockerfile: `Dockerfile.status.dev`
 
 ---
 

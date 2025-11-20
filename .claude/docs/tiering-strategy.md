@@ -227,7 +227,6 @@ Node Pulse uses a **tiered feature model** to provide value at different price p
 submarines-ingest  (HTTP → Valkey Stream)
 submarines-digest  (Valkey Stream → PostgreSQL)
 submarines-cleaner (Cleanup old metrics)
-submarines-status  (Public status pages)
 submarines-sshws   (SSH WebSocket terminal)
 flagship           (Admin dashboard)
 ```
