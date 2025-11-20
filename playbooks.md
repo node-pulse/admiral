@@ -81,10 +81,6 @@
   - Recommended: 2C/4–8GB RAM minimum
   - High value if packaged as One-Click Playbook
 
-### ⚠️ Optional / Heavier (Still VPS-compatible but more resource usage)
-
-- [ ] (See Dify above – moved to AI Agents section)
-
 ## Databases & Storage
 
 - [ ] PostgreSQL
