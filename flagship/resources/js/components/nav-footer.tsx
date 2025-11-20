@@ -9,6 +9,7 @@ import {
 import { resolveUrl } from '@/lib/utils';
 import { type NavItem } from '@/types';
 import { type ComponentPropsWithoutRef } from 'react';
+import { LanguageSwitcher } from './language-switcher';
 
 export function NavFooter({
     items,
@@ -23,6 +24,9 @@ export function NavFooter({
             className={`group-data-[collapsible=icon]:p-0 ${className || ''}`}
         >
             <SidebarGroupContent>
+                <SidebarMenu>
+                    <LanguageSwitcher />
+                </SidebarMenu>
                 <SidebarMenu>
                     {items.map((item) => (
                         <SidebarMenuItem key={item.title}>

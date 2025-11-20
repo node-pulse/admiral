@@ -1,4 +1,4 @@
-import { usePage, router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Globe } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
@@ -22,12 +22,12 @@ const LOCALES: Locale[] = [
 
 export function LanguageSwitcher() {
     const page = usePage();
-    const locale = (page.props.locale as string) || 'en';
+    const currentlocaleCode = (page.props.locale as string) || 'en';
+    const currentLocale = LOCALES.find((loc) => loc.code === currentlocaleCode);
     const [isChanging, setIsChanging] = useState(false);
 
     const handleLocaleChange = async (newLocale: string) => {
-        if (newLocale === locale || isChanging) return;
-
+        if (newLocale === currentlocaleCode || isChanging) return;
         setIsChanging(true);
 
         try {
@@ -36,9 +36,10 @@ export function LanguageSwitcher() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>(
-                        'meta[name="csrf-token"]',
-                    )?.content || '',
+                    'X-CSRF-TOKEN':
+                        document.querySelector<HTMLMetaElement>(
+                            'meta[name="csrf-token"]',
+                        )?.content || '',
                 },
                 body: JSON.stringify({ locale: newLocale }),
             });
@@ -56,9 +57,13 @@ export function LanguageSwitcher() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" disabled={isChanging}>
+                <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-2 !p-2"
+                    disabled={isChanging}
+                >
                     <Globe className="h-[1.2rem] w-[1.2rem]" />
-                    <span className="sr-only">Change language</span>
+                    <span>{currentLocale?.native || 'English'}</span>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -67,13 +72,13 @@ export function LanguageSwitcher() {
                         key={loc.code}
                         onClick={() => handleLocaleChange(loc.code)}
                         className={
-                            loc.code === locale
+                            loc.code === currentlocaleCode
                                 ? 'bg-accent font-medium'
                                 : ''
                         }
                     >
                         <span className="mr-2">{loc.native}</span>
-                        {loc.code === locale && (
+                        {loc.code === currentlocaleCode && (
                             <span className="ml-auto text-xs">✓</span>
                         )}
                     </DropdownMenuItem>
