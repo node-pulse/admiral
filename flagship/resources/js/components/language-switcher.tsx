@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { Globe } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
@@ -40,13 +40,18 @@ export function LanguageSwitcher() {
                         document.querySelector<HTMLMetaElement>(
                             'meta[name="csrf-token"]',
                         )?.content || '',
+                    Accept: 'application/json',
                 },
                 body: JSON.stringify({ locale: newLocale }),
             });
 
-            if (response.ok) {
-                // Reload page to apply new locale
-                router.reload();
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // Force full page reload to apply new locale
+                window.location.reload();
+            } else {
+                setIsChanging(false);
             }
         } catch (error) {
             console.error('Failed to change locale:', error);
