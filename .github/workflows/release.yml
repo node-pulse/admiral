@@ -42,11 +42,6 @@ jobs:
             dockerfile: ./submarines/Dockerfile.deployer.prod
             image_suffix: submarines-deployer
 
-          - name: submarines-status
-            context: ./submarines
-            dockerfile: ./submarines/Dockerfile.status.prod
-            image_suffix: submarines-status
-
           - name: submarines-sshws
             context: ./submarines
             dockerfile: ./submarines/Dockerfile.sshws.prod
@@ -105,7 +100,6 @@ jobs:
           - image_suffix: submarines-ingest
           - image_suffix: submarines-digest
           - image_suffix: submarines-deployer
-          - image_suffix: submarines-status
           - image_suffix: submarines-sshws
           - image_suffix: flagship
 
@@ -256,7 +250,6 @@ jobs:
           - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-ingest:${{ steps.version.outputs.VERSION }}`
           - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-digest:${{ steps.version.outputs.VERSION }}`
           - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-deployer:${{ steps.version.outputs.VERSION }}`
-          - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-status:${{ steps.version.outputs.VERSION }}`
           - `ghcr.io/${{ github.repository_owner }}/node-pulse-submarines-sshws:${{ steps.version.outputs.VERSION }}`
           - `ghcr.io/${{ github.repository_owner }}/node-pulse-flagship:${{ steps.version.outputs.VERSION }}`
 
