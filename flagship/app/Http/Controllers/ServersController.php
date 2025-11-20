@@ -13,7 +13,9 @@ class ServersController extends Controller
      */
     public function index()
     {
-        return Inertia::render('servers');
+        return Inertia::render('servers', [
+            'translations' => __('servers'),
+        ]);
     }
 
     /**

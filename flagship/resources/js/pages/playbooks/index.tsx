@@ -11,12 +11,19 @@ import { ArrowUpCircle, Loader2, Package, RefreshCw, Search } from 'lucide-react
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Community Playbooks - Browse and download Ansible playbooks',
-        href: '/dashboard/playbooks',
-    },
-];
+interface PlaybooksTranslations {
+    title: string;
+    subtitle: string;
+    search: Record<string, string>;
+    actions: Record<string, string>;
+    messages: Record<string, string>;
+    confirm: Record<string, string>;
+    state: Record<string, string>;
+}
+
+interface PlaybooksProps {
+    translations: PlaybooksTranslations;
+}
 
 interface OsSupport {
     distro: string;
@@ -75,7 +82,14 @@ interface UpdateInfo {
 
 const CACHE_KEY_PLAYBOOKS = 'nodepulse_playbooks';
 
-export default function PlaybooksIndex() {
+export default function PlaybooksIndex({ translations }: PlaybooksProps) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: `${translations.title} - ${translations.subtitle}`,
+            href: '/dashboard/playbooks',
+        },
+    ];
+
     const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
     const [initialLoading, setInitialLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -116,7 +130,7 @@ export default function PlaybooksIndex() {
         } catch (error: any) {
             toast.error(
                 error.response?.data?.error ||
-                    'Failed to fetch playbooks from registry',
+                    translations.messages.fetch_failed,
             );
         } finally {
             if (showRefreshing) setRefreshing(false);
@@ -176,7 +190,7 @@ export default function PlaybooksIndex() {
     // Download playbook
     const handleDownload = async (playbook: Playbook) => {
         if (!playbook.source_path) {
-            toast.error('Invalid playbook source path');
+            toast.error(translations.messages.invalid_source_path);
             console.error('Missing source_path:', playbook);
             return;
         }
@@ -192,7 +206,7 @@ export default function PlaybooksIndex() {
                 source_path: playbook.source_path,
             });
 
-            toast.success(`${playbook.name} downloaded successfully`);
+            toast.success(`${playbook.name} ${translations.messages.download_success}`);
 
             // Refresh playbook list
             fetchPlaybooks(false);
@@ -201,41 +215,41 @@ export default function PlaybooksIndex() {
             toast.error(
                 error.response?.data?.message ||
                     error.response?.data?.error ||
-                    'Failed to download playbook',
+                    translations.messages.download_failed,
             );
         }
     };
 
     // Remove playbook
     const handleRemove = async (playbookId: string, name: string) => {
-        if (!confirm(`Are you sure you want to remove "${name}"?`)) {
+        if (!confirm(translations.confirm.remove.replace('{name}', name))) {
             return;
         }
 
         try {
             await axios.delete(`/api/playbooks/${playbookId}`);
-            toast.success(`${name} removed successfully`);
+            toast.success(`${name} ${translations.messages.remove_success}`);
 
             // Refresh playbook list, then check for updates
             await fetchPlaybooks(false);
             await checkForUpdates();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.error || 'Failed to remove playbook',
+                error.response?.data?.error || translations.messages.remove_failed,
             );
         }
     };
 
     // Update a single playbook
     const handleUpdate = async (playbookId: string, name: string) => {
-        if (!confirm(`Update "${name}" to the latest version?`)) {
+        if (!confirm(translations.confirm.update.replace('{name}', name))) {
             return;
         }
 
         try {
             const response = await axios.post(`/api/playbooks/${playbookId}/update`);
             toast.success(
-                `${name} updated to v${response.data.playbook.version}`,
+                `${name} ${translations.state.updated_to_version}${response.data.playbook.version}`,
             );
 
             // Refresh playbook list and check for updates
@@ -245,7 +259,7 @@ export default function PlaybooksIndex() {
             toast.error(
                 error.response?.data?.message ||
                     error.response?.data?.error ||
-                    'Failed to update playbook',
+                    translations.messages.update_failed,
             );
         }
     };
@@ -253,13 +267,13 @@ export default function PlaybooksIndex() {
     // Update all playbooks
     const handleUpdateAll = async () => {
         if (updatesAvailable.length === 0) {
-            toast.info('No updates available');
+            toast.info(translations.messages.no_updates_available);
             return;
         }
 
         if (
             !confirm(
-                `Update ${updatesAvailable.length} playbook(s) to the latest version?`,
+                translations.confirm.update_all.replace('{count}', updatesAvailable.length.toString()),
             )
         ) {
             return;
@@ -272,12 +286,12 @@ export default function PlaybooksIndex() {
 
             if (results.success.length > 0) {
                 toast.success(
-                    `Successfully updated ${results.success.length} playbook(s)`,
+                    translations.messages.update_all_success.replace('{count}', results.success.length.toString()),
                 );
             }
 
             if (results.failed.length > 0) {
-                toast.error(`Failed to update ${results.failed.length} playbook(s)`);
+                toast.error(translations.messages.update_all_failed.replace('{count}', results.failed.length.toString()));
             }
 
             // Refresh playbook list and check for updates
@@ -287,7 +301,7 @@ export default function PlaybooksIndex() {
             toast.error(
                 error.response?.data?.message ||
                     error.response?.data?.error ||
-                    'Failed to update playbooks',
+                    translations.messages.update_all_error,
             );
         } finally {
             setUpdatingAll(false);
@@ -323,21 +337,20 @@ export default function PlaybooksIndex() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Community Playbooks" />
+            <Head title={translations.title} />
 
             <div className="AdmiralCommunityPlaybooks flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">
-                            Community Playbooks
+                            {translations.title}
                             {refreshing && (
                                 <Loader2 className="ml-3 inline h-5 w-5 animate-spin text-muted-foreground" />
                             )}
                         </h1>
                         <p className="mt-2 text-muted-foreground">
-                            Browse and download Ansible playbooks from the
-                            community catalog
+                            {translations.subtitle}
                         </p>
                     </div>
                     <div className="flex gap-2">
@@ -352,7 +365,7 @@ export default function PlaybooksIndex() {
                             ) : (
                                 <RefreshCw className="mr-2 h-4 w-4" />
                             )}
-                            Check Updates
+                            {translations.actions.check_updates}
                         </Button>
                         {updatesAvailable.length > 0 && (
                             <Button
@@ -367,7 +380,7 @@ export default function PlaybooksIndex() {
                                 ) : (
                                     <ArrowUpCircle className="mr-2 h-4 w-4" />
                                 )}
-                                Update All ({updatesAvailable.length})
+                                {translations.actions.update_all} ({updatesAvailable.length})
                             </Button>
                         )}
                     </div>
@@ -380,7 +393,7 @@ export default function PlaybooksIndex() {
                             <div className="relative flex-1">
                                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search playbooks..."
+                                    placeholder={translations.search.placeholder}
                                     value={searchQuery}
                                     onChange={(e) =>
                                         setSearchQuery(e.target.value)
@@ -395,7 +408,7 @@ export default function PlaybooksIndex() {
                                 }
                                 className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             >
-                                <option value="all">Categories</option>
+                                <option value="all">{translations.search.categories}</option>
                                 {categories.map((cat) => (
                                     <option key={cat} value={cat}>
                                         {cat.charAt(0).toUpperCase() +
@@ -418,7 +431,7 @@ export default function PlaybooksIndex() {
                     <Card>
                         <CardContent className="py-12 text-center text-muted-foreground">
                             <Package className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                            <p>No playbooks found</p>
+                            <p>{translations.messages.no_playbooks_found}</p>
                         </CardContent>
                     </Card>
                 ) : (

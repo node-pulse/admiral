@@ -20,7 +20,9 @@ class PlaybooksController extends Controller
      */
     public function index()
     {
-        return Inertia::render('playbooks/index');
+        return Inertia::render('playbooks/index', [
+            'translations' => __('playbooks'),
+        ]);
     }
 
     /**

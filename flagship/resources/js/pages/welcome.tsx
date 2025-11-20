@@ -2,16 +2,37 @@ import { dashboard, login, register } from '@/routes';
 import { type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 
+interface WelcomeTranslations {
+    title: string;
+    app_title: string;
+    app_subtitle: string;
+    nav: {
+        dashboard: string;
+        login: string;
+        register: string;
+    };
+    content: {
+        website_link: string;
+        read_docs: string;
+        documentation: string;
+        watch_tutorials: string;
+        youtube: string;
+        deploy_now: string;
+    };
+}
+
 export default function Welcome({
     canRegister = true,
+    translations,
 }: {
     canRegister?: boolean;
+    translations: WelcomeTranslations;
 }) {
     const { auth } = usePage<SharedData>().props;
 
     return (
         <>
-            <Head title="Welcome">
+            <Head title={translations.title}>
                 <link rel="preconnect" href="https://fonts.bunny.net" />
                 <link
                     href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600"
@@ -26,7 +47,7 @@ export default function Welcome({
                                 href={dashboard()}
                                 className="inline-block rounded-sm border border-[#19140035] px-5 py-1.5 text-sm leading-normal text-[#1b1b18] hover:border-[#1915014a] dark:border-[#3E3E3A] dark:text-[#EDEDEC] dark:hover:border-[#62605b]"
                             >
-                                Dashboard
+                                {translations.nav.dashboard}
                             </Link>
                         ) : (
                             <>
@@ -34,14 +55,14 @@ export default function Welcome({
                                     href={login()}
                                     className="inline-block rounded-sm border border-transparent px-5 py-1.5 text-sm leading-normal text-[#1b1b18] hover:border-[#19140035] dark:text-[#EDEDEC] dark:hover:border-[#3E3E3A]"
                                 >
-                                    Log in
+                                    {translations.nav.login}
                                 </Link>
                                 {canRegister && (
                                     <Link
                                         href={register()}
                                         className="inline-block rounded-sm border border-[#19140035] px-5 py-1.5 text-sm leading-normal text-[#1b1b18] hover:border-[#1915014a] dark:border-[#3E3E3A] dark:text-[#EDEDEC] dark:hover:border-[#62605b]"
                                     >
-                                        Register
+                                        {translations.nav.register}
                                     </Link>
                                 )}
                             </>
@@ -52,11 +73,10 @@ export default function Welcome({
                     <main className="flex w-full max-w-[335px] flex-col-reverse lg:max-w-4xl lg:flex-row">
                         <div className="flex-1 rounded-br-lg rounded-bl-lg bg-white p-6 pb-12 text-[13px] leading-[20px] shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] lg:rounded-tl-lg lg:rounded-br-none lg:p-20 dark:bg-[#161615] dark:text-[#EDEDEC] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]">
                             <h1 className="mb-1 font-medium">
-                                Node Pulse Admiral
+                                {translations.app_title}
                             </h1>
                             <p className="mb-2 text-[#706f6c] dark:text-[#A1A09A]">
-                                Secure monitoring and one-click automation for
-                                your Linux servers
+                                {translations.app_subtitle}
                             </p>
                             <p className="mb-2 text-[13px] text-[#706f6c] dark:text-[#A1A09A]">
                                 <a
@@ -89,13 +109,13 @@ export default function Welcome({
                                         </span>
                                     </span>
                                     <span>
-                                        Read the
+                                        {translations.content.read_docs}
                                         <a
                                             href="https://docs.nodepulse.sh"
                                             target="_blank"
                                             className="ml-1 inline-flex items-center space-x-1 font-medium text-[#f53003] underline underline-offset-4 dark:text-[#FF4433]"
                                         >
-                                            <span>Documentation</span>
+                                            <span>{translations.content.documentation}</span>
                                             <svg
                                                 width={10}
                                                 height={11}
@@ -120,13 +140,13 @@ export default function Welcome({
                                         </span>
                                     </span>
                                     <span>
-                                        Watch video tutorials at
+                                        {translations.content.watch_tutorials}
                                         <a
                                             href="https://youtube.com/@nodepulse"
                                             target="_blank"
                                             className="ml-1 inline-flex items-center space-x-1 font-medium text-[#f53003] underline underline-offset-4 dark:text-[#FF4433]"
                                         >
-                                            <span>Youtube</span>
+                                            <span>{translations.content.youtube}</span>
                                             <svg
                                                 width={10}
                                                 height={11}
@@ -152,7 +172,7 @@ export default function Welcome({
                                         target="_blank"
                                         className="inline-block rounded-sm border border-black bg-[#1b1b18] px-5 py-1.5 text-sm leading-normal text-white hover:border-black hover:bg-black dark:border-[#eeeeec] dark:bg-[#eeeeec] dark:text-[#1C1C1A] dark:hover:border-white dark:hover:bg-white"
                                     >
-                                        Deploy now
+                                        {translations.content.deploy_now}
                                     </a>
                                 </li>
                             </ul>

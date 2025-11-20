@@ -51,12 +51,19 @@ import {
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'SSH Keys - Manage SSH private keys for server authentication',
-        href: sshKeysRoute().url,
-    },
-];
+interface SshKeysTranslations {
+    title: string;
+    subtitle: string;
+    list: Record<string, string>;
+    table: Record<string, string>;
+    actions: Record<string, string>;
+    dialog: Record<string, string>;
+    messages: Record<string, string>;
+}
+
+interface SshKeysProps {
+    translations: SshKeysTranslations;
+}
 
 interface ServerData {
     id: string;
@@ -92,7 +99,14 @@ interface PrivateKeysResponse {
     };
 }
 
-export default function PrivateKeys() {
+export default function PrivateKeys({ translations }: SshKeysProps) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: `${translations.title} - ${translations.subtitle}`,
+            href: sshKeysRoute().url,
+        },
+    ];
+
     const { props } = usePage();
     const csrfToken =
         (props as any).csrf_token ||
@@ -213,18 +227,18 @@ export default function PrivateKeys() {
             if (response.ok) {
                 setSelectedServerId('');
                 fetchPrivateKeys();
-                toast.success('SSH key attached successfully', {
+                toast.success(translations.messages.key_attached, {
                     description: `Key "${keyToManage.name}" has been attached to the server`,
                 });
             } else {
                 const error = await response.json();
-                toast.error('Failed to attach SSH key', {
+                toast.error(translations.messages.import_failed, {
                     description: error.message || 'An error occurred',
                 });
             }
         } catch (error) {
             console.error('Failed to attach key:', error);
-            toast.error('Failed to attach SSH key', {
+            toast.error(translations.messages.import_failed, {
                 description: 'An unexpected error occurred',
             });
         }
@@ -251,12 +265,12 @@ export default function PrivateKeys() {
                     key_size: '4096',
                 });
                 fetchPrivateKeys();
-                toast.success('SSH key generated successfully', {
+                toast.success(translations.messages.key_generated, {
                     description: `Key "${data.private_key?.name}" has been created`,
                 });
             } else {
                 const error = await response.json();
-                toast.error('Failed to generate key', {
+                toast.error(translations.messages.generation_failed, {
                     description:
                         error.message ||
                         'An error occurred while generating the key',
@@ -264,7 +278,7 @@ export default function PrivateKeys() {
             }
         } catch (error) {
             console.error('Failed to generate key:', error);
-            toast.error('Failed to generate key', {
+            toast.error(translations.messages.generation_failed, {
                 description: 'An unexpected error occurred',
             });
         }
@@ -291,12 +305,12 @@ export default function PrivateKeys() {
                     public_key: '',
                 });
                 fetchPrivateKeys();
-                toast.success('SSH key imported successfully', {
+                toast.success(translations.messages.key_imported, {
                     description: `Key "${data.private_key?.name}" has been imported`,
                 });
             } else {
                 const error = await response.json();
-                toast.error('Failed to import key', {
+                toast.error(translations.messages.import_failed, {
                     description:
                         error.message ||
                         'An error occurred while importing the key',
@@ -304,7 +318,7 @@ export default function PrivateKeys() {
             }
         } catch (error) {
             console.error('Failed to import key:', error);
-            toast.error('Failed to import key', {
+            toast.error(translations.messages.import_failed, {
                 description: 'An unexpected error occurred',
             });
         }
@@ -329,12 +343,12 @@ export default function PrivateKeys() {
                 setDeleteDialogOpen(false);
                 setSelectedKey(null);
                 fetchPrivateKeys();
-                toast.success('SSH key deleted successfully', {
+                toast.success(translations.messages.key_deleted, {
                     description: `Key "${keyName}" has been removed`,
                 });
             } else {
                 const error = await response.json();
-                toast.error('Failed to delete key', {
+                toast.error(translations.messages.delete_failed, {
                     description:
                         error.message ||
                         'An error occurred while deleting the key',
@@ -342,7 +356,7 @@ export default function PrivateKeys() {
             }
         } catch (error) {
             console.error('Failed to delete key:', error);
-            toast.error('Failed to delete key', {
+            toast.error(translations.messages.delete_failed, {
                 description: 'An unexpected error occurred',
             });
         }
@@ -353,11 +367,11 @@ export default function PrivateKeys() {
         type: 'fingerprint' | 'public_key' = 'fingerprint',
     ) => {
         navigator.clipboard.writeText(text);
-        toast.success('Copied to clipboard', {
+        toast.success(translations.messages.public_key_copied, {
             description:
                 type === 'fingerprint'
-                    ? 'Fingerprint copied successfully'
-                    : 'Public key copied successfully',
+                    ? 'Fingerprint copied'
+                    : 'Public key copied',
         });
     };
 
@@ -367,7 +381,7 @@ export default function PrivateKeys() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="SSH Keys" />
+            <Head title={translations.title} />
 
             <div className="AdmiralSSHKeys flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
@@ -378,11 +392,11 @@ export default function PrivateKeys() {
                             onClick={() => setImportDialogOpen(true)}
                         >
                             <Key className="mr-2 h-4 w-4" />
-                            Import Key
+                            {translations.dialog.import_key}
                         </Button>
                         <Button onClick={() => setGenerateDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
-                            Generate Key
+                            {translations.dialog.generate_key}
                         </Button>
                     </div>
                 </div>
@@ -392,7 +406,7 @@ export default function PrivateKeys() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                Total Keys
+                                {translations.list.total_keys}
                             </CardTitle>
                             <Key className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -405,7 +419,7 @@ export default function PrivateKeys() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                Keys in Use
+                                In Use
                             </CardTitle>
                             <Server className="h-4 w-4 text-green-500" />
                         </CardHeader>
@@ -422,7 +436,7 @@ export default function PrivateKeys() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                Unused Keys
+                                Unused
                             </CardTitle>
                             <Key className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -445,7 +459,7 @@ export default function PrivateKeys() {
                             <div className="relative flex-1">
                                 <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search keys by name, description, or fingerprint..."
+                                    placeholder={translations.list.search_placeholder}
                                     value={search}
                                     onChange={(e) => {
                                         setSearch(e.target.value);
@@ -459,18 +473,18 @@ export default function PrivateKeys() {
                     <CardContent>
                         {loading ? (
                             <div className="py-8 text-center text-muted-foreground">
-                                Loading SSH keys...
+                                Loading...
                             </div>
                         ) : privateKeys.length === 0 ? (
                             <div className="py-8 text-center">
                                 <Key className="mx-auto h-12 w-12 text-muted-foreground" />
                                 <h3 className="mt-2 text-sm font-semibold">
-                                    No SSH keys found
+                                    {translations.list.no_keys}
                                 </h3>
                                 <p className="mt-1 text-sm text-muted-foreground">
                                     {search
                                         ? 'Try adjusting your search'
-                                        : 'Get started by generating or importing an SSH key'}
+                                        : translations.list.no_keys_description}
                                 </p>
                                 {!search && (
                                     <div className="mt-4 flex justify-center gap-2">
@@ -481,7 +495,7 @@ export default function PrivateKeys() {
                                             }
                                         >
                                             <Key className="mr-2 h-4 w-4" />
-                                            Import Key
+                                            {translations.dialog.import_key}
                                         </Button>
                                         <Button
                                             onClick={() =>
@@ -489,7 +503,7 @@ export default function PrivateKeys() {
                                             }
                                         >
                                             <Plus className="mr-2 h-4 w-4" />
-                                            Generate Key
+                                            {translations.dialog.generate_key}
                                         </Button>
                                     </div>
                                 )}
@@ -498,13 +512,13 @@ export default function PrivateKeys() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Fingerprint</TableHead>
-                                        <TableHead>Servers</TableHead>
-                                        <TableHead>Public Key</TableHead>
-                                        <TableHead>Created</TableHead>
+                                        <TableHead>{translations.table.name}</TableHead>
+                                        <TableHead>{translations.table.fingerprint}</TableHead>
+                                        <TableHead>{translations.table.servers}</TableHead>
+                                        <TableHead>{translations.dialog.public_key_label}</TableHead>
+                                        <TableHead>{translations.table.created}</TableHead>
                                         <TableHead className="text-right">
-                                            Actions
+                                            {translations.table.actions}
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -571,7 +585,7 @@ export default function PrivateKeys() {
                                                         className="flex w-fit items-center gap-1"
                                                     >
                                                         <Server className="h-3 w-3" />
-                                                        Not attached
+                                                        {translations.dialog.no_servers_linked}
                                                     </Badge>
                                                 )}
                                             </TableCell>
@@ -587,7 +601,7 @@ export default function PrivateKeys() {
                                                     }
                                                 >
                                                     <Copy className="mr-2 h-3 w-3" />
-                                                    Copy
+                                                    {translations.actions.copy_public}
                                                 </Button>
                                             </TableCell>
                                             <TableCell className="text-sm">

@@ -15,6 +15,7 @@ Route::get('/', function () {
 
     return Inertia::render('welcome', [
         'canRegister' => $registrationEnabled,
+        'translations' => __('welcome'),
     ]);
 })->name('home');
 

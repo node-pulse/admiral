@@ -13,7 +13,9 @@ class SshSessionsController extends Controller
      */
     public function page()
     {
-        return Inertia::render('ssh-sessions');
+        return Inertia::render('ssh-sessions', [
+            'translations' => __('ssh_sessions'),
+        ]);
     }
 
     /**

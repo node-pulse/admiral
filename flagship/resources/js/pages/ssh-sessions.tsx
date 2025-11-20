@@ -43,12 +43,20 @@ import {
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'SSH Sessions - View and manage SSH session history for all servers',
-        href: sshSessionsRoute().url,
-    },
-];
+interface SshSessionsTranslations {
+    title: string;
+    subtitle: string;
+    list: Record<string, string>;
+    table: Record<string, string>;
+    status: Record<string, string>;
+    actions: Record<string, string>;
+    dialog: Record<string, string>;
+    messages: Record<string, string>;
+}
+
+interface SshSessionsProps {
+    translations: SshSessionsTranslations;
+}
 
 interface ServerData {
     id: string;
@@ -90,7 +98,14 @@ interface SshSessionsResponse {
     };
 }
 
-export default function SshSessions() {
+export default function SshSessions({ translations }: SshSessionsProps) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: `${translations.title} - ${translations.subtitle}`,
+            href: sshSessionsRoute().url,
+        },
+    ];
+
     const { props } = usePage();
     const csrfToken =
         (props as any).csrf_token ||
@@ -190,17 +205,17 @@ export default function SshSessions() {
             );
 
             if (response.ok) {
-                toast.success('Session terminated successfully');
+                toast.success(translations.messages.session_terminated);
                 setTerminateDialogOpen(false);
                 setSessionToTerminate(null);
                 fetchSessions();
             } else {
                 const data = await response.json();
-                toast.error(data.message || 'Failed to terminate session');
+                toast.error(data.message || translations.messages.terminate_failed);
             }
         } catch (error) {
             console.error('Failed to terminate session:', error);
-            toast.error('Failed to terminate session');
+            toast.error(translations.messages.terminate_failed);
         }
     };
 
@@ -210,28 +225,28 @@ export default function SshSessions() {
                 return (
                     <Badge variant="default" className="bg-green-500">
                         <Activity className="mr-1 h-3 w-3" />
-                        Active
+                        {translations.status.active}
                     </Badge>
                 );
             case 'completed':
                 return (
                     <Badge variant="secondary">
                         <CheckCircle2 className="mr-1 h-3 w-3" />
-                        Completed
+                        {translations.status.completed}
                     </Badge>
                 );
             case 'failed':
                 return (
                     <Badge variant="destructive">
                         <XCircle className="mr-1 h-3 w-3" />
-                        Failed
+                        {translations.status.failed}
                     </Badge>
                 );
             case 'terminated':
                 return (
                     <Badge variant="outline">
                         <XCircle className="mr-1 h-3 w-3" />
-                        Terminated
+                        {translations.status.terminated}
                     </Badge>
                 );
             default:
@@ -257,7 +272,7 @@ export default function SshSessions() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="SSH Sessions" />
+            <Head title={translations.title} />
 
             <div className="AdmiralSSHSessions flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Stats Cards */}
@@ -265,7 +280,7 @@ export default function SshSessions() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                Total Sessions
+                                {translations.list.total_sessions}
                             </CardTitle>
                             <Terminal className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -279,7 +294,7 @@ export default function SshSessions() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                Active Now
+                                {translations.list.active_sessions}
                             </CardTitle>
                             <Activity className="h-4 w-4 text-green-500" />
                         </CardHeader>
@@ -364,18 +379,17 @@ export default function SshSessions() {
                         {loading ? (
                             <div className="flex items-center justify-center py-8">
                                 <div className="text-muted-foreground">
-                                    Loading sessions...
+                                    Loading...
                                 </div>
                             </div>
                         ) : sessions.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 text-center">
                                 <Terminal className="mb-4 h-12 w-12 text-muted-foreground" />
                                 <h3 className="text-lg font-medium">
-                                    No SSH sessions found
+                                    {translations.list.no_sessions}
                                 </h3>
                                 <p className="text-sm text-muted-foreground">
-                                    Session history will appear here after SSH
-                                    connections are made
+                                    {translations.list.no_sessions_description}
                                 </p>
                             </div>
                         ) : (
@@ -383,14 +397,14 @@ export default function SshSessions() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Server</TableHead>
-                                            <TableHead>User</TableHead>
-                                            <TableHead>Started</TableHead>
-                                            <TableHead>Duration</TableHead>
-                                            <TableHead>Status</TableHead>
+                                            <TableHead>{translations.table.server}</TableHead>
+                                            <TableHead>{translations.table.user}</TableHead>
+                                            <TableHead>{translations.table.started}</TableHead>
+                                            <TableHead>{translations.table.duration}</TableHead>
+                                            <TableHead>{translations.table.status}</TableHead>
                                             <TableHead>Auth</TableHead>
-                                            <TableHead>IP Address</TableHead>
-                                            <TableHead>Actions</TableHead>
+                                            <TableHead>{translations.table.ip_address}</TableHead>
+                                            <TableHead>{translations.table.actions}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>

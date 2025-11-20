@@ -11,7 +11,9 @@ class AnsiblePlaybooksController extends Controller
      */
     public function page()
     {
-        return Inertia::render('ansible-playbooks');
+        return Inertia::render('ansible-playbooks', [
+            'translations' => __('ansible'),
+        ]);
     }
 
     /**

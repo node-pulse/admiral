@@ -15,7 +15,9 @@ class DeploymentsController extends Controller
      */
     public function index()
     {
-        return Inertia::render('deployments/index');
+        return Inertia::render('deployments/index', [
+            'translations' => __('deployments'),
+        ]);
     }
 
     /**

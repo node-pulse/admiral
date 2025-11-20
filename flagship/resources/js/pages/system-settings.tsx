@@ -32,6 +32,18 @@ import { AlertCircle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+interface SettingsTranslations {
+    title: string;
+    subtitle: string;
+    security: Record<string, string>;
+    categories: Record<string, string>;
+    table: Record<string, string>;
+    actions: Record<string, string>;
+    messages: Record<string, string>;
+    mtls: Record<string, string>;
+    search: Record<string, string>;
+}
+
 interface Setting {
     key: string;
     value: any;
@@ -47,25 +59,26 @@ interface MtlsStatus {
 }
 
 interface Props {
+    translations: SettingsTranslations;
     settings: Setting[];
     mtls: MtlsStatus;
 }
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'System Settings - Manage system-wide configuration and preferences (Admin only)',
-        href: systemSettings().url,
-    },
-];
+export default function SystemSettings({ translations, settings, mtls }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: `${translations.title} - ${translations.subtitle}`,
+            href: systemSettings().url,
+        },
+    ];
 
-export default function SystemSettings({ settings, mtls }: Props) {
     const [updating, setUpdating] = useState<string | null>(null);
     const [editingValues, setEditingValues] = useState<Record<string, any>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [enablingMtls, setEnablingMtls] = useState(false);
 
     const handleEnableMtls = () => {
-        if (!confirm('This will enable mTLS authentication for all agent connections. Caddy will be restarted. Continue?')) {
+        if (!confirm(translations.mtls.confirm_enable)) {
             return;
         }
 
@@ -74,12 +87,12 @@ export default function SystemSettings({ settings, mtls }: Props) {
         router.post('/dashboard/system-settings/mtls/enable', {}, {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('mTLS enabled successfully! Caddy has been restarted.');
+                toast.success(translations.messages.mtls_enabled);
                 // Reload page to show updated status
                 router.reload();
             },
             onError: (errors: any) => {
-                const errorMessage = errors.error || errors.detail || 'Failed to enable mTLS';
+                const errorMessage = errors.error || errors.detail || translations.messages.mtls_enable_failed;
                 toast.error(errorMessage);
             },
             onFinish: () => {
@@ -97,10 +110,10 @@ export default function SystemSettings({ settings, mtls }: Props) {
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    toast.success('Setting updated successfully');
+                    toast.success(translations.messages.updated);
                 },
                 onError: (errors) => {
-                    toast.error(errors[key] || 'Failed to update setting');
+                    toast.error(errors[key] || translations.messages.update_failed);
                 },
                 onFinish: () => {
                     setUpdating(null);
@@ -118,7 +131,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    toast.success('Setting updated successfully');
+                    toast.success(translations.messages.updated);
                     setEditingValues((prev) => {
                         const next = { ...prev };
                         delete next[key];
@@ -126,7 +139,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
                     });
                 },
                 onError: (errors) => {
-                    toast.error(errors[key] || 'Failed to update setting');
+                    toast.error(errors[key] || translations.messages.update_failed);
                 },
                 onFinish: () => {
                     setUpdating(null);
@@ -151,32 +164,32 @@ export default function SystemSettings({ settings, mtls }: Props) {
             setting.key.includes('registration') ||
             setting.key.includes('auth')
         ) {
-            return 'Authentication';
+            return translations.categories.authentication;
         } else if (setting.key.includes('retention')) {
-            return 'Data Retention';
+            return translations.categories.data_retention;
         } else if (setting.key.includes('alert')) {
-            return 'Alerting';
+            return translations.categories.alerting;
         } else if (setting.tier === 'pro' || setting.tier === 'growth') {
-            return 'Pro Features';
+            return translations.categories.pro_features;
         } else {
-            return 'System';
+            return translations.categories.system;
         }
     };
 
     const getCategoryBadgeClass = (category: string): string => {
-        switch (category) {
-            case 'Authentication':
-                return 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
-            case 'Data Retention':
-                return 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300';
-            case 'Alerting':
-                return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300';
-            case 'Pro Features':
-                return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
-            case 'System':
-                return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
-            default:
-                return 'bg-muted text-muted-foreground';
+        // Match against translated values
+        if (category === translations.categories.authentication) {
+            return 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
+        } else if (category === translations.categories.data_retention) {
+            return 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300';
+        } else if (category === translations.categories.alerting) {
+            return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300';
+        } else if (category === translations.categories.pro_features) {
+            return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+        } else if (category === translations.categories.system) {
+            return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
+        } else {
+            return 'bg-muted text-muted-foreground';
         }
     };
 
@@ -241,7 +254,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
                 <TableCell>
                     {isBoolean ? (
                         <span className="text-sm">
-                            {setting.value ? 'Enabled' : 'Disabled'}
+                            {setting.value ? translations.table.enabled : translations.table.disabled}
                         </span>
                     ) : (
                         <span className="font-mono text-sm">
@@ -323,7 +336,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
                                     )
                                 }
                             >
-                                Update
+                                {translations.actions.update}
                             </Button>
                         </div>
                     )}
@@ -334,16 +347,15 @@ export default function SystemSettings({ settings, mtls }: Props) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="System Settings" />
+            <Head title={translations.title} />
 
             <div className="AdmiralSystemSettings flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Security Settings - mTLS Status */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Security</CardTitle>
+                        <CardTitle>{translations.security.title}</CardTitle>
                         <CardDescription>
-                            Mutual TLS (mTLS) authentication status for agent
-                            connections
+                            {translations.security.description}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -362,15 +374,14 @@ export default function SystemSettings({ settings, mtls }: Props) {
                                 </div>
                                 <div>
                                     <div className="font-medium">
-                                        mTLS Authentication
+                                        {translations.mtls.title}
                                     </div>
                                     <div className="text-sm text-muted-foreground">
-                                        Status: {mtls.status}
+                                        {translations.mtls.status_label}: {mtls.status}
                                     </div>
                                     {!mtls.reachable && (
                                         <div className="mt-1 text-xs text-red-500">
-                                            Warning: Unable to reach submarines
-                                            ingest service
+                                            {translations.mtls.unreachable_warning}
                                         </div>
                                     )}
                                 </div>
@@ -381,25 +392,23 @@ export default function SystemSettings({ settings, mtls }: Props) {
                                         onClick={handleEnableMtls}
                                         disabled={enablingMtls}
                                     >
-                                        {enablingMtls ? 'Enabling...' : 'Enable mTLS'}
+                                        {enablingMtls ? translations.mtls.enabling : translations.mtls.enable}
                                     </Button>
                                 )}
                                 <Dialog>
                                     <DialogTrigger asChild>
                                         <Button variant="outline" size="sm">
                                             <Info className="mr-2 h-4 w-4" />
-                                            {mtls.enabled ? 'About mTLS' : 'Manual Setup'}
+                                            {mtls.enabled ? translations.mtls.about : translations.mtls.manual_setup}
                                         </Button>
                                     </DialogTrigger>
                                 <DialogContent className="max-w-4xl!">
                                     <DialogHeader>
                                         <DialogTitle>
-                                            Changing mTLS Configuration
+                                            {translations.mtls.dialog_title}
                                         </DialogTitle>
                                         <DialogDescription>
-                                            mTLS is a build-time decision and
-                                            requires rebuilding the Docker
-                                            images
+                                            {translations.mtls.dialog_description}
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-4">
@@ -483,10 +492,9 @@ export default function SystemSettings({ settings, mtls }: Props) {
                 {/* All Settings in One Table */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>All Settings</CardTitle>
+                        <CardTitle>{translations.table.title}</CardTitle>
                         <CardDescription>
-                            System-wide configuration and preferences. Settings
-                            are organized by category for easier management.
+                            {translations.table.description}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -494,7 +502,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
                         <div className="flex items-center gap-2">
                             <Input
                                 type="text"
-                                placeholder="Search settings by name, description, category, or value..."
+                                placeholder={translations.search.placeholder}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="max-w-md"
@@ -505,7 +513,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
                                     size="sm"
                                     onClick={() => setSearchQuery('')}
                                 >
-                                    Clear
+                                    {translations.search.clear}
                                 </Button>
                             )}
                         </div>
@@ -513,8 +521,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
                         {/* Results count */}
                         {searchQuery && (
                             <p className="text-sm text-muted-foreground">
-                                Found {filteredSettings.length} setting
-                                {filteredSettings.length !== 1 ? 's' : ''}
+                                {translations.search.found} {filteredSettings.length} {filteredSettings.length !== 1 ? translations.search.settings : translations.search.setting}
                             </p>
                         )}
 
@@ -522,11 +529,11 @@ export default function SystemSettings({ settings, mtls }: Props) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Setting</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead>Current Value</TableHead>
+                                    <TableHead>{translations.table.setting}</TableHead>
+                                    <TableHead>{translations.table.description}</TableHead>
+                                    <TableHead>{translations.table.current_value}</TableHead>
                                     <TableHead className="text-right">
-                                        Actions
+                                        {translations.table.actions}
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -539,8 +546,7 @@ export default function SystemSettings({ settings, mtls }: Props) {
                                             colSpan={4}
                                             className="text-center text-muted-foreground"
                                         >
-                                            No settings found matching "
-                                            {searchQuery}"
+                                            {translations.search.no_results} "{searchQuery}"
                                         </TableCell>
                                     </TableRow>
                                 )}

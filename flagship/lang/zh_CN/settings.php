@@ -1,9 +1,74 @@
 <?php
 
 return [
-    'title' => '设置',
-    'subtitle' => '管理您的账号设置',
+    'title' => '系统设置',
+    'subtitle' => '管理系统级配置和首选项（仅限管理员）',
 
+    // Security section
+    'security' => [
+        'title' => '安全',
+        'description' => '代理连接的双向TLS (mTLS) 身份验证状态',
+    ],
+
+    // Categories for settings
+    'categories' => [
+        'authentication' => '身份认证',
+        'data_retention' => '数据保留',
+        'alerting' => '告警',
+        'pro_features' => '专业版功能',
+        'system' => '系统',
+    ],
+
+    // Table section
+    'table' => [
+        'title' => '所有设置',
+        'description' => '系统级配置和首选项。设置按类别组织以便于管理',
+        'setting' => '设置',
+        'setting_description' => '描述',
+        'current_value' => '当前值',
+        'actions' => '操作',
+        'enabled' => '已启用',
+        'disabled' => '已禁用',
+    ],
+
+    // Actions
+    'actions' => [
+        'update' => '更新',
+    ],
+
+    // Messages
+    'messages' => [
+        'updated' => '设置更新成功',
+        'update_failed' => '更新设置失败',
+        'mtls_enabled' => 'mTLS 启用成功！Caddy 已重启',
+        'mtls_enable_failed' => '启用 mTLS 失败',
+    ],
+
+    // mTLS section
+    'mtls' => [
+        'title' => 'mTLS 身份认证',
+        'status_label' => '状态',
+        'unreachable_warning' => '警告：无法访问 submarines ingest 服务',
+        'enable' => '启用 mTLS',
+        'enabling' => '启用中...',
+        'about' => '关于 mTLS',
+        'manual_setup' => '手动设置',
+        'dialog_title' => '更改 mTLS 配置',
+        'dialog_description' => 'mTLS 是构建时决策，需要重新构建 Docker 镜像',
+        'confirm_enable' => '这将为所有代理连接启用 mTLS 身份验证。Caddy 将重启。是否继续？',
+    ],
+
+    // Search section
+    'search' => [
+        'placeholder' => '按名称、描述、类别或值搜索设置...',
+        'clear' => '清除',
+        'found' => '找到',
+        'setting' => '项设置',
+        'settings' => '项设置',
+        'no_results' => '未找到匹配的设置',
+    ],
+
+    // User profile settings (kept for backward compatibility)
     'profile' => [
         'title' => '个人资料',
         'subtitle' => '更新您的个人信息',

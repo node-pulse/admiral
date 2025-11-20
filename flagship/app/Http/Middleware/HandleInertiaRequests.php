@@ -47,6 +47,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'locale' => app()->getLocale(),
+            'nav' => __('nav'), // Keep nav separate so it doesn't get overwritten
             'translations' => [
                 'common' => __('common'),
                 'nav' => __('nav'),

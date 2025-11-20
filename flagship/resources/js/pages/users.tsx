@@ -60,6 +60,22 @@ import {
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+interface UsersTranslations {
+    title: string;
+    subtitle: string;
+    list: Record<string, string>;
+    table: Record<string, string>;
+    roles: Record<string, string>;
+    status: Record<string, string>;
+    actions: Record<string, string>;
+    dialog: Record<string, string>;
+    messages: Record<string, string>;
+}
+
+interface UsersProps {
+    translations: UsersTranslations;
+}
+
 interface UserData {
     id: number;
     name: string;
@@ -79,14 +95,13 @@ interface PaginationData {
     total: number;
 }
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Users - Manage user accounts and permissions (Admin only)',
-        href: usersRoute().url,
-    },
-];
-
-export default function Users() {
+export default function Users({ translations }: UsersProps) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: `${translations.title} - ${translations.subtitle}`,
+            href: usersRoute().url,
+        },
+    ];
     const [users, setUsers] = useState<UserData[]>([]);
     const [pagination, setPagination] = useState<PaginationData>({
         current_page: 1,
@@ -131,7 +146,7 @@ export default function Users() {
             setUsers(response.data.users);
             setPagination(response.data.pagination);
         } catch (error) {
-            toast.error('Failed to fetch users');
+            toast.error(translations.messages.fetch_failed);
             console.error(error);
         } finally {
             setLoading(false);
@@ -140,24 +155,24 @@ export default function Users() {
 
     useEffect(() => {
         fetchUsers();
-    }, [pagination.current_page, search, roleFilter, statusFilter]);
+    }, [pagination.current_page, search, roleFilter, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleAddUser = async () => {
         if (!newUser.name || !newUser.email || !newUser.password) {
-            toast.error('Please fill in all fields');
+            toast.error(translations.messages.fill_all_fields);
             return;
         }
 
         setAddingUser(true);
         try {
             await axios.post('/api/users', newUser);
-            toast.success('User created successfully');
+            toast.success(translations.messages.user_created);
             setAddUserOpen(false);
             setNewUser({ name: '', email: '', password: '', role: 'user' });
             fetchUsers();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.message || 'Failed to create user',
+                error.response?.data?.message || translations.messages.create_failed,
             );
         } finally {
             setAddingUser(false);
@@ -171,12 +186,12 @@ export default function Users() {
                 status: newStatus,
             });
             toast.success(
-                `User ${newStatus === 'active' ? 'enabled' : 'disabled'} successfully`,
+                newStatus === 'active' ? translations.messages.user_enabled : translations.messages.user_disabled,
             );
             fetchUsers();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.message || 'Failed to update user status',
+                error.response?.data?.message || translations.messages.status_update_failed,
             );
         }
     };
@@ -185,11 +200,11 @@ export default function Users() {
         const newRole = user.role === 'admin' ? 'user' : 'admin';
         try {
             await axios.patch(`/api/users/${user.id}/role`, { role: newRole });
-            toast.success('User role updated successfully');
+            toast.success(translations.messages.role_updated);
             fetchUsers();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.message || 'Failed to update user role',
+                error.response?.data?.message || translations.messages.role_update_failed,
             );
         }
     };
@@ -200,13 +215,13 @@ export default function Users() {
         setDeleteLoading(true);
         try {
             await axios.delete(`/api/users/${userToDelete.id}`);
-            toast.success('User deleted successfully');
+            toast.success(translations.messages.user_deleted);
             setDeleteConfirmOpen(false);
             setUserToDelete(null);
             fetchUsers();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.message || 'Failed to delete user',
+                error.response?.data?.message || translations.messages.delete_failed,
             );
         } finally {
             setDeleteLoading(false);
@@ -257,22 +272,21 @@ export default function Users() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Users" />
+            <Head title={translations.title} />
 
             <div className="AdmiralUsers flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div>
-                                <CardTitle>Users Management</CardTitle>
+                                <CardTitle>{translations.list.title}</CardTitle>
                                 <CardDescription>
-                                    Manage user accounts, roles, and access
-                                    permissions
+                                    {translations.list.description}
                                 </CardDescription>
                             </div>
                             <Button onClick={() => setAddUserOpen(true)}>
                                 <Plus className="mr-2 h-4 w-4" />
-                                Add User
+                                {translations.actions.add_user}
                             </Button>
                         </div>
                     </CardHeader>
@@ -282,7 +296,7 @@ export default function Users() {
                             <div className="relative flex-1">
                                 <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search users..."
+                                    placeholder={translations.list.search_placeholder}
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     className="pl-8"
@@ -293,14 +307,14 @@ export default function Users() {
                                 onValueChange={setRoleFilter}
                             >
                                 <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder="All roles" />
+                                    <SelectValue placeholder={translations.list.all_roles} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">
-                                        All roles
+                                        {translations.list.all_roles}
                                     </SelectItem>
-                                    <SelectItem value="admin">Admin</SelectItem>
-                                    <SelectItem value="user">User</SelectItem>
+                                    <SelectItem value="admin">{translations.roles.admin}</SelectItem>
+                                    <SelectItem value="user">{translations.roles.user}</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Select
@@ -308,17 +322,17 @@ export default function Users() {
                                 onValueChange={setStatusFilter}
                             >
                                 <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder="All status" />
+                                    <SelectValue placeholder={translations.list.all_status} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">
-                                        All status
+                                        {translations.list.all_status}
                                     </SelectItem>
                                     <SelectItem value="active">
-                                        Active
+                                        {translations.status.active}
                                     </SelectItem>
                                     <SelectItem value="disabled">
-                                        Disabled
+                                        {translations.status.disabled}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -328,14 +342,14 @@ export default function Users() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>2FA</TableHead>
-                                    <TableHead>Created</TableHead>
+                                    <TableHead>{translations.table.name}</TableHead>
+                                    <TableHead>{translations.table.email}</TableHead>
+                                    <TableHead>{translations.table.role}</TableHead>
+                                    <TableHead>{translations.table.status}</TableHead>
+                                    <TableHead>{translations.table.two_factor}</TableHead>
+                                    <TableHead>{translations.table.created}</TableHead>
                                     <TableHead className="text-right">
-                                        Actions
+                                        {translations.table.actions}
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -346,7 +360,7 @@ export default function Users() {
                                             colSpan={7}
                                             className="text-center"
                                         >
-                                            Loading...
+                                            {translations.list.loading}
                                         </TableCell>
                                     </TableRow>
                                 ) : users?.length === 0 ? (
@@ -355,7 +369,7 @@ export default function Users() {
                                             colSpan={7}
                                             className="text-center"
                                         >
-                                            No users found
+                                            {translations.list.no_users}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -378,11 +392,11 @@ export default function Users() {
                                                         className="bg-blue-500"
                                                     >
                                                         <Shield className="mr-1 h-3 w-3" />
-                                                        Enabled
+                                                        {translations.status.two_factor_enabled}
                                                     </Badge>
                                                 ) : (
                                                     <Badge variant="outline">
-                                                        Disabled
+                                                        {translations.status.two_factor_disabled}
                                                     </Badge>
                                                 )}
                                             </TableCell>
@@ -403,7 +417,7 @@ export default function Users() {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>
-                                                            Actions
+                                                            {translations.table.actions}
                                                         </DropdownMenuLabel>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
@@ -417,12 +431,12 @@ export default function Users() {
                                                             'admin' ? (
                                                                 <>
                                                                     <User className="mr-2 h-4 w-4" />
-                                                                    Make User
+                                                                    {translations.actions.make_user}
                                                                 </>
                                                             ) : (
                                                                 <>
                                                                     <ShieldAlert className="mr-2 h-4 w-4" />
-                                                                    Make Admin
+                                                                    {translations.actions.make_admin}
                                                                 </>
                                                             )}
                                                         </DropdownMenuItem>
@@ -437,14 +451,12 @@ export default function Users() {
                                                             'active' ? (
                                                                 <>
                                                                     <UserX className="mr-2 h-4 w-4" />
-                                                                    Disable
-                                                                    Account
+                                                                    {translations.actions.disable_account}
                                                                 </>
                                                             ) : (
                                                                 <>
                                                                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                                                                    Enable
-                                                                    Account
+                                                                    {translations.actions.enable_account}
                                                                 </>
                                                             )}
                                                         </DropdownMenuItem>
@@ -461,7 +473,7 @@ export default function Users() {
                                                             className="text-destructive"
                                                         >
                                                             <Trash2 className="mr-2 h-4 w-4" />
-                                                            Delete User
+                                                            {translations.actions.delete_user}
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -475,8 +487,8 @@ export default function Users() {
                         {/* Pagination */}
                         <div className="mt-4 flex items-center justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Showing {users.length} of {pagination.total}{' '}
-                                users
+                                {translations.list.showing} {users.length} {translations.list.of} {pagination.total}{' '}
+                                {translations.list.users}
                             </p>
                             <div className="flex gap-2">
                                 <Button
@@ -493,7 +505,7 @@ export default function Users() {
                                     }
                                     disabled={pagination.current_page === 1}
                                 >
-                                    Previous
+                                    {translations.list.previous}
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -512,7 +524,7 @@ export default function Users() {
                                         pagination.last_page
                                     }
                                 >
-                                    Next
+                                    {translations.list.next}
                                 </Button>
                             </div>
                         </div>
@@ -524,15 +536,14 @@ export default function Users() {
             <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add New User</DialogTitle>
+                        <DialogTitle>{translations.dialog.add_title}</DialogTitle>
                         <DialogDescription>
-                            Create a new user account with specified role and
-                            permissions.
+                            {translations.dialog.add_description}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <Label htmlFor="name">Name</Label>
+                            <Label htmlFor="name">{translations.dialog.name}</Label>
                             <Input
                                 id="name"
                                 value={newUser.name}
@@ -542,11 +553,11 @@ export default function Users() {
                                         name: e.target.value,
                                     })
                                 }
-                                placeholder="John Doe"
+                                placeholder={translations.dialog.name_placeholder}
                             />
                         </div>
                         <div>
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="email">{translations.dialog.email}</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -557,11 +568,11 @@ export default function Users() {
                                         email: e.target.value,
                                     })
                                 }
-                                placeholder="john@example.com"
+                                placeholder={translations.dialog.email_placeholder}
                             />
                         </div>
                         <div>
-                            <Label htmlFor="password">Password</Label>
+                            <Label htmlFor="password">{translations.dialog.password}</Label>
                             <Input
                                 id="password"
                                 type="password"
@@ -572,11 +583,11 @@ export default function Users() {
                                         password: e.target.value,
                                     })
                                 }
-                                placeholder="Minimum 8 characters"
+                                placeholder={translations.dialog.password_placeholder}
                             />
                         </div>
                         <div>
-                            <Label htmlFor="role">Role</Label>
+                            <Label htmlFor="role">{translations.dialog.role}</Label>
                             <Select
                                 value={newUser.role}
                                 onValueChange={(value: 'admin' | 'user') =>
@@ -587,8 +598,8 @@ export default function Users() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="user">User</SelectItem>
-                                    <SelectItem value="admin">Admin</SelectItem>
+                                    <SelectItem value="user">{translations.roles.user}</SelectItem>
+                                    <SelectItem value="admin">{translations.roles.admin}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -598,10 +609,10 @@ export default function Users() {
                             variant="outline"
                             onClick={() => setAddUserOpen(false)}
                         >
-                            Cancel
+                            {translations.dialog.cancel}
                         </Button>
                         <Button onClick={handleAddUser} disabled={addingUser}>
-                            {addingUser ? 'Creating...' : 'Create User'}
+                            {addingUser ? translations.dialog.creating : translations.dialog.create}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -614,11 +625,10 @@ export default function Users() {
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Delete User</DialogTitle>
+                        <DialogTitle>{translations.dialog.delete_title}</DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to delete{' '}
-                            <strong>{userToDelete?.name}</strong>? This action
-                            cannot be undone.
+                            {translations.dialog.delete_description}{' '}
+                            <strong>{userToDelete?.name}</strong>? {translations.dialog.delete_warning}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -626,14 +636,14 @@ export default function Users() {
                             variant="outline"
                             onClick={() => setDeleteConfirmOpen(false)}
                         >
-                            Cancel
+                            {translations.dialog.cancel}
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={handleDeleteUser}
                             disabled={deleteLoading}
                         >
-                            {deleteLoading ? 'Deleting...' : 'Delete User'}
+                            {deleteLoading ? translations.dialog.deleting : translations.dialog.delete}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

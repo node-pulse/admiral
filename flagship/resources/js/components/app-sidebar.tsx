@@ -46,25 +46,28 @@ import {
 } from 'lucide-react';
 import AppLogo from './app-logo';
 
-const getMainNavSections = (isAdmin: boolean): NavSection[] => {
+const getMainNavSections = (
+    isAdmin: boolean,
+    t: Record<string, string>,
+): NavSection[] => {
     const sections: NavSection[] = [
         {
-            label: 'Overview',
+            label: t.overview || 'Overview',
             items: [
                 {
-                    title: 'Dashboard',
+                    title: t.dashboard || 'Dashboard',
                     href: dashboard(),
                     icon: LayoutGrid,
                     display: true,
                 },
                 {
-                    title: 'Users',
+                    title: t.users || 'Users',
                     href: users(),
                     icon: Users,
                     display: isAdmin,
                 },
                 {
-                    title: 'System Settings',
+                    title: t.system_settings || 'System Settings',
                     href: '/dashboard/system-settings',
                     icon: SettingsIcon,
                     display: isAdmin,
@@ -72,28 +75,28 @@ const getMainNavSections = (isAdmin: boolean): NavSection[] => {
             ],
         },
         {
-            label: 'Fleet Management',
+            label: t.fleet_management || 'Fleet Management',
             items: [
                 {
-                    title: 'Servers',
+                    title: t.servers || 'Servers',
                     href: servers(),
                     icon: Server,
                     display: true,
                 },
                 {
-                    title: 'SSH Keys',
+                    title: t.ssh_keys || 'SSH Keys',
                     href: sshKeys(),
                     icon: Key,
                     display: true,
                 },
                 {
-                    title: 'SSH Sessions',
+                    title: t.ssh_sessions || 'SSH Sessions',
                     href: sshSessions(),
                     icon: Terminal,
                     display: true,
                 },
                 {
-                    title: 'Networks',
+                    title: t.networks || 'Networks',
                     href: '/dashboard/networks',
                     icon: Network,
                     display: false, // Not implemented yet
@@ -101,40 +104,40 @@ const getMainNavSections = (isAdmin: boolean): NavSection[] => {
             ],
         },
         {
-            label: 'Monitoring & Security',
+            label: t.monitoring_security || 'Monitoring & Security',
             items: [
                 {
-                    title: 'Metrics',
+                    title: t.metrics || 'Metrics',
                     href: '/dashboard/metrics',
                     icon: LineChart,
                     display: false, // Not implemented yet
                 },
                 {
-                    title: 'Alerts',
+                    title: t.alerts || 'Alerts',
                     href: '/dashboard/alerts',
                     icon: AlertTriangle,
                     display: false, // Not implemented yet
                 },
                 {
-                    title: 'Uptime',
+                    title: t.uptime || 'Uptime',
                     href: '/dashboard/uptime',
                     icon: Activity,
                     display: false, // Not implemented yet
                 },
                 {
-                    title: 'Security Overview',
+                    title: t.security_overview || 'Security Overview',
                     href: '/dashboard/security',
                     icon: Shield,
                     display: false, // Not implemented yet
                 },
                 {
-                    title: 'Vulnerabilities',
+                    title: t.vulnerabilities || 'Vulnerabilities',
                     href: '/dashboard/vulnerabilities',
                     icon: ShieldAlert,
                     display: false, // Not implemented yet
                 },
                 {
-                    title: 'Access Control',
+                    title: t.access_control || 'Access Control',
                     href: '/dashboard/access-control',
                     icon: Lock,
                     display: false, // Not implemented yet
@@ -142,34 +145,34 @@ const getMainNavSections = (isAdmin: boolean): NavSection[] => {
             ],
         },
         {
-            label: 'One Click Deployments',
+            label: t.one_click_deployments || 'One Click Deployments',
             items: [
                 {
-                    title: 'Ansible Playbooks',
+                    title: t.ansible_playbooks || 'Ansible Playbooks',
                     href: ansiblePlaybooks(),
                     icon: FileCode,
                     display: true,
                 },
                 {
-                    title: 'Community Playbooks',
+                    title: t.community_playbooks || 'Community Playbooks',
                     href: playbooks(),
                     icon: Package,
                     display: isAdmin,
                 },
                 {
-                    title: 'Deployments',
+                    title: t.deployments || 'Deployments',
                     href: deployments(),
                     icon: Rocket,
                     display: isAdmin,
                 },
                 {
-                    title: 'Scheduled Tasks',
+                    title: t.scheduled_tasks || 'Scheduled Tasks',
                     href: '/dashboard/scheduled-tasks',
                     icon: Calendar,
                     display: false, // Not implemented yet
                 },
                 {
-                    title: 'Run Commands',
+                    title: t.run_commands || 'Run Commands',
                     href: '/dashboard/run-commands',
                     icon: Play,
                     display: false, // Not implemented yet
@@ -181,15 +184,15 @@ const getMainNavSections = (isAdmin: boolean): NavSection[] => {
     return sections;
 };
 
-const footerNavItems: NavItem[] = [
+const getFooterNavItems = (t: Record<string, string>): NavItem[] => [
     {
-        title: 'Repository',
+        title: t.repository || 'Repository',
         href: 'https://github.com/node-pulse/admiral',
         icon: Folder,
         display: true,
     },
     {
-        title: 'Documentation',
+        title: t.documentation || 'Documentation',
         href: 'https://docs.nodepulse.sh',
         icon: BookOpen,
         display: true,
@@ -197,9 +200,12 @@ const footerNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
-    const { auth } = usePage().props as any;
+    const { auth, nav } = usePage().props as any;
     const isAdmin = auth?.user?.role === 'admin';
-    const mainNavSections = getMainNavSections(isAdmin);
+    const t = nav || {};
+
+    const mainNavSections = getMainNavSections(isAdmin, t);
+    const footerNavItems = getFooterNavItems(t);
 
     return (
         <Sidebar collapsible="icon" variant="inset">

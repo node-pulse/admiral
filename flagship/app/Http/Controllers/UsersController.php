@@ -15,7 +15,9 @@ class UsersController extends Controller
      */
     public function index()
     {
-        return Inertia::render('users');
+        return Inertia::render('users', [
+            'translations' => __('users'),
+        ]);
     }
 
     /**

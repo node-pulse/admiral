@@ -26,12 +26,22 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { toast } from 'sonner';
 import * as YAML from 'yaml';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Ansible Playbooks - Browse and view Ansible playbooks used for server deployments and configuration management',
-        href: '/dashboard/ansible-playbooks',
-    },
-];
+interface AnsibleTranslations {
+    title: string;
+    subtitle: string;
+    list: Record<string, string>;
+    table: Record<string, string>;
+    categories: Record<string, string>;
+    status: Record<string, string>;
+    actions: Record<string, string>;
+    dialog: Record<string, string>;
+    messages: Record<string, string>;
+    community: Record<string, string>;
+}
+
+interface AnsibleProps {
+    translations: AnsibleTranslations;
+}
 
 interface TreeNode {
     type: 'directory' | 'file';
@@ -55,7 +65,14 @@ interface FileContent {
     message?: string;
 }
 
-export default function AnsiblePlaybooks() {
+export default function AnsiblePlaybooks({ translations }: AnsibleProps) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: `${translations.title} - ${translations.subtitle}`,
+            href: '/dashboard/ansible-playbooks',
+        },
+    ];
+
     const { props } = usePage();
     const csrfToken =
         (props as any).csrf_token ||
@@ -89,7 +106,7 @@ export default function AnsiblePlaybooks() {
             );
 
             if (!response.ok) {
-                throw new Error('Failed to fetch playbooks');
+                throw new Error(translations.messages.failed_to_fetch);
             }
 
             const data = await response.json();
@@ -101,7 +118,7 @@ export default function AnsiblePlaybooks() {
                 .map((node: TreeNode) => node.path);
             setExpandedDirs(new Set(rootDirs));
         } catch (error) {
-            toast.error('Failed to load playbooks');
+            toast.error(translations.messages.failed_to_fetch);
             console.error('Error fetching playbooks:', error);
         } finally {
             setLoading(false);
@@ -121,7 +138,7 @@ export default function AnsiblePlaybooks() {
             );
 
             if (!response.ok) {
-                throw new Error('Failed to fetch file content');
+                throw new Error(translations.messages.failed_to_load_file);
             }
 
             const data = await response.json();
@@ -143,13 +160,13 @@ export default function AnsiblePlaybooks() {
                     YAML.parse(data.content);
                 } catch (yamlError: any) {
                     const errorMessage =
-                        yamlError?.message || 'Unknown YAML parsing error';
+                        yamlError?.message || translations.messages.unknown_yaml_error;
                     setYamlError(errorMessage);
                     console.warn('Failed to parse YAML:', yamlError);
                 }
             }
         } catch (error) {
-            toast.error('Failed to load file content');
+            toast.error(translations.messages.failed_to_load_file);
             console.error('Error fetching file:', error);
         } finally {
             setLoadingFile(false);
@@ -239,9 +256,9 @@ export default function AnsiblePlaybooks() {
     const copyToClipboard = async (content: string) => {
         try {
             await navigator.clipboard.writeText(content);
-            toast.success('Copied to clipboard');
+            toast.success(translations.messages.copied_to_clipboard);
         } catch {
-            toast.error('Failed to copy to clipboard');
+            toast.error(translations.messages.failed_to_copy);
         }
     };
 
@@ -255,27 +272,26 @@ export default function AnsiblePlaybooks() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.success('File downloaded');
+        toast.success(translations.messages.file_downloaded);
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Ansible Playbooks" />
+            <Head title={translations.title} />
             <div className="AnsiblePlaybooks flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header with Upload Button */}
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold">
-                            Ansible Playbooks
+                            {translations.title}
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Browse and view Ansible playbooks for server
-                            deployments
+                            {translations.subtitle}
                         </p>
                     </div>
                     <Button onClick={() => setUploadModalOpen(true)}>
                         <Upload className="mr-2 h-4 w-4" />
-                        Upload Custom Playbooks
+                        {translations.actions.upload_playbooks}
                     </Button>
                 </div>
 
@@ -290,7 +306,7 @@ export default function AnsiblePlaybooks() {
                                     </div>
                                 ) : tree.length === 0 ? (
                                     <div className="py-8 text-center text-muted-foreground">
-                                        No playbooks found
+                                        {translations.messages.no_playbooks_found}
                                     </div>
                                 ) : (
                                     <div className="p-2">
@@ -308,10 +324,10 @@ export default function AnsiblePlaybooks() {
                                 <File className="h-5 w-5" />
                                 {selectedFile
                                     ? selectedFile.path
-                                    : 'Select a file'}
+                                    : translations.messages.select_file}
                                 {selectedFile?.isTemplate && (
                                     <Badge variant="secondary" className="ml-2">
-                                        Jinja2 Template
+                                        {translations.messages.jinja2_template}
                                     </Badge>
                                 )}
                                 {yamlError && (
@@ -319,7 +335,7 @@ export default function AnsiblePlaybooks() {
                                         variant="destructive"
                                         className="ml-2"
                                     >
-                                        Invalid YAML
+                                        {translations.messages.invalid_yaml}
                                     </Badge>
                                 )}
                             </CardTitle>
@@ -337,19 +353,19 @@ export default function AnsiblePlaybooks() {
                                             <AlertCircle className="h-5 w-5 shrink-0 text-muted-foreground" />
                                             <div className="flex-1">
                                                 <h3 className="text-sm font-semibold">
-                                                    Binary File
+                                                    {translations.messages.binary_file}
                                                 </h3>
                                                 <p className="mt-1 text-sm text-muted-foreground">
                                                     {selectedFile.message ||
-                                                        'This file cannot be displayed as it is a binary file.'}
+                                                        translations.messages.binary_file_notice}
                                                 </p>
                                                 <p className="mt-2 text-xs text-muted-foreground">
-                                                    File type:{' '}
+                                                    {translations.messages.file_type}:{' '}
                                                     {selectedFile.path
                                                         .split('.')
                                                         .pop()
                                                         ?.toUpperCase()}{' '}
-                                                    | Size:{' '}
+                                                    | {translations.messages.size}:{' '}
                                                     {(
                                                         selectedFile.size / 1024
                                                     ).toFixed(2)}{' '}
@@ -365,12 +381,10 @@ export default function AnsiblePlaybooks() {
                                             <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
                                             <div className="flex-1">
                                                 <h3 className="text-sm font-semibold text-destructive">
-                                                    YAML Parsing Error
+                                                    {translations.messages.yaml_parsing_error}
                                                 </h3>
                                                 <p className="mt-1 text-sm text-destructive/90">
-                                                    This file contains invalid
-                                                    YAML syntax and may not work
-                                                    correctly with Ansible.
+                                                    {translations.messages.yaml_syntax_invalid}
                                                 </p>
                                                 <pre className="mt-2 overflow-x-auto rounded-md bg-destructive/20 p-2 text-xs text-destructive">
                                                     {yamlError}
@@ -385,7 +399,7 @@ export default function AnsiblePlaybooks() {
                                             <div>
                                                 <div className="mb-2 flex items-center justify-between">
                                                     <h3 className="text-sm font-semibold">
-                                                        YAML Content
+                                                        {translations.messages.yaml_content}
                                                     </h3>
                                                     <div className="flex items-center gap-2">
                                                         <Badge variant="outline">
@@ -394,7 +408,7 @@ export default function AnsiblePlaybooks() {
                                                                     '\n',
                                                                 ).length
                                                             }{' '}
-                                                            lines
+                                                            {translations.messages.lines}
                                                         </Badge>
                                                         <Button
                                                             size="sm"
@@ -407,7 +421,7 @@ export default function AnsiblePlaybooks() {
                                                             }
                                                         >
                                                             <Copy className="h-3 w-3" />
-                                                            Copy
+                                                            {translations.actions.copy}
                                                         </Button>
                                                         <Button
                                                             size="sm"
@@ -426,7 +440,7 @@ export default function AnsiblePlaybooks() {
                                                             }
                                                         >
                                                             <Download className="h-3 w-3" />
-                                                            Download
+                                                            {translations.actions.download}
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -455,8 +469,7 @@ export default function AnsiblePlaybooks() {
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
                                     <FileCode className="mb-4 h-12 w-12 text-muted-foreground" />
                                     <p className="text-muted-foreground">
-                                        Select a playbook file from the tree to
-                                        view its contents
+                                        {translations.messages.select_playbook_notice}
                                     </p>
                                 </div>
                             )}
