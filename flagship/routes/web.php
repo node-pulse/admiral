@@ -26,7 +26,9 @@ Route::post('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetLinkCon
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('dashboard')->group(function () {
         Route::get('/', function () {
-            return Inertia::render('dashboard');
+            return Inertia::render('dashboard', [
+                'translations' => __('dashboard'),
+            ]);
         })->name('dashboard');
 
         // Servers management

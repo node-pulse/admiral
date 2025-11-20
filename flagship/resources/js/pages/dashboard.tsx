@@ -5,16 +5,9 @@ import { ServerSelector } from '@/components/servers/server-selector';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { Activity, AlertCircle, Server, ServerCog } from 'lucide-react';
 import { useEffect, useState } from 'react';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Admiral Dashboard',
-        href: dashboard().url,
-    },
-];
 
 interface DashboardStats {
     total_servers: number;
@@ -23,7 +16,39 @@ interface DashboardStats {
     active_alerts: number;
 }
 
-export default function Dashboard() {
+interface DashboardTranslations {
+    title: string;
+    subtitle: string;
+    stats: {
+        total_servers: string;
+        total_servers_description: string;
+        online_servers: string;
+        online_servers_description: string;
+        offline_servers: string;
+        active_alerts: string;
+        active_alerts_description: string;
+    };
+    metrics: {
+        title: string;
+        select_server: string;
+        viewing_metrics: string;
+        server: string;
+        servers: string;
+        no_data: string;
+    };
+}
+
+interface DashboardProps {
+    translations: DashboardTranslations;
+}
+
+export default function Dashboard({ translations }: DashboardProps) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: translations.title,
+            href: dashboard().url,
+        },
+    ];
     const [stats, setStats] = useState<DashboardStats>({
         total_servers: 0,
         online_servers: 0,
@@ -52,28 +77,28 @@ export default function Dashboard() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Admiral Dashboard" />
+            <Head title={translations.title} />
             <div className="AdmiralDashboard flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Stats Cards */}
                 <div className="grid auto-rows-min gap-4 md:grid-cols-3">
                     <DashboardStatsCard
-                        title="Total Servers"
+                        title={translations.stats.total_servers}
                         value={loading ? '...' : stats.total_servers}
                         icon={Server}
-                        description="Registered servers in fleet"
+                        description={translations.stats.total_servers_description}
                     />
                     <DashboardStatsCard
-                        title="Online Servers"
+                        title={translations.stats.online_servers}
                         value={loading ? '...' : stats.online_servers}
                         icon={Activity}
-                        description="Active in last 5 minutes"
+                        description={translations.stats.online_servers_description}
                         className="border-green-500/20"
                     />
                     <DashboardStatsCard
-                        title="Active Alerts"
+                        title={translations.stats.active_alerts}
                         value={loading ? '...' : stats.active_alerts}
                         icon={AlertCircle}
-                        description="Unresolved alerts"
+                        description={translations.stats.active_alerts_description}
                         className={
                             stats.active_alerts > 0 ? 'border-red-500/20' : ''
                         }
@@ -90,16 +115,18 @@ export default function Dashboard() {
                                     selectedServers={selectedServers}
                                     onSelectionChange={setSelectedServers}
                                     multiSelect={true}
-                                    placeholder="Select servers to view metrics..."
+                                    placeholder={translations.metrics.select_server}
                                 />
                             </div>
                         </div>
                         {selectedServers.length > 0 && (
                             <div className="text-sm text-muted-foreground">
-                                Viewing metrics for {selectedServers.length}{' '}
-                                {selectedServers.length === 1
-                                    ? 'server'
-                                    : 'servers'}
+                                {translations.metrics.viewing_metrics
+                                    .replace(':count', selectedServers.length.toString())
+                                    .replace(':type', selectedServers.length === 1
+                                        ? translations.metrics.server
+                                        : translations.metrics.servers
+                                    )}
                             </div>
                         )}
                     </div>

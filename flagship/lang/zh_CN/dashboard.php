@@ -6,14 +6,20 @@ return [
 
     'stats' => [
         'total_servers' => '服务器总数',
+        'total_servers_description' => '已注册的服务器数量',
         'online_servers' => '在线',
+        'online_servers_description' => '最近5分钟活跃',
         'offline_servers' => '离线',
         'active_alerts' => '活跃警报',
+        'active_alerts_description' => '未解决的警报',
     ],
 
     'metrics' => [
         'title' => '系统指标',
         'select_server' => '选择服务器以查看指标',
+        'viewing_metrics' => '正在查看 :count 台服务器的指标',
+        'server' => '服务器',
+        'servers' => '服务器',
         'no_data' => '暂无指标数据',
         'time_range' => [
             '1h' => '过去1小时',
