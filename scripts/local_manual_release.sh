@@ -154,7 +154,6 @@ All images are pre-built and published to GitHub Container Registry:
 - \`ghcr.io/YOUR_ORG/node-pulse-submarines-ingest:${VERSION}\`
 - \`ghcr.io/YOUR_ORG/node-pulse-submarines-digest:${VERSION}\`
 - \`ghcr.io/YOUR_ORG/node-pulse-submarines-deployer:${VERSION}\`
-- \`ghcr.io/YOUR_ORG/node-pulse-submarines-status:${VERSION}\`
 - \`ghcr.io/YOUR_ORG/node-pulse-submarines-sshws:${VERSION}\`
 - \`ghcr.io/YOUR_ORG/node-pulse-flagship:${VERSION}\`
 

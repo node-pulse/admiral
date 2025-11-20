@@ -46,7 +46,6 @@ SERVICES=(
     "node-pulse-submarines-ingest"
     "node-pulse-submarines-digest"
     "node-pulse-submarines-deployer"
-    "node-pulse-submarines-status"
     "node-pulse-submarines-sshws"
     "node-pulse-flagship"
 )

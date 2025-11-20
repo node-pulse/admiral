@@ -98,7 +98,6 @@ release:
     ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-ingest:{{ .Version }}
     ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-digest:{{ .Version }}
     ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-deployer:{{ .Version }}
-    ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-status:{{ .Version }}
     ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-submarines-sshws:{{ .Version }}
     ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/node-pulse-flagship:{{ .Version }}
     ```

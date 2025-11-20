@@ -210,7 +210,6 @@ docker compose ps
 
 - **submarines-ingest** - Metrics ingestion API `:8080`
 - **submarines-digest** - Background worker (Valkey → PostgreSQL + Cleanup)
-- **submarines-status** - Public status pages `:8082`
 - **submarines-sshws** - SSH WebSocket terminal `:6001`
 - **postgres** - PostgreSQL 18 database `:5432`
 - **valkey** - Message buffer `:6379`

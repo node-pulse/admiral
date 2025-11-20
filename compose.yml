@@ -219,7 +219,6 @@ services:
     depends_on:
       - flagship
       - submarines-ingest
-      - submarines-status
     networks:
       - node-pulse-admiral
     healthcheck:

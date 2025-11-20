@@ -25,8 +25,6 @@ Caddy :80 (dev) / :443 (prod)
    │
    ├──→ submarines-ingest:8080 ──→ Metrics Ingestion API
    │
-   ├──→ submarines-status:8082 ──→ Status Pages
-   │
    └──→ flagship:5173 ──→ Vite HMR (dev only)
 ```
 

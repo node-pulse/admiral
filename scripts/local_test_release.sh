@@ -40,7 +40,6 @@ IMAGES=(
     "node-pulse-submarines-ingest"
     "node-pulse-submarines-digest"
     "node-pulse-submarines-deployer"
-    "node-pulse-submarines-status"
     "node-pulse-submarines-sshws"
     "node-pulse-flagship"
 )
@@ -83,9 +82,6 @@ docker build -t "node-pulse-submarines-digest:${VERSION}" -f submarines/Dockerfi
 
 echo "  → Building submarines-deployer..."
 docker build -t "node-pulse-submarines-deployer:${VERSION}" -f submarines/Dockerfile.deployer submarines/
-
-echo "  → Building submarines-status..."
-docker build -t "node-pulse-submarines-status:${VERSION}" -f submarines/Dockerfile.status submarines/
 
 echo "  → Building submarines-sshws..."
 docker build -t "node-pulse-submarines-sshws:${VERSION}" -f submarines/Dockerfile.sshws submarines/

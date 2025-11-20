@@ -714,7 +714,6 @@ DB_SSLMODE=${CONFIG[DB_SSLMODE]}
 # Server settings
 # NOTE: Ports are hardcoded in each service's main.go:
 # - submarines-ingest: 8080
-# - submarines-status: 8081
 # - submarines-sshws: 6001
 # - submarines-deployer: background worker (no port)
 # - submarines-digest: background worker (no port)
