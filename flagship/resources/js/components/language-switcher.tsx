@@ -25,6 +25,11 @@ export function LanguageSwitcher() {
     const currentlocaleCode = (page.props.locale as string) || 'en';
     const currentLocale = LOCALES.find((loc) => loc.code === currentlocaleCode);
     const [isChanging, setIsChanging] = useState(false);
+    const csrfToken =
+        (page.props as any).csrf_token ||
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+            ?.content ||
+        '';
 
     const handleLocaleChange = async (newLocale: string) => {
         if (newLocale === currentlocaleCode || isChanging) return;
@@ -36,10 +41,7 @@ export function LanguageSwitcher() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN':
-                        document.querySelector<HTMLMetaElement>(
-                            'meta[name="csrf-token"]',
-                        )?.content || '',
+                    'X-CSRF-TOKEN': csrfToken,
                     Accept: 'application/json',
                 },
                 body: JSON.stringify({ locale: newLocale }),

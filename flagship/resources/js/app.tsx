@@ -1,6 +1,6 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -9,6 +9,23 @@ import { initializeTheme } from './hooks/use-appearance';
 import { initializeLocale } from './lib/i18n';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+const syncCsrfTokenFromCookie = () => {
+    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    if (!match) return;
+
+    const token = decodeURIComponent(match[1]);
+    const meta = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    );
+
+    if (meta && meta.content !== token) {
+        meta.content = token;
+    }
+};
+
+router.on('finish', syncCsrfTokenFromCookie);
+syncCsrfTokenFromCookie();
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
