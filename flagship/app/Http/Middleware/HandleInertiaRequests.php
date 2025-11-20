@@ -38,6 +38,8 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        $captchaService = app(\App\Services\CaptchaService::class);
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -51,6 +53,16 @@ class HandleInertiaRequests extends Middleware
             'translations' => [
                 'common' => __('common'),
                 'nav' => __('nav'),
+            ],
+            'captcha' => [
+                'provider' => $captchaService->getProvider() ?? 'none',
+                'siteKey' => $captchaService->getSiteKey(),
+                'enabled' => [
+                    'login' => $captchaService->isEnabled('login'),
+                    'register' => $captchaService->isEnabled('register'),
+                    'forgot_password' => $captchaService->isEnabled('forgot_password'),
+                    'reset_password' => $captchaService->isEnabled('reset_password'),
+                ],
             ],
         ];
     }

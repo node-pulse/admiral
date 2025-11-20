@@ -154,4 +154,27 @@ return [
         ]),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pipelines
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure the action pipelines that Fortify will use when
+    | processing authentication requests. The login pipeline validates CAPTCHA
+    | once before any authentication logic to avoid "timeout-or-duplicate" errors
+    | when the same token is validated multiple times (e.g., during 2FA checks).
+    |
+    */
+
+    'pipelines' => [
+        'login' => [
+            \App\Http\Middleware\ValidateLoginCaptcha::class,
+            config('fortify.limiters.login') ? \Laravel\Fortify\Actions\EnsureLoginIsNotThrottled::class : null,
+            config('fortify.lowercase_usernames') ? \Laravel\Fortify\Actions\CanonicalizeUsername::class : null,
+            \Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable::class,
+            \Laravel\Fortify\Actions\AttemptToAuthenticate::class,
+            \Laravel\Fortify\Actions\PrepareAuthenticatedSession::class,
+        ],
+    ],
+
 ];

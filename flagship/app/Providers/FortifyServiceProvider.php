@@ -43,17 +43,8 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
 
-        // Add CAPTCHA validation to login requests
+        // Authenticate users (CAPTCHA is validated in the login pipeline)
         Fortify::authenticateUsing(function (Request $request) {
-            $captchaService = app(\App\Services\CaptchaService::class);
-
-            // Validate CAPTCHA if enabled for login
-            if ($captchaService->isEnabled('login')) {
-                $request->validate([
-                    'captcha_token' => ['required', new \App\Rules\CaptchaRule($request->ip())],
-                ]);
-            }
-
             // Validate credentials
             $credentials = $request->only(Fortify::username(), 'password');
 
