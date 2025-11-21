@@ -16,7 +16,11 @@ class DeploymentsController extends Controller
     public function index()
     {
         return Inertia::render('deployments/index', [
-            'translations' => __('deployments'),
+            'translations' => [
+                'common' => __('common'),
+                'nav' => __('nav'),
+                'deployments' => __('deployments'),
+            ],
         ]);
     }
 
@@ -25,7 +29,12 @@ class DeploymentsController extends Controller
      */
     public function create()
     {
-        return Inertia::render('deployments/create');
+        return Inertia::render('deployments/create', [
+            'translations' => [
+                'common' => __('common'),
+                'nav' => __('nav'),
+            ],
+        ]);
     }
 
     /**
@@ -35,6 +44,10 @@ class DeploymentsController extends Controller
     {
         return Inertia::render('deployments/details', [
             'deploymentId' => $id,
+            'translations' => [
+                'common' => __('common'),
+                'nav' => __('nav'),
+            ],
         ]);
     }
 

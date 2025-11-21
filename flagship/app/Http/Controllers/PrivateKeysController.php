@@ -14,7 +14,11 @@ class PrivateKeysController extends Controller
     public function page()
     {
         return Inertia::render('ssh-keys', [
-            'translations' => __('ssh_keys'),
+            'translations' => [
+                'common' => __('common'),
+                'nav' => __('nav'),
+                'ssh_keys' => __('ssh_keys'),
+            ],
         ]);
     }
 

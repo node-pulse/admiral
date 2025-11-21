@@ -18,7 +18,7 @@ interface UserMenuContentProps {
 
 export function UserMenuContent({ user }: UserMenuContentProps) {
     const { translations } = usePage<SharedData>().props;
-    const t = translations.common;
+    const t = translations.common || {};
     const cleanup = useMobileNavigation();
 
     const handleLogout = () => {

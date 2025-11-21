@@ -22,6 +22,8 @@ class ProfileController extends Controller
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
             'translations' => [
+                'common' => __('common'),
+                'nav' => __('nav'),
                 'profile' => __('settings.profile'),
                 'delete_account' => __('settings.delete_account'),
             ],

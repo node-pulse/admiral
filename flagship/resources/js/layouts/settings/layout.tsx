@@ -8,52 +8,54 @@ import { show } from '@/routes/two-factor';
 import { edit as editPassword } from '@/routes/user-password';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { type PropsWithChildren } from 'react';
+import { useMemo, type PropsWithChildren } from 'react';
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
     const { translations } = usePage<SharedData>().props;
-    const t = translations.common;
 
-    const sidebarNavItems: NavItem[] = [
-        {
-            title: t.profile,
-            href: edit(),
-            icon: null,
-            display: true,
-        },
-        {
-            title: t.password,
-            href: editPassword(),
-            icon: null,
-            display: true,
-        },
-        {
-            title: t.two_factor_auth,
-            href: show(),
-            icon: null,
-            display: true,
-        },
-        {
-            title: t.appearance,
-            href: editAppearance(),
-            icon: null,
-            display: true,
-        },
-    ];
+    const t = useMemo(() => {
+        return translations.common || {};
+    }, [translations]);
+
+    const currentPath = window.location.pathname;
+
+    const sidebarNavItems: NavItem[] = useMemo(() => {
+        return [
+            {
+                title: t.profile,
+                href: edit(),
+                icon: null,
+                display: true,
+            },
+            {
+                title: t.password,
+                href: editPassword(),
+                icon: null,
+                display: true,
+            },
+            {
+                title: t.two_factor_auth,
+                href: show(),
+                icon: null,
+                display: true,
+            },
+            {
+                title: t.appearance,
+                href: editAppearance(),
+                icon: null,
+                display: true,
+            },
+        ];
+    }, [t]);
 
     // When server-side rendering, we only render the layout on the client...
     if (typeof window === 'undefined') {
         return null;
     }
 
-    const currentPath = window.location.pathname;
-
     return (
         <div className="px-4 py-6">
-            <Heading
-                title={t.settings}
-                description={t.settings_description}
-            />
+            <Heading title={t.settings} description={t.settings_description} />
 
             <div className="flex flex-col lg:flex-row lg:space-x-12">
                 <aside className="w-full max-w-xl lg:w-48">

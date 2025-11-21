@@ -33,12 +33,12 @@ export interface Translations {
     nav: Record<string, string>;
 }
 
-export interface SharedData {
+export interface SharedData<T extends Record<string, Record<string, string>> = Record<string, never>> {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
     sidebarOpen: boolean;
-    translations: Translations;
+    translations: Translations & T;
     [key: string]: unknown;
 }
 

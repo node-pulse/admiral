@@ -16,7 +16,12 @@ class PasswordController extends Controller
      */
     public function edit(): Response
     {
-        return Inertia::render('settings/password');
+        return Inertia::render('settings/password', [
+            'translations' => [
+                'common' => __('common'),
+                'nav' => __('nav'),
+            ],
+        ]);
     }
 
     /**

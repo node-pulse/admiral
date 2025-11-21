@@ -5,7 +5,7 @@ import { ServerSelector } from '@/components/servers/server-selector';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Activity, AlertCircle, Server, ServerCog } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -39,13 +39,18 @@ interface DashboardTranslations {
 }
 
 interface DashboardProps {
-    translations: DashboardTranslations;
+    translations: {
+        common: Record<string, string>;
+        nav: Record<string, string>;
+        dashboard: DashboardTranslations;
+    };
 }
 
 export default function Dashboard({ translations }: DashboardProps) {
+    const t = translations.dashboard;
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: translations.title,
+            title: t.title,
             href: dashboard().url,
         },
     ];
@@ -77,28 +82,34 @@ export default function Dashboard({ translations }: DashboardProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={translations.title} />
+            <Head title={t.title} />
             <div className="AdmiralDashboard flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Stats Cards */}
                 <div className="grid auto-rows-min gap-4 md:grid-cols-3">
                     <DashboardStatsCard
-                        title={translations.stats.total_servers}
+                        title={t.stats.total_servers}
                         value={loading ? '...' : stats.total_servers}
                         icon={Server}
-                        description={translations.stats.total_servers_description}
+                        description={
+                            t.stats.total_servers_description
+                        }
                     />
                     <DashboardStatsCard
-                        title={translations.stats.online_servers}
+                        title={t.stats.online_servers}
                         value={loading ? '...' : stats.online_servers}
                         icon={Activity}
-                        description={translations.stats.online_servers_description}
+                        description={
+                            t.stats.online_servers_description
+                        }
                         className="border-green-500/20"
                     />
                     <DashboardStatsCard
-                        title={translations.stats.active_alerts}
+                        title={t.stats.active_alerts}
                         value={loading ? '...' : stats.active_alerts}
                         icon={AlertCircle}
-                        description={translations.stats.active_alerts_description}
+                        description={
+                            t.stats.active_alerts_description
+                        }
                         className={
                             stats.active_alerts > 0 ? 'border-red-500/20' : ''
                         }
@@ -115,17 +126,24 @@ export default function Dashboard({ translations }: DashboardProps) {
                                     selectedServers={selectedServers}
                                     onSelectionChange={setSelectedServers}
                                     multiSelect={true}
-                                    placeholder={translations.metrics.select_server}
+                                    placeholder={
+                                        t.metrics.select_server
+                                    }
                                 />
                             </div>
                         </div>
                         {selectedServers.length > 0 && (
                             <div className="text-sm text-muted-foreground">
-                                {translations.metrics.viewing_metrics
-                                    .replace(':count', selectedServers.length.toString())
-                                    .replace(':type', selectedServers.length === 1
-                                        ? translations.metrics.server
-                                        : translations.metrics.servers
+                                {t.metrics.viewing_metrics
+                                    .replace(
+                                        ':count',
+                                        selectedServers.length.toString(),
+                                    )
+                                    .replace(
+                                        ':type',
+                                        selectedServers.length === 1
+                                            ? t.metrics.server
+                                            : t.metrics.servers,
                                     )}
                             </div>
                         )}

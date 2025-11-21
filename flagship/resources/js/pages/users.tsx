@@ -73,7 +73,11 @@ interface UsersTranslations {
 }
 
 interface UsersProps {
-    translations: UsersTranslations;
+    translations: {
+        common: Record<string, string>;
+        nav: Record<string, string>;
+        users: UsersTranslations;
+    };
 }
 
 interface UserData {
@@ -96,9 +100,10 @@ interface PaginationData {
 }
 
 export default function Users({ translations }: UsersProps) {
+    const t = translations.users;
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: `${translations.title} - ${translations.subtitle}`,
+            title: `${t.title} - ${t.subtitle}`,
             href: usersRoute().url,
         },
     ];
@@ -146,7 +151,7 @@ export default function Users({ translations }: UsersProps) {
             setUsers(response.data.users);
             setPagination(response.data.pagination);
         } catch (error) {
-            toast.error(translations.messages.fetch_failed);
+            toast.error(t.messages.fetch_failed);
             console.error(error);
         } finally {
             setLoading(false);
@@ -159,20 +164,20 @@ export default function Users({ translations }: UsersProps) {
 
     const handleAddUser = async () => {
         if (!newUser.name || !newUser.email || !newUser.password) {
-            toast.error(translations.messages.fill_all_fields);
+            toast.error(t.messages.fill_all_fields);
             return;
         }
 
         setAddingUser(true);
         try {
             await axios.post('/api/users', newUser);
-            toast.success(translations.messages.user_created);
+            toast.success(t.messages.user_created);
             setAddUserOpen(false);
             setNewUser({ name: '', email: '', password: '', role: 'user' });
             fetchUsers();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.message || translations.messages.create_failed,
+                error.response?.data?.message || t.messages.create_failed,
             );
         } finally {
             setAddingUser(false);
@@ -186,12 +191,12 @@ export default function Users({ translations }: UsersProps) {
                 status: newStatus,
             });
             toast.success(
-                newStatus === 'active' ? translations.messages.user_enabled : translations.messages.user_disabled,
+                newStatus === 'active' ? t.messages.user_enabled : t.messages.user_disabled,
             );
             fetchUsers();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.message || translations.messages.status_update_failed,
+                error.response?.data?.message || t.messages.status_update_failed,
             );
         }
     };
@@ -200,11 +205,11 @@ export default function Users({ translations }: UsersProps) {
         const newRole = user.role === 'admin' ? 'user' : 'admin';
         try {
             await axios.patch(`/api/users/${user.id}/role`, { role: newRole });
-            toast.success(translations.messages.role_updated);
+            toast.success(t.messages.role_updated);
             fetchUsers();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.message || translations.messages.role_update_failed,
+                error.response?.data?.message || t.messages.role_update_failed,
             );
         }
     };
@@ -215,13 +220,13 @@ export default function Users({ translations }: UsersProps) {
         setDeleteLoading(true);
         try {
             await axios.delete(`/api/users/${userToDelete.id}`);
-            toast.success(translations.messages.user_deleted);
+            toast.success(t.messages.user_deleted);
             setDeleteConfirmOpen(false);
             setUserToDelete(null);
             fetchUsers();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.message || translations.messages.delete_failed,
+                error.response?.data?.message || t.messages.delete_failed,
             );
         } finally {
             setDeleteLoading(false);
@@ -272,21 +277,21 @@ export default function Users({ translations }: UsersProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={translations.title} />
+            <Head title={t.title} />
 
             <div className="AdmiralUsers flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div>
-                                <CardTitle>{translations.list.title}</CardTitle>
+                                <CardTitle>{t.list.title}</CardTitle>
                                 <CardDescription>
-                                    {translations.list.description}
+                                    {t.list.description}
                                 </CardDescription>
                             </div>
                             <Button onClick={() => setAddUserOpen(true)}>
                                 <Plus className="mr-2 h-4 w-4" />
-                                {translations.actions.add_user}
+                                {t.actions.add_user}
                             </Button>
                         </div>
                     </CardHeader>
@@ -296,7 +301,7 @@ export default function Users({ translations }: UsersProps) {
                             <div className="relative flex-1">
                                 <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder={translations.list.search_placeholder}
+                                    placeholder={t.list.search_placeholder}
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     className="pl-8"
@@ -307,14 +312,14 @@ export default function Users({ translations }: UsersProps) {
                                 onValueChange={setRoleFilter}
                             >
                                 <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder={translations.list.all_roles} />
+                                    <SelectValue placeholder={t.list.all_roles} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">
-                                        {translations.list.all_roles}
+                                        {t.list.all_roles}
                                     </SelectItem>
-                                    <SelectItem value="admin">{translations.roles.admin}</SelectItem>
-                                    <SelectItem value="user">{translations.roles.user}</SelectItem>
+                                    <SelectItem value="admin">{t.roles.admin}</SelectItem>
+                                    <SelectItem value="user">{t.roles.user}</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Select
@@ -322,17 +327,17 @@ export default function Users({ translations }: UsersProps) {
                                 onValueChange={setStatusFilter}
                             >
                                 <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder={translations.list.all_status} />
+                                    <SelectValue placeholder={t.list.all_status} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">
-                                        {translations.list.all_status}
+                                        {t.list.all_status}
                                     </SelectItem>
                                     <SelectItem value="active">
-                                        {translations.status.active}
+                                        {t.status.active}
                                     </SelectItem>
                                     <SelectItem value="disabled">
-                                        {translations.status.disabled}
+                                        {t.status.disabled}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -342,14 +347,14 @@ export default function Users({ translations }: UsersProps) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>{translations.table.name}</TableHead>
-                                    <TableHead>{translations.table.email}</TableHead>
-                                    <TableHead>{translations.table.role}</TableHead>
-                                    <TableHead>{translations.table.status}</TableHead>
-                                    <TableHead>{translations.table.two_factor}</TableHead>
-                                    <TableHead>{translations.table.created}</TableHead>
+                                    <TableHead>{t.table.name}</TableHead>
+                                    <TableHead>{t.table.email}</TableHead>
+                                    <TableHead>{t.table.role}</TableHead>
+                                    <TableHead>{t.table.status}</TableHead>
+                                    <TableHead>{t.table.two_factor}</TableHead>
+                                    <TableHead>{t.table.created}</TableHead>
                                     <TableHead className="text-right">
-                                        {translations.table.actions}
+                                        {t.table.actions}
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -360,7 +365,7 @@ export default function Users({ translations }: UsersProps) {
                                             colSpan={7}
                                             className="text-center"
                                         >
-                                            {translations.list.loading}
+                                            {t.list.loading}
                                         </TableCell>
                                     </TableRow>
                                 ) : users?.length === 0 ? (
@@ -369,7 +374,7 @@ export default function Users({ translations }: UsersProps) {
                                             colSpan={7}
                                             className="text-center"
                                         >
-                                            {translations.list.no_users}
+                                            {t.list.no_users}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -392,11 +397,11 @@ export default function Users({ translations }: UsersProps) {
                                                         className="bg-blue-500"
                                                     >
                                                         <Shield className="mr-1 h-3 w-3" />
-                                                        {translations.status.two_factor_enabled}
+                                                        {t.status.two_factor_enabled}
                                                     </Badge>
                                                 ) : (
                                                     <Badge variant="outline">
-                                                        {translations.status.two_factor_disabled}
+                                                        {t.status.two_factor_disabled}
                                                     </Badge>
                                                 )}
                                             </TableCell>
@@ -417,7 +422,7 @@ export default function Users({ translations }: UsersProps) {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>
-                                                            {translations.table.actions}
+                                                            {t.table.actions}
                                                         </DropdownMenuLabel>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
@@ -431,12 +436,12 @@ export default function Users({ translations }: UsersProps) {
                                                             'admin' ? (
                                                                 <>
                                                                     <User className="mr-2 h-4 w-4" />
-                                                                    {translations.actions.make_user}
+                                                                    {t.actions.make_user}
                                                                 </>
                                                             ) : (
                                                                 <>
                                                                     <ShieldAlert className="mr-2 h-4 w-4" />
-                                                                    {translations.actions.make_admin}
+                                                                    {t.actions.make_admin}
                                                                 </>
                                                             )}
                                                         </DropdownMenuItem>
@@ -451,12 +456,12 @@ export default function Users({ translations }: UsersProps) {
                                                             'active' ? (
                                                                 <>
                                                                     <UserX className="mr-2 h-4 w-4" />
-                                                                    {translations.actions.disable_account}
+                                                                    {t.actions.disable_account}
                                                                 </>
                                                             ) : (
                                                                 <>
                                                                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                                                                    {translations.actions.enable_account}
+                                                                    {t.actions.enable_account}
                                                                 </>
                                                             )}
                                                         </DropdownMenuItem>
@@ -473,7 +478,7 @@ export default function Users({ translations }: UsersProps) {
                                                             className="text-destructive"
                                                         >
                                                             <Trash2 className="mr-2 h-4 w-4" />
-                                                            {translations.actions.delete_user}
+                                                            {t.actions.delete_user}
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -487,8 +492,8 @@ export default function Users({ translations }: UsersProps) {
                         {/* Pagination */}
                         <div className="mt-4 flex items-center justify-between">
                             <p className="text-sm text-muted-foreground">
-                                {translations.list.showing} {users.length} {translations.list.of} {pagination.total}{' '}
-                                {translations.list.users}
+                                {t.list.showing} {users.length} {t.list.of} {pagination.total}{' '}
+                                {t.list.users}
                             </p>
                             <div className="flex gap-2">
                                 <Button
@@ -505,7 +510,7 @@ export default function Users({ translations }: UsersProps) {
                                     }
                                     disabled={pagination.current_page === 1}
                                 >
-                                    {translations.list.previous}
+                                    {t.list.previous}
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -524,7 +529,7 @@ export default function Users({ translations }: UsersProps) {
                                         pagination.last_page
                                     }
                                 >
-                                    {translations.list.next}
+                                    {t.list.next}
                                 </Button>
                             </div>
                         </div>
@@ -536,14 +541,14 @@ export default function Users({ translations }: UsersProps) {
             <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{translations.dialog.add_title}</DialogTitle>
+                        <DialogTitle>{t.dialog.add_title}</DialogTitle>
                         <DialogDescription>
-                            {translations.dialog.add_description}
+                            {t.dialog.add_description}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <Label htmlFor="name">{translations.dialog.name}</Label>
+                            <Label htmlFor="name">{t.dialog.name}</Label>
                             <Input
                                 id="name"
                                 value={newUser.name}
@@ -553,11 +558,11 @@ export default function Users({ translations }: UsersProps) {
                                         name: e.target.value,
                                     })
                                 }
-                                placeholder={translations.dialog.name_placeholder}
+                                placeholder={t.dialog.name_placeholder}
                             />
                         </div>
                         <div>
-                            <Label htmlFor="email">{translations.dialog.email}</Label>
+                            <Label htmlFor="email">{t.dialog.email}</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -568,11 +573,11 @@ export default function Users({ translations }: UsersProps) {
                                         email: e.target.value,
                                     })
                                 }
-                                placeholder={translations.dialog.email_placeholder}
+                                placeholder={t.dialog.email_placeholder}
                             />
                         </div>
                         <div>
-                            <Label htmlFor="password">{translations.dialog.password}</Label>
+                            <Label htmlFor="password">{t.dialog.password}</Label>
                             <Input
                                 id="password"
                                 type="password"
@@ -583,11 +588,11 @@ export default function Users({ translations }: UsersProps) {
                                         password: e.target.value,
                                     })
                                 }
-                                placeholder={translations.dialog.password_placeholder}
+                                placeholder={t.dialog.password_placeholder}
                             />
                         </div>
                         <div>
-                            <Label htmlFor="role">{translations.dialog.role}</Label>
+                            <Label htmlFor="role">{t.dialog.role}</Label>
                             <Select
                                 value={newUser.role}
                                 onValueChange={(value: 'admin' | 'user') =>
@@ -598,8 +603,8 @@ export default function Users({ translations }: UsersProps) {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="user">{translations.roles.user}</SelectItem>
-                                    <SelectItem value="admin">{translations.roles.admin}</SelectItem>
+                                    <SelectItem value="user">{t.roles.user}</SelectItem>
+                                    <SelectItem value="admin">{t.roles.admin}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -609,10 +614,10 @@ export default function Users({ translations }: UsersProps) {
                             variant="outline"
                             onClick={() => setAddUserOpen(false)}
                         >
-                            {translations.dialog.cancel}
+                            {t.dialog.cancel}
                         </Button>
                         <Button onClick={handleAddUser} disabled={addingUser}>
-                            {addingUser ? translations.dialog.creating : translations.dialog.create}
+                            {addingUser ? t.dialog.creating : t.dialog.create}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -625,10 +630,10 @@ export default function Users({ translations }: UsersProps) {
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{translations.dialog.delete_title}</DialogTitle>
+                        <DialogTitle>{t.dialog.delete_title}</DialogTitle>
                         <DialogDescription>
-                            {translations.dialog.delete_description}{' '}
-                            <strong>{userToDelete?.name}</strong>? {translations.dialog.delete_warning}
+                            {t.dialog.delete_description}{' '}
+                            <strong>{userToDelete?.name}</strong>? {t.dialog.delete_warning}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -636,14 +641,14 @@ export default function Users({ translations }: UsersProps) {
                             variant="outline"
                             onClick={() => setDeleteConfirmOpen(false)}
                         >
-                            {translations.dialog.cancel}
+                            {t.dialog.cancel}
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={handleDeleteUser}
                             disabled={deleteLoading}
                         >
-                            {deleteLoading ? translations.dialog.deleting : translations.dialog.delete}
+                            {deleteLoading ? t.dialog.deleting : t.dialog.delete}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

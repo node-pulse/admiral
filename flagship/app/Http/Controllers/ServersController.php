@@ -14,7 +14,11 @@ class ServersController extends Controller
     public function index()
     {
         return Inertia::render('servers', [
-            'translations' => __('servers'),
+            'translations' => [
+                'common' => __('common'),
+                'nav' => __('nav'),
+                'servers' => __('servers'),
+            ],
         ]);
     }
 

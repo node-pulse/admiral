@@ -50,7 +50,11 @@ class SystemSettingsController extends Controller
         return Inertia::render('system-settings', [
             'settings' => $settings,
             'mtls' => $mtlsStatus,
-            'translations' => __('settings'),
+            'translations' => [
+                'common' => __('common'),
+                'nav' => __('nav'),
+                'settings' => __('settings'),
+            ],
         ]);
     }
 

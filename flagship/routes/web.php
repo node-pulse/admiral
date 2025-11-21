@@ -28,7 +28,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('dashboard')->group(function () {
         Route::get('/', function () {
             return Inertia::render('dashboard', [
-                'translations' => __('dashboard'),
+                'translations' => [
+                    'common' => __('common'),
+                    'nav' => __('nav'),
+                    'dashboard' => __('dashboard'),
+                ],
             ]);
         })->name('dashboard');
 
