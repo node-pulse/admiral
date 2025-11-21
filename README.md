@@ -1,5 +1,7 @@
 # Node Pulse Admiral
 
+[English](#node-pulse-admiral) | [中文简介](README_CN.md)
+
 **Production-ready server monitoring platform** with fully automated Ansible deployment, extensive playbook registry, real-time metrics collection, and integrated SSH terminal.
 
 ## Key Features
@@ -21,10 +23,12 @@
 ### Automated Deployment & Configuration
 
 - **Playbook-based automation** - Deploy and configure applications using battle-tested Ansible playbooks
-- **Extensive playbook registry** - Community-driven playbooks for security hardening, databases, web servers, monitoring tools, self-hosted apps, and more at [github.com/node-pulse/playbooks](https://github.com/node-pulse/playbooks)
-- **Popular use cases** - PostgreSQL/MySQL/Redis clusters, Nginx/Caddy/Traefik proxies, Prometheus/Grafana monitoring, WireGuard VPN, Docker/K3s containers, SSH hardening, UFW/Fail2ban security, Restic/Borg backups, and 500+ more applications
+- **Built-in security playbooks** - SSH hardening, firewall configuration (UFW/firewalld), fail2ban, and more
+- **Community playbooks** - Pre-built playbooks for databases (PostgreSQL, MySQL, Redis), web servers (Nginx, Caddy), Docker, and 30+ popular applications
+- **Custom playbook upload** - Upload your own Ansible playbooks (.yml files or .zip packages) with validation and security scanning
 - **Zero-touch agent deployment** - Fully automated monitoring stack installation (Node Pulse Agent + node_exporter + process_exporter)
 - **Flexible security modes** - Support for both mTLS and non-mTLS configurations
+- **Real-time deployment tracking** - Live output streaming and per-server status tracking
 
 ### Alert Management
 
@@ -36,7 +40,9 @@
 
 - **Multi-user authentication** - Enterprise-ready user management with Laravel Fortify
 - **Session management** - Secure session handling with Redis-compatible Valkey
-- **Two-factor authentication** - Optional 2FA for enhanced security
+- **Two-factor authentication (2FA)** - TOTP-based 2FA with QR code setup and recovery codes
+- **User management** - Create, update, and manage user accounts with role-based access control
+- **Password confirmation** - Required for sensitive operations like enabling 2FA or mTLS
 
 ## Screenshots
 
@@ -536,9 +542,37 @@ PostgreSQL (:5432) - admiral.metrics + admiral.process_snapshots
 - **Caddy** - Edge reverse proxy, TLS termination, automatic HTTPS, routes traffic between services
 - **Nginx** - Application server for Flagship (serves static files, proxies PHP requests to PHP-FPM)
 
-## Roadmap
+## Current Status (November 2025)
 
-[Roadmap](docs/roadmap.md)
+### Production-Ready Features ✅
+
+- **Metrics Collection** - Simplified metrics architecture with 98% bandwidth reduction
+- **Process Monitoring** - Top processes by CPU/Memory with time-series tracking
+- **Ansible Deployment** - Unified playbook system with parallel execution (100 servers)
+- **SSH Terminal** - WebSocket-based terminal with session audit logging
+- **Data Retention** - Configurable retention policies (24h/48h/72h for free tier)
+- **Two-Factor Authentication** - TOTP-based 2FA with recovery codes
+- **Custom Playbooks** - Upload and execute custom Ansible playbooks
+- **Community Playbooks** - 30+ pre-built playbooks for common applications
+- **User Management** - Multi-user system with role-based access control
+- **Server ID Validation** - 99% cache hit rate, DoS protection via negative caching
+- **Security Playbooks** - SSH hardening and firewall configuration
+- **mTLS Support** - Optional mutual TLS for agent authentication with one-click UI setup
+- **Dashboard Metrics** - Real-time charts for CPU, memory, disk, and network
+
+### In Progress 🔄
+
+- **Playbook Testing** - Comprehensive testing on multiple Linux distributions (Ubuntu, Debian, RHEL/Rocky)
+- **Documentation** - User guides and video tutorials
+
+### Upcoming Features 🔮
+
+See [Roadmap](docs/roadmap.md) for detailed plans:
+- Scheduled deployments (Q1 2026)
+- Advanced inventory management (Q2 2026)
+- Deployment audit trail (Q2 2026)
+- Credential vault integration (Q4 2026)
+- Git integration for playbooks (Q3 2027)
 
 ## Troubleshooting
 
