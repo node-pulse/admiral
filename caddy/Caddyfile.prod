@@ -16,6 +16,10 @@
         path /ingest/*
     }
     handle @ingest {
+        # Strip /ingest prefix before forwarding to submarines
+        # Request: /ingest/metrics/prometheus -> submarines: /metrics/prometheus
+        uri strip_prefix /ingest
+
         # mTLS Configuration
         # Caddy validates client certificates and forwards cert info to backend
         # Backend (submarines-ingest) validates cert details against database
