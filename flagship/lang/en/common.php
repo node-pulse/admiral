@@ -50,4 +50,11 @@ return [
     'copy' => 'Copy',
     'paste' => 'Paste',
     'cut' => 'Cut',
+    'settings' => 'Settings',
+    'logout' => 'Log out',
+    'profile' => 'Profile',
+    'password' => 'Password',
+    'two_factor_auth' => 'Two-Factor Auth',
+    'appearance' => 'Appearance',
+    'settings_description' => 'Manage your profile and account settings',
 ];

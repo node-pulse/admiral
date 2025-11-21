@@ -6,38 +6,41 @@ import { edit as editAppearance } from '@/routes/appearance';
 import { edit } from '@/routes/profile';
 import { show } from '@/routes/two-factor';
 import { edit as editPassword } from '@/routes/user-password';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
+import { type NavItem, type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
 
-const sidebarNavItems: NavItem[] = [
-    {
-        title: 'Profile',
-        href: edit(),
-        icon: null,
-        display: true,
-    },
-    {
-        title: 'Password',
-        href: editPassword(),
-        icon: null,
-        display: true,
-    },
-    {
-        title: 'Two-Factor Auth',
-        href: show(),
-        icon: null,
-        display: true,
-    },
-    {
-        title: 'Appearance',
-        href: editAppearance(),
-        icon: null,
-        display: true,
-    },
-];
-
 export default function SettingsLayout({ children }: PropsWithChildren) {
+    const { translations } = usePage<SharedData>().props;
+    const t = translations.common;
+
+    const sidebarNavItems: NavItem[] = [
+        {
+            title: t.profile,
+            href: edit(),
+            icon: null,
+            display: true,
+        },
+        {
+            title: t.password,
+            href: editPassword(),
+            icon: null,
+            display: true,
+        },
+        {
+            title: t.two_factor_auth,
+            href: show(),
+            icon: null,
+            display: true,
+        },
+        {
+            title: t.appearance,
+            href: editAppearance(),
+            icon: null,
+            display: true,
+        },
+    ];
+
     // When server-side rendering, we only render the layout on the client...
     if (typeof window === 'undefined') {
         return null;
@@ -48,8 +51,8 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
     return (
         <div className="px-4 py-6">
             <Heading
-                title="Settings"
-                description="Manage your profile and account settings"
+                title={t.settings}
+                description={t.settings_description}
             />
 
             <div className="flex flex-col lg:flex-row lg:space-x-12">

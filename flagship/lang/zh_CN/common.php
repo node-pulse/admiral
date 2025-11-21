@@ -50,4 +50,11 @@ return [
     'copy' => '复制',
     'paste' => '粘贴',
     'cut' => '剪切',
+    'settings' => '系统设置',
+    'logout' => '退出登录',
+    'profile' => '个人资料',
+    'password' => '密码',
+    'two_factor_auth' => '双因素认证',
+    'appearance' => '外观',
+    'settings_description' => '管理您的个人资料和账号设置',
 ];

@@ -8,8 +8,8 @@ import { UserInfo } from '@/components/settings/user-info';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
-import { type User } from '@/types';
-import { Link, router } from '@inertiajs/react';
+import { type SharedData, type User } from '@/types';
+import { Link, router, usePage } from '@inertiajs/react';
 import { LogOut, Settings } from 'lucide-react';
 
 interface UserMenuContentProps {
@@ -17,6 +17,8 @@ interface UserMenuContentProps {
 }
 
 export function UserMenuContent({ user }: UserMenuContentProps) {
+    const { translations } = usePage<SharedData>().props;
+    const t = translations.common;
     const cleanup = useMobileNavigation();
 
     const handleLogout = () => {
@@ -42,7 +44,7 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
                         onClick={cleanup}
                     >
                         <Settings className="mr-2" />
-                        Settings
+                        {t.settings}
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuGroup>
@@ -56,7 +58,7 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
                     data-test="logout-button"
                 >
                     <LogOut className="mr-2" />
-                    Log out
+                    {t.logout}
                 </Link>
             </DropdownMenuItem>
         </>

@@ -78,6 +78,9 @@ return [
         'language_select' => '选择语言',
         'save' => '保存更改',
         'saved' => '个人资料更新成功',
+        'email_unverified' => '您的邮箱地址尚未验证。',
+        'email_verification_sent' => '新的验证链接已发送到您的邮箱。',
+        'resend_verification' => '点击此处重新发送验证邮件。',
     ],
 
     'appearance' => [
@@ -118,8 +121,13 @@ return [
 
     'delete_account' => [
         'title' => '删除账号',
-        'subtitle' => '永久删除您的账号',
-        'warning' => '一旦您的账号被删除，其所有资源和数据将被永久删除。',
+        'subtitle' => '删除您的账号及其所有资源',
+        'warning' => '警告',
+        'warning_message' => '请谨慎操作，此操作无法撤销。',
         'button' => '删除账号',
+        'dialog_title' => '您确定要删除您的账号吗？',
+        'dialog_description' => '一旦您的账号被删除，其所有资源和数据也将被永久删除。请输入您的密码以确认您想要永久删除您的账号。',
+        'password' => '密码',
+        'cancel' => '取消',
     ],
 ];

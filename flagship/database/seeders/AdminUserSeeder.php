@@ -21,6 +21,7 @@ class AdminUserSeeder extends Seeder
      *   - ADMIN_NAME: Full name of admin user
      *   - ADMIN_EMAIL: Admin email address (used for login)
      *   - ADMIN_PASSWORD: Plain-text password (will be hashed)
+     *   - ADMIN_LOCALE: Preferred language (en, zh_CN) - optional, defaults to 'en'
      */
     public function run(): void
     {
@@ -39,6 +40,7 @@ class AdminUserSeeder extends Seeder
         $name = env('ADMIN_NAME');
         $email = env('ADMIN_EMAIL');
         $password = env('ADMIN_PASSWORD');
+        $locale = env('ADMIN_LOCALE');
 
         // Validate required environment variables
         if (empty($email) || empty($password)) {
@@ -53,6 +55,13 @@ class AdminUserSeeder extends Seeder
             $name = 'Administrator'; // Default fallback
         }
 
+        // Validate locale (must be one of: en, zh_CN)
+        $supportedLocales = ['en', 'zh_CN'];
+        if (!in_array($locale, $supportedLocales, true)) {
+            $this->command->warn("⚠️  Invalid ADMIN_LOCALE '{$locale}', defaulting to 'en'");
+            $locale = 'en';
+        }
+
         // Create admin user with email verification
         try {
             $user = User::create([
@@ -61,11 +70,13 @@ class AdminUserSeeder extends Seeder
                 'password' => Hash::make($password),
                 'role' => 'admin', // Set as admin user
                 'email_verified_at' => now(), // Auto-verify admin email
+                'locale' => $locale, // Set preferred language
             ]);
 
             $this->command->info('✓ Admin user created successfully');
-            $this->command->info("  Name:  {$user->name}");
-            $this->command->info("  Email: {$user->email}");
+            $this->command->info("  Name:   {$user->name}");
+            $this->command->info("  Email:  {$user->email}");
+            $this->command->info("  Locale: {$user->locale}");
         } catch (\Exception $e) {
             $this->command->error('❌ Failed to create admin user: ' . $e->getMessage());
             throw $e;

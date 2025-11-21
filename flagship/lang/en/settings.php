@@ -78,6 +78,9 @@ return [
         'language_select' => 'Select Language',
         'save' => 'Save Changes',
         'saved' => 'Profile updated successfully',
+        'email_unverified' => 'Your email address is unverified.',
+        'email_verification_sent' => 'A new verification link has been sent to your email address.',
+        'resend_verification' => 'Click here to resend the verification email.',
     ],
 
     'appearance' => [
@@ -118,8 +121,13 @@ return [
 
     'delete_account' => [
         'title' => 'Delete Account',
-        'subtitle' => 'Permanently delete your account',
-        'warning' => 'Once your account is deleted, all of its resources and data will be permanently deleted.',
-        'button' => 'Delete Account',
+        'subtitle' => 'Delete your account and all of its resources',
+        'warning' => 'Warning',
+        'warning_message' => 'Please proceed with caution, this cannot be undone.',
+        'button' => 'Delete account',
+        'dialog_title' => 'Are you sure you want to delete your account?',
+        'dialog_description' => 'Once your account is deleted, all of its resources and data will also be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.',
+        'password' => 'Password',
+        'cancel' => 'Cancel',
     ],
 ];

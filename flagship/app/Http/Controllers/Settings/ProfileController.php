@@ -21,6 +21,10 @@ class ProfileController extends Controller
         return Inertia::render('settings/profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'translations' => [
+                'profile' => __('settings.profile'),
+                'delete_account' => __('settings.delete_account'),
+            ],
         ]);
     }
 

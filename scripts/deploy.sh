@@ -595,6 +595,13 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         prompt_config "ADMIN_PASSWORD" "" "${MSG_ADMIN_PASSWORD}" "true"
     done
 
+    # Set admin locale based on deployment script language choice
+    if [ "$lang_choice" = "2" ]; then
+        CONFIG["ADMIN_LOCALE"]="zh_CN"
+    else
+        CONFIG["ADMIN_LOCALE"]="en"
+    fi
+
     echo ""
 
     # =============================================================================
@@ -832,6 +839,7 @@ FLAGSHIP_DOMAIN=${CONFIG[FLAGSHIP_DOMAIN]}
 ADMIN_NAME=${CONFIG[ADMIN_NAME]}
 ADMIN_EMAIL=${CONFIG[ADMIN_EMAIL]}
 ADMIN_PASSWORD=${CONFIG[ADMIN_PASSWORD]}
+ADMIN_LOCALE=${CONFIG[ADMIN_LOCALE]}
 
 # =============================================================================
 # Auto-Generated Values
@@ -1039,7 +1047,7 @@ if [ $SEEDER_EXIT_CODE -eq 0 ]; then
     # Always try to clean up if credentials exist
     if grep -q "^ADMIN_PASSWORD=" .env 2>/dev/null; then
         echo "${MSG_REMOVING_CREDENTIALS}"
-        sed -i.bak '/^ADMIN_NAME=/d; /^ADMIN_EMAIL=/d; /^ADMIN_PASSWORD=/d' .env
+        sed -i.bak '/^ADMIN_NAME=/d; /^ADMIN_EMAIL=/d; /^ADMIN_PASSWORD=/d; /^ADMIN_LOCALE=/d' .env
         rm -f .env.bak  # Remove backup file created by sed
         echo -e "${GREEN}${MSG_CREDENTIALS_REMOVED}${NC}"
     fi

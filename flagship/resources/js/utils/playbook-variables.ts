@@ -28,7 +28,7 @@ export const playbookVariableList = {
         label: 'Ingest Endpoint',
         defaultValue: null,
         isRequired: true,
-        placeholder: 'http://ingest.localhost/metrics/prometheus',
+        placeholder: 'https://<FLAGSHIP_DOMAIN>/ingest/metrics/prometheus',
         helpText: 'Leave blank to use default ingest endpoint',
     },
     // Security playbook variables
@@ -62,7 +62,8 @@ export const playbookVariableList = {
         defaultValue: '',
         isRequired: false,
         placeholder: '8080,3000,9000',
-        helpText: 'Comma-separated list of custom TCP ports to allow (e.g., 8080,3000)',
+        helpText:
+            'Comma-separated list of custom TCP ports to allow (e.g., 8080,3000)',
     },
     custom_udp_ports: {
         name: 'custom_udp_ports',
@@ -70,7 +71,8 @@ export const playbookVariableList = {
         defaultValue: '',
         isRequired: false,
         placeholder: '5353,1194',
-        helpText: 'Comma-separated list of custom UDP ports to allow (e.g., 5353,1194)',
+        helpText:
+            'Comma-separated list of custom UDP ports to allow (e.g., 5353,1194)',
     },
     disable_password_auth: {
         name: 'disable_password_auth',
@@ -95,7 +97,8 @@ export const playbookVariableList = {
         defaultValue: 'root',
         isRequired: false,
         placeholder: 'root',
-        helpText: 'Main user for Docker operations (created if missing, added to docker group)',
+        helpText:
+            'Main user for Docker operations (created if missing, added to docker group)',
     },
     docker_version: {
         name: 'docker_version',
@@ -103,7 +106,8 @@ export const playbookVariableList = {
         defaultValue: '',
         isRequired: false,
         placeholder: '25.0',
-        helpText: 'Specific Docker version (leave blank for latest, e.g., "25.0" or "24.0.7")',
+        helpText:
+            'Specific Docker version (leave blank for latest, e.g., "25.0" or "24.0.7")',
     },
     docker_install_script_checksum: {
         name: 'docker_install_script_checksum',
@@ -111,7 +115,8 @@ export const playbookVariableList = {
         defaultValue: '',
         isRequired: false,
         placeholder: 'abc123...',
-        helpText: 'SHA256 checksum for security (get: curl -sL https://get.docker.com | sha256sum)',
+        helpText:
+            'SHA256 checksum for security (get: curl -sL https://get.docker.com | sha256sum)',
     },
     install_compose: {
         name: 'install_compose',
@@ -127,7 +132,8 @@ export const playbookVariableList = {
         defaultValue: '',
         isRequired: false,
         placeholder: 'ubuntu,developer,ops',
-        helpText: 'Comma-separated list of extra users to add to docker group (must exist)',
+        helpText:
+            'Comma-separated list of extra users to add to docker group (must exist)',
     },
     docker_daemon_merge_strategy: {
         name: 'docker_daemon_merge_strategy',
@@ -135,7 +141,8 @@ export const playbookVariableList = {
         defaultValue: 'existing-wins',
         isRequired: false,
         placeholder: 'existing-wins',
-        helpText: '"existing-wins" (preserve manual changes) or "playbook-wins" (enforce config)',
+        helpText:
+            '"existing-wins" (preserve manual changes) or "playbook-wins" (enforce config)',
     },
     docker_service_enabled: {
         name: 'docker_service_enabled',
@@ -151,7 +158,7 @@ export const playbookVariableList = {
         defaultValue: 'true',
         isRequired: false,
         placeholder: 'true',
-        helpText: 'Create primary user if it doesn\'t exist (non-root only)',
+        helpText: "Create primary user if it doesn't exist (non-root only)",
     },
     docker_user_shell: {
         name: 'docker_user_shell',

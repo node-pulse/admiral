@@ -28,11 +28,17 @@ export interface NavItem {
     display: boolean;
 }
 
+export interface Translations {
+    common: Record<string, string>;
+    nav: Record<string, string>;
+}
+
 export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
     sidebarOpen: boolean;
+    translations: Translations;
     [key: string]: unknown;
 }
 
