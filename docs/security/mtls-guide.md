@@ -1,8 +1,16 @@
 # mTLS Implementation Guide for Node Pulse
 
-**Version:** 3.0 (Build-Time Decision)
-**Last Updated:** 2025-10-28
-**Status:** ✅ **COMPLETE** - Build-time mTLS architecture implemented
+**Version:** 4.0 (Caddy-Enforced mTLS)
+**Last Updated:** 2025-11-21
+**Status:** ✅ **SIMPLIFIED** - mTLS enforced at Caddy layer
+
+> **⚠️ IMPORTANT:** This document contains outdated implementation details from version 3.0.
+> The current architecture (v4.0) has been simplified:
+> - **mTLS enforcement:** Handled by Caddy (TLS termination layer)
+> - **Server validation:** Server ID validation in handler
+> - **No application-layer mTLS middleware** - removed for simplicity
+>
+> See updated architecture diagrams in sections marked with ✅ v4.0
 
 ---
 
@@ -323,18 +331,15 @@ router.POST("/metrics", metricsHandler.IngestMetrics)
 router.POST("/metrics/prometheus", prometheusHandler.IngestPrometheusMetrics)
 ```
 
-**Production Build (with mTLS):**
+**Production Build:**
 
 ```go
 // Initialize server ID validator (always runs)
 serverIDValidator := validation.NewServerIDValidator(db.DB, valkeyClient.GetClient(), cfg.ServerIDCacheTTL)
 
-// mTLS middleware (ALWAYS STRICT in production)
-mtlsMiddleware := tls.MTLSMiddlewareStrict(db.DB)
-
-// WITH mTLS enforcement
-router.POST("/metrics", mtlsMiddleware, metricsHandler.IngestMetrics)
-router.POST("/metrics/prometheus", mtlsMiddleware, prometheusHandler.IngestPrometheusMetrics)
+// mTLS enforcement handled at Caddy layer (optional, enabled via dashboard)
+// Server ID validation happens in handler
+router.POST("/metrics/prometheus", prometheusHandler.IngestPrometheusMetrics)
 ```
 
 **Building:**
@@ -605,19 +610,15 @@ Public Internet (HTTPS + mTLS)
 Your Server :443
   ↓
 Caddy (mTLS validation, client cert required)
-  │ ↓ X-Client-Cert-* headers
   ↓
-Submarines Ingest (main_mtls.go)
-  ↓
-MTLSMiddlewareStrict ✅ (validates cert in DB)
+Submarines Ingest
   ↓
 Server ID Validation ✅ (Valkey + PostgreSQL)
 ```
 
 **Security (Defense in Depth):**
-- ✅ mTLS client certificate (cryptographic proof)
-- ✅ Certificate database validation (revocation, expiration)
-- ✅ Server ID validation (1-hour cache)
+- ✅ mTLS client certificate enforced at Caddy layer (cryptographic proof)
+- ✅ Server ID validation in handler (1-hour cache)
 - ✅ HTTPS with Let's Encrypt
 - ✅ Direct internet exposure (no Cloudflare Tunnel)
 

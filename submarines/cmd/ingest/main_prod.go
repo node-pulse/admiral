@@ -11,7 +11,6 @@ import (
 	"github.com/nodepulse/admiral/submarines/internal/config"
 	"github.com/nodepulse/admiral/submarines/internal/database"
 	"github.com/nodepulse/admiral/submarines/internal/handlers"
-	"github.com/nodepulse/admiral/submarines/internal/tls"
 	"github.com/nodepulse/admiral/submarines/internal/valkey"
 	"github.com/nodepulse/admiral/submarines/internal/validation"
 )
@@ -66,12 +65,11 @@ func main() {
 	prometheusHandler := handlers.NewPrometheusHandler(db, valkeyClient, serverIDValidator)
 	certificateHandler := handlers.NewCertificateHandler(db.DB, cfg)
 
-	// mTLS middleware (ALWAYS STRICT in production - no toggle)
-	mtlsMiddleware := tls.MTLSMiddlewareStrict(db.DB)
-
-	// Ingest routes (for agents only, WITH mTLS enforcement)
+	// Ingest routes (for agents only)
+	// mTLS is handled at Caddy layer (optional, enabled via dashboard)
+	// Server ID validation happens in handler regardless of mTLS
 	// Legacy JSON format endpoint removed - agents now send simplified snapshots to /metrics/prometheus
-	router.POST("/metrics/prometheus", mtlsMiddleware, prometheusHandler.IngestPrometheusMetrics) // Prometheus text format
+	router.POST("/metrics/prometheus", prometheusHandler.IngestPrometheusMetrics) // Prometheus text format
 	router.GET("/metrics/prometheus/health", prometheusHandler.HealthCheck)                       // Prometheus endpoint health (no mTLS)
 
 	// Internal API routes (for Flagship/deployer only, not exposed publicly)

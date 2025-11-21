@@ -744,7 +744,7 @@ See Sprint 2.1b section above for complete details.
 - `/Users/yumin/ventures/node-pulse-stack/admiral/docs/mtls-guide.md` (1,427 lines)
 - `/Users/yumin/ventures/node-pulse-stack/admiral/docs/mtls-setup-guide.md` (256 lines)
 - `submarines/internal/certificates/` (crypto, CA, certs)
-- `submarines/internal/tls/mtls.go` (validation)
+- ~~`submarines/internal/tls/mtls.go` (validation)~~ - **REMOVED:** mTLS now enforced at Caddy layer
 - `scripts/setup-mtls.sh` (bootstrap)
 - `ansible/nodepulse/deploy.yml` (unified deployment with mTLS support)
 

@@ -79,7 +79,7 @@ The current `deploy.sh` includes mTLS setup as part of the initial deployment fl
 | Database schema | ✅ | `migrate/migrations/20251028113345012_add_certificate_management.sql` |
 | CA management | ✅ | `submarines/internal/certificates/ca_manager.go` |
 | Cert generation | ✅ | `submarines/internal/certificates/cert_generator.go` |
-| mTLS validation | ✅ | `submarines/internal/tls/mtls.go` |
+| mTLS validation | ✅ | **Caddy layer** (application middleware removed) |
 | Certificate API | ✅ | `submarines/internal/handlers/certificates.go` |
 
 #### 2. Laravel Integration (✅ Complete)
