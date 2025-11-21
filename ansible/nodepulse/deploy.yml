@@ -42,7 +42,7 @@
     # =========================================================================
 
     # Node Pulse Agent
-    agent_version: "{{ agent_version | default('latest') }}"
+    agent_version: "latest"
     agent_github_owner: "node-pulse"
     agent_github_repo: "agent"
     agent_install_dir: "/opt/nodepulse"
@@ -54,11 +54,14 @@
     ingest_endpoint: "{{ ingest_endpoint }}"
 
     # Agent behavior
-    agent_interval: "{{ agent_interval | default('15s') }}"
-    agent_timeout: "{{ agent_timeout | default('5s') }}"
+    agent_interval: "15s"
+    agent_timeout: "5s"
+
+    # Buffer configuration
+    buffer_retention_hours: 48
 
     # mTLS configuration (production)
-    tls_enabled: "{{ tls_enabled | default(false) }}"
+    tls_enabled: false
 
     # Node Exporter
     node_exporter_version: "1.8.2"
@@ -360,6 +363,20 @@
           when: tls_enabled | bool
 
         # Configure agent
+        - name: Generate and save new server ID
+          shell: uuidgen > "{{ agent_data_dir }}/server_id"
+          args:
+            creates: "{{ agent_data_dir }}/server_id"
+
+        - name: Read server ID
+          command: cat "{{ agent_data_dir }}/server_id"
+          register: server_id_content
+          changed_when: false
+
+        - name: Set server ID variable
+          set_fact:
+            agent_server_id_final: "{{ server_id_content.stdout | trim }}"
+
         - name: Deploy agent configuration
           template:
             src: templates/nodepulse.yml.j2
