@@ -537,6 +537,121 @@ See `ansible/README.md` for detailed deployment instructions.
 - **Rate Limiting**: Implement in Caddy or backend
 - **Input Validation**: All agent inputs validated before storage
 
+### mTLS (Mutual TLS) Architecture
+
+Node Pulse supports optional mTLS for agent authentication. mTLS can be enabled via:
+1. **Flagship UI** (System Settings page)
+2. **CLI script** (`scripts/setup-mtls.sh`)
+
+Both approaches perform identical operations.
+
+#### mTLS Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. User clicks "Enable mTLS" in Flagship UI                │
+│    OR runs: ./scripts/setup-mtls.sh                        │
+└────────────────────────┬────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 2. React POST → /dashboard/system-settings/mtls/enable     │
+│    OR script calls Submarines API directly                 │
+└────────────────────────┬────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Create CA and configure mTLS                            │
+│    ├─ POST /internal/ca/create (Submarines API)            │
+│    │  → Generates self-signed CA in database               │
+│    ├─ Export CA cert to secrets/certs/ca.crt               │
+│    ├─ Uncomment CA mount in compose.yml                    │
+│    ├─ Uncomment TLS block in Caddyfile.prod                │
+│    └─ Restart Caddy: docker compose restart caddy          │
+└────────────────────────┬────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 4. Caddy restarts with mTLS enabled                        │
+│    - Loads CA cert from /certs/ca.crt                      │
+│    - Validates client certs against CA                     │
+│    - Forwards cert headers to Submarines                   │
+└─────────────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 5. Deploy agents with client certificates                  │
+│    Via Flagship UI → Deployer → Ansible                    │
+│    ├─ Deployer fetches CA cert from database               │
+│    ├─ Deployer generates client cert for agent             │
+│    ├─ Ansible deploys certs to /etc/nodepulse/certs/       │
+│    └─ Agent configured with client cert paths              │
+└─────────────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 6. Agents connect with client certificates                 │
+│    Agent → Caddy (validates cert) → Submarines             │
+│    - Caddy validates client cert against CA                │
+│    - Caddy forwards cert headers (CN, fingerprint, etc.)   │
+│    - Submarines validates cert details vs database         │
+│    - Metrics flow with mTLS authentication ✅              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### mTLS Components
+
+**1. Certificate Authority (CA)**
+- Created via Submarines API: `POST /internal/ca/create`
+- Stored in database: `admiral.certificate_authorities`
+- Exported to filesystem: `secrets/certs/ca.crt` (for Caddy)
+- Self-signed, 10-year validity by default
+
+**2. Agent Client Certificates**
+- Generated per-agent during deployment
+- Stored in database: `admiral.server_certificates`
+- Private keys encrypted with master key (AES-256-GCM)
+- Deployed to agents: `/etc/nodepulse/certs/`
+
+**3. Caddy TLS Configuration**
+- Located: `caddy/Caddyfile.prod`
+- Client authentication mode: `require_and_verify`
+- Validates client certs against CA certificate
+- Forwards cert metadata to Submarines via headers:
+  - `X-Client-Cert-Serial`
+  - `X-Client-Cert-Subject`
+  - `X-Client-Cert-CN`
+  - `X-Client-Cert-Fingerprint`
+
+**4. Certificate Deployment via Ansible**
+- Deployer fetches CA + client certs from database
+- Creates temporary cert files (auto-cleanup after deployment)
+- Passes file paths to Ansible via inventory host vars:
+  ```yaml
+  tls_client_cert_path: /tmp/mtls_client_*.crt
+  tls_client_key_path: /tmp/mtls_client_*.key
+  tls_ca_cert_path: /tmp/mtls_ca_*.crt
+  tls_enabled: true
+  ```
+- Ansible copies certs to `/etc/nodepulse/certs/` on agent
+
+#### mTLS Enable Methods
+
+| Method | Command | Implementation |
+|--------|---------|----------------|
+| **UI** | Click "Enable mTLS" in System Settings | `SystemSettingsController::enableMtls()` |
+| **Script** | `./scripts/setup-mtls.sh` | Bash script calling Submarines API |
+
+Both methods perform identical operations:
+1. Call Submarines API to create CA
+2. Export CA certificate to filesystem
+3. Uncomment CA mount in `compose.yml`
+4. Uncomment TLS block in `Caddyfile.prod`
+5. Restart Caddy container
+
+#### Important Notes
+
+- **mTLS is optional** - agents work without mTLS (use `tls_enabled=false` in deployments)
+- **Cannot disable mTLS** once enabled - requires rebuilding with development Dockerfile
+- **Master key required** - Private keys encrypted at rest using `secrets/master.key`
+- **Ansible certificate deployment** - Deployer handles cert fetching/deployment automatically
+- **No manual cert management** - All certificates managed via database and API
+
 ## Valkey Streams Integration
 
 ### Overview

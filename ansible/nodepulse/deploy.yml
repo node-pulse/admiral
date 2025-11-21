@@ -14,14 +14,11 @@
 #     -e "server_id=abc-123-def-456" \
 #     -e "ingest_endpoint=https://dashboard.example.com"
 #
-#   # Production with mTLS:
+#   # Production with mTLS (certificates handled automatically by deployer):
 #   ansible-playbook -i inventory.yml deploy.yml \
 #     -e "server_id=abc-123-def-456" \
 #     -e "ingest_endpoint=https://dashboard.example.com" \
-#     -e "tls_enabled=true" \
-#     -e "ca_cert=$(cat ca.crt)" \
-#     -e "client_cert=$(cat client.crt)" \
-#     -e "client_key=$(cat client.key)"
+#     -e "tls_enabled=true"
 #
 #   # Development without mTLS:
 #   ansible-playbook -i inventory.yml deploy.yml \
@@ -46,7 +43,7 @@
 #   - Root/sudo access
 #   - Internet connectivity for downloads
 #   - REQUIRED variables: server_id, ingest_endpoint
-#   - For mTLS: ca_cert, client_cert, client_key must be provided
+#   - For mTLS: Certificates are fetched from database and deployed automatically
 #
 # ==============================================================================
 
@@ -334,51 +331,6 @@
         - name: Display agent version
           debug:
             msg: "✓ Installed Node Pulse Agent: {{ agent_version_check.stdout }}"
-
-        # Deploy certificates (if mTLS enabled)
-        - name: Deploy mTLS certificates
-          block:
-            - name: Verify certificate variables are provided
-              fail:
-                msg: "❌ Certificate variable {{ item }} is missing but required for mTLS"
-              when: vars[item] is not defined or vars[item] | length == 0
-              loop:
-                - ca_cert
-                - client_cert
-                - client_key
-
-            - name: Create certificates directory
-              file:
-                path: "{{ agent_config_dir }}/certs"
-                state: directory
-                owner: nodepulse
-                group: nodepulse
-                mode: "0750"
-
-            - name: Deploy CA certificate
-              copy:
-                content: "{{ ca_cert }}"
-                dest: "{{ agent_config_dir }}/certs/ca.crt"
-                owner: nodepulse
-                group: nodepulse
-                mode: "0644"
-
-            - name: Deploy client certificate
-              copy:
-                content: "{{ client_cert }}"
-                dest: "{{ agent_config_dir }}/certs/client.crt"
-                owner: nodepulse
-                group: nodepulse
-                mode: "0644"
-
-            - name: Deploy client private key
-              copy:
-                content: "{{ client_key }}"
-                dest: "{{ agent_config_dir }}/certs/client.key"
-                owner: nodepulse
-                group: nodepulse
-                mode: "0600"
-          when: tls_enabled | bool
 
         # Configure agent
         - name: Verify server_id is provided
