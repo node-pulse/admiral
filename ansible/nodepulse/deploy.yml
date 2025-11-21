@@ -89,6 +89,11 @@
     process_exporter_config_file: "/etc/process_exporter/config.yml"
     process_exporter_listen_address: "127.0.0.1"
     process_exporter_listen_port: 9256
+    process_exporter_children: true
+    process_exporter_threads: true
+    process_exporter_smaps: false
+    process_exporter_recheck: false
+    process_exporter_extra_flags: []
 
   # ===========================================================================
   # Pre-flight Checks
