@@ -61,7 +61,7 @@
     tls_enabled: "{{ tls_enabled | default(false) }}"
 
     # Node Exporter
-    node_exporter_version: "{{ node_exporter_version | default('1.8.2') }}"
+    node_exporter_version: "1.8.2"
     node_exporter_user: "node_exporter"
     node_exporter_group: "node_exporter"
     node_exporter_install_dir: "/opt/node_exporter"
@@ -77,7 +77,7 @@
     node_exporter_collector_filesystem_ignored_mount_points: "^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+)($|/)"
 
     # Process Exporter
-    process_exporter_version: "{{ process_exporter_version | default('0.8.3') }}"
+    process_exporter_version: "0.8.3"
     process_exporter_user: "process_exporter"
     process_exporter_group: "process_exporter"
     process_exporter_install_dir: "/opt/process_exporter"
