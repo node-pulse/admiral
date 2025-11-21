@@ -22,7 +22,11 @@ interface PlaybooksTranslations {
 }
 
 interface PlaybooksProps {
-    translations: PlaybooksTranslations;
+    translations: {
+        common: Record<string, string>;
+        nav: Record<string, string>;
+        playbooks: PlaybooksTranslations;
+    };
 }
 
 interface OsSupport {
@@ -83,9 +87,10 @@ interface UpdateInfo {
 const CACHE_KEY_PLAYBOOKS = 'nodepulse_playbooks';
 
 export default function PlaybooksIndex({ translations }: PlaybooksProps) {
+    const t = translations.playbooks;
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: `${translations.title} - ${translations.subtitle}`,
+            title: `${t.title} - ${t.subtitle}`,
             href: '/dashboard/playbooks',
         },
     ];
@@ -130,7 +135,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
         } catch (error: any) {
             toast.error(
                 error.response?.data?.error ||
-                    translations.messages.fetch_failed,
+                    t.messages.fetch_failed,
             );
         } finally {
             if (showRefreshing) setRefreshing(false);
@@ -190,7 +195,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
     // Download playbook
     const handleDownload = async (playbook: Playbook) => {
         if (!playbook.source_path) {
-            toast.error(translations.messages.invalid_source_path);
+            toast.error(t.messages.invalid_source_path);
             console.error('Missing source_path:', playbook);
             return;
         }
@@ -206,7 +211,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
                 source_path: playbook.source_path,
             });
 
-            toast.success(`${playbook.name} ${translations.messages.download_success}`);
+            toast.success(`${playbook.name} ${t.messages.download_success}`);
 
             // Refresh playbook list
             fetchPlaybooks(false);
@@ -215,41 +220,41 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
             toast.error(
                 error.response?.data?.message ||
                     error.response?.data?.error ||
-                    translations.messages.download_failed,
+                    t.messages.download_failed,
             );
         }
     };
 
     // Remove playbook
     const handleRemove = async (playbookId: string, name: string) => {
-        if (!confirm(translations.confirm.remove.replace('{name}', name))) {
+        if (!confirm(t.confirm.remove.replace('{name}', name))) {
             return;
         }
 
         try {
             await axios.delete(`/api/playbooks/${playbookId}`);
-            toast.success(`${name} ${translations.messages.remove_success}`);
+            toast.success(`${name} ${t.messages.remove_success}`);
 
             // Refresh playbook list, then check for updates
             await fetchPlaybooks(false);
             await checkForUpdates();
         } catch (error: any) {
             toast.error(
-                error.response?.data?.error || translations.messages.remove_failed,
+                error.response?.data?.error || t.messages.remove_failed,
             );
         }
     };
 
     // Update a single playbook
     const handleUpdate = async (playbookId: string, name: string) => {
-        if (!confirm(translations.confirm.update.replace('{name}', name))) {
+        if (!confirm(t.confirm.update.replace('{name}', name))) {
             return;
         }
 
         try {
             const response = await axios.post(`/api/playbooks/${playbookId}/update`);
             toast.success(
-                `${name} ${translations.state.updated_to_version}${response.data.playbook.version}`,
+                `${name} ${t.state.updated_to_version}${response.data.playbook.version}`,
             );
 
             // Refresh playbook list and check for updates
@@ -259,7 +264,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
             toast.error(
                 error.response?.data?.message ||
                     error.response?.data?.error ||
-                    translations.messages.update_failed,
+                    t.messages.update_failed,
             );
         }
     };
@@ -267,13 +272,13 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
     // Update all playbooks
     const handleUpdateAll = async () => {
         if (updatesAvailable.length === 0) {
-            toast.info(translations.messages.no_updates_available);
+            toast.info(t.messages.no_updates_available);
             return;
         }
 
         if (
             !confirm(
-                translations.confirm.update_all.replace('{count}', updatesAvailable.length.toString()),
+                t.confirm.update_all.replace('{count}', updatesAvailable.length.toString()),
             )
         ) {
             return;
@@ -286,12 +291,12 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
 
             if (results.success.length > 0) {
                 toast.success(
-                    translations.messages.update_all_success.replace('{count}', results.success.length.toString()),
+                    t.messages.update_all_success.replace('{count}', results.success.length.toString()),
                 );
             }
 
             if (results.failed.length > 0) {
-                toast.error(translations.messages.update_all_failed.replace('{count}', results.failed.length.toString()));
+                toast.error(t.messages.update_all_failed.replace('{count}', results.failed.length.toString()));
             }
 
             // Refresh playbook list and check for updates
@@ -301,7 +306,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
             toast.error(
                 error.response?.data?.message ||
                     error.response?.data?.error ||
-                    translations.messages.update_all_error,
+                    t.messages.update_all_error,
             );
         } finally {
             setUpdatingAll(false);
@@ -337,20 +342,20 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={translations.title} />
+            <Head title={t.title} />
 
             <div className="AdmiralCommunityPlaybooks flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">
-                            {translations.title}
+                            {t.title}
                             {refreshing && (
                                 <Loader2 className="ml-3 inline h-5 w-5 animate-spin text-muted-foreground" />
                             )}
                         </h1>
                         <p className="mt-2 text-muted-foreground">
-                            {translations.subtitle}
+                            {t.subtitle}
                         </p>
                     </div>
                     <div className="flex gap-2">
@@ -365,7 +370,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
                             ) : (
                                 <RefreshCw className="mr-2 h-4 w-4" />
                             )}
-                            {translations.actions.check_updates}
+                            {t.actions.check_updates}
                         </Button>
                         {updatesAvailable.length > 0 && (
                             <Button
@@ -380,7 +385,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
                                 ) : (
                                     <ArrowUpCircle className="mr-2 h-4 w-4" />
                                 )}
-                                {translations.actions.update_all} ({updatesAvailable.length})
+                                {t.actions.update_all} ({updatesAvailable.length})
                             </Button>
                         )}
                     </div>
@@ -393,7 +398,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
                             <div className="relative flex-1">
                                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                    placeholder={translations.search.placeholder}
+                                    placeholder={t.search.placeholder}
                                     value={searchQuery}
                                     onChange={(e) =>
                                         setSearchQuery(e.target.value)
@@ -408,7 +413,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
                                 }
                                 className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             >
-                                <option value="all">{translations.search.categories}</option>
+                                <option value="all">{t.search.categories}</option>
                                 {categories.map((cat) => (
                                     <option key={cat} value={cat}>
                                         {cat.charAt(0).toUpperCase() +
@@ -431,7 +436,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
                     <Card>
                         <CardContent className="py-12 text-center text-muted-foreground">
                             <Package className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                            <p>{translations.messages.no_playbooks_found}</p>
+                            <p>{t.messages.no_playbooks_found}</p>
                         </CardContent>
                     </Card>
                 ) : (

@@ -62,7 +62,11 @@ interface SshKeysTranslations {
 }
 
 interface SshKeysProps {
-    translations: SshKeysTranslations;
+    translations: {
+        common: Record<string, string>;
+        nav: Record<string, string>;
+        ssh_keys: SshKeysTranslations;
+    };
 }
 
 interface ServerData {
@@ -100,9 +104,10 @@ interface PrivateKeysResponse {
 }
 
 export default function PrivateKeys({ translations }: SshKeysProps) {
+    const t = translations.ssh_keys;
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: `${translations.title} - ${translations.subtitle}`,
+            title: `${t.title} - ${t.subtitle}`,
             href: sshKeysRoute().url,
         },
     ];
@@ -227,18 +232,18 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
             if (response.ok) {
                 setSelectedServerId('');
                 fetchPrivateKeys();
-                toast.success(translations.messages.key_attached, {
+                toast.success(t.messages.key_attached, {
                     description: `Key "${keyToManage.name}" has been attached to the server`,
                 });
             } else {
                 const error = await response.json();
-                toast.error(translations.messages.import_failed, {
+                toast.error(t.messages.import_failed, {
                     description: error.message || 'An error occurred',
                 });
             }
         } catch (error) {
             console.error('Failed to attach key:', error);
-            toast.error(translations.messages.import_failed, {
+            toast.error(t.messages.import_failed, {
                 description: 'An unexpected error occurred',
             });
         }
@@ -265,12 +270,12 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                     key_size: '4096',
                 });
                 fetchPrivateKeys();
-                toast.success(translations.messages.key_generated, {
+                toast.success(t.messages.key_generated, {
                     description: `Key "${data.private_key?.name}" has been created`,
                 });
             } else {
                 const error = await response.json();
-                toast.error(translations.messages.generation_failed, {
+                toast.error(t.messages.generation_failed, {
                     description:
                         error.message ||
                         'An error occurred while generating the key',
@@ -278,7 +283,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
             }
         } catch (error) {
             console.error('Failed to generate key:', error);
-            toast.error(translations.messages.generation_failed, {
+            toast.error(t.messages.generation_failed, {
                 description: 'An unexpected error occurred',
             });
         }
@@ -305,12 +310,12 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                     public_key: '',
                 });
                 fetchPrivateKeys();
-                toast.success(translations.messages.key_imported, {
+                toast.success(t.messages.key_imported, {
                     description: `Key "${data.private_key?.name}" has been imported`,
                 });
             } else {
                 const error = await response.json();
-                toast.error(translations.messages.import_failed, {
+                toast.error(t.messages.import_failed, {
                     description:
                         error.message ||
                         'An error occurred while importing the key',
@@ -318,7 +323,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
             }
         } catch (error) {
             console.error('Failed to import key:', error);
-            toast.error(translations.messages.import_failed, {
+            toast.error(t.messages.import_failed, {
                 description: 'An unexpected error occurred',
             });
         }
@@ -343,12 +348,12 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                 setDeleteDialogOpen(false);
                 setSelectedKey(null);
                 fetchPrivateKeys();
-                toast.success(translations.messages.key_deleted, {
+                toast.success(t.messages.key_deleted, {
                     description: `Key "${keyName}" has been removed`,
                 });
             } else {
                 const error = await response.json();
-                toast.error(translations.messages.delete_failed, {
+                toast.error(t.messages.delete_failed, {
                     description:
                         error.message ||
                         'An error occurred while deleting the key',
@@ -356,7 +361,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
             }
         } catch (error) {
             console.error('Failed to delete key:', error);
-            toast.error(translations.messages.delete_failed, {
+            toast.error(t.messages.delete_failed, {
                 description: 'An unexpected error occurred',
             });
         }
@@ -367,7 +372,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
         type: 'fingerprint' | 'public_key' = 'fingerprint',
     ) => {
         navigator.clipboard.writeText(text);
-        toast.success(translations.messages.public_key_copied, {
+        toast.success(t.messages.public_key_copied, {
             description:
                 type === 'fingerprint'
                     ? 'Fingerprint copied'
@@ -381,7 +386,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={translations.title} />
+            <Head title={t.title} />
 
             <div className="AdmiralSSHKeys flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
@@ -392,11 +397,11 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                             onClick={() => setImportDialogOpen(true)}
                         >
                             <Key className="mr-2 h-4 w-4" />
-                            {translations.dialog.import_key}
+                            {t.dialog.import_key}
                         </Button>
                         <Button onClick={() => setGenerateDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
-                            {translations.dialog.generate_key}
+                            {t.dialog.generate_key}
                         </Button>
                     </div>
                 </div>
@@ -406,7 +411,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.list.total_keys}
+                                {t.list.total_keys}
                             </CardTitle>
                             <Key className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -459,7 +464,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                             <div className="relative flex-1">
                                 <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder={translations.list.search_placeholder}
+                                    placeholder={t.list.search_placeholder}
                                     value={search}
                                     onChange={(e) => {
                                         setSearch(e.target.value);
@@ -479,12 +484,12 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                             <div className="py-8 text-center">
                                 <Key className="mx-auto h-12 w-12 text-muted-foreground" />
                                 <h3 className="mt-2 text-sm font-semibold">
-                                    {translations.list.no_keys}
+                                    {t.list.no_keys}
                                 </h3>
                                 <p className="mt-1 text-sm text-muted-foreground">
                                     {search
                                         ? 'Try adjusting your search'
-                                        : translations.list.no_keys_description}
+                                        : t.list.no_keys_description}
                                 </p>
                                 {!search && (
                                     <div className="mt-4 flex justify-center gap-2">
@@ -495,7 +500,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                                             }
                                         >
                                             <Key className="mr-2 h-4 w-4" />
-                                            {translations.dialog.import_key}
+                                            {t.dialog.import_key}
                                         </Button>
                                         <Button
                                             onClick={() =>
@@ -503,7 +508,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                                             }
                                         >
                                             <Plus className="mr-2 h-4 w-4" />
-                                            {translations.dialog.generate_key}
+                                            {t.dialog.generate_key}
                                         </Button>
                                     </div>
                                 )}
@@ -512,13 +517,13 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>{translations.table.name}</TableHead>
-                                        <TableHead>{translations.table.fingerprint}</TableHead>
-                                        <TableHead>{translations.table.servers}</TableHead>
-                                        <TableHead>{translations.dialog.public_key_label}</TableHead>
-                                        <TableHead>{translations.table.created}</TableHead>
+                                        <TableHead>{t.table.name}</TableHead>
+                                        <TableHead>{t.table.fingerprint}</TableHead>
+                                        <TableHead>{t.table.servers}</TableHead>
+                                        <TableHead>{t.dialog.public_key_label}</TableHead>
+                                        <TableHead>{t.table.created}</TableHead>
                                         <TableHead className="text-right">
-                                            {translations.table.actions}
+                                            {t.table.actions}
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -585,7 +590,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                                                         className="flex w-fit items-center gap-1"
                                                     >
                                                         <Server className="h-3 w-3" />
-                                                        {translations.dialog.no_servers_linked}
+                                                        {t.dialog.no_servers_linked}
                                                     </Badge>
                                                 )}
                                             </TableCell>
@@ -601,7 +606,7 @@ export default function PrivateKeys({ translations }: SshKeysProps) {
                                                     }
                                                 >
                                                     <Copy className="mr-2 h-3 w-3" />
-                                                    {translations.actions.copy_public}
+                                                    {t.actions.copy_public}
                                                 </Button>
                                             </TableCell>
                                             <TableCell className="text-sm">

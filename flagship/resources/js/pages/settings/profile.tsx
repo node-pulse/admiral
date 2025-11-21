@@ -53,23 +53,25 @@ export default function Profile({
     translations,
 }: ProfileProps) {
     const { auth } = usePage<SharedData>().props;
+    const t = translations.profile;
+    const tDelete = translations.delete_account;
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: translations.profile.title,
+            title: t.title,
             href: edit().url,
         },
     ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={translations.profile.title} />
+            <Head title={t.title} />
 
             <SettingsLayout>
                 <div className="space-y-6">
                     <HeadingSmall
-                        title={translations.profile.title}
-                        description={translations.profile.subtitle}
+                        title={t.title}
+                        description={t.subtitle}
                     />
 
                     <Form
@@ -82,7 +84,7 @@ export default function Profile({
                         {({ processing, recentlySuccessful, errors }) => (
                             <>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="name">{translations.profile.name}</Label>
+                                    <Label htmlFor="name">{t.name}</Label>
 
                                     <Input
                                         id="name"
@@ -91,7 +93,7 @@ export default function Profile({
                                         name="name"
                                         required
                                         autoComplete="name"
-                                        placeholder={translations.profile.name}
+                                        placeholder={t.name}
                                     />
 
                                     <InputError
@@ -101,7 +103,7 @@ export default function Profile({
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="email">{translations.profile.email}</Label>
+                                    <Label htmlFor="email">{t.email}</Label>
 
                                     <Input
                                         id="email"
@@ -111,7 +113,7 @@ export default function Profile({
                                         name="email"
                                         required
                                         autoComplete="username"
-                                        placeholder={translations.profile.email}
+                                        placeholder={t.email}
                                     />
 
                                     <InputError
@@ -124,20 +126,20 @@ export default function Profile({
                                     auth.user.email_verified_at === null && (
                                         <div>
                                             <p className="-mt-4 text-sm text-muted-foreground">
-                                                {translations.profile.email_unverified}{' '}
+                                                {t.email_unverified}{' '}
                                                 <Link
                                                     href={send()}
                                                     as="button"
                                                     className="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
                                                 >
-                                                    {translations.profile.resend_verification}
+                                                    {t.resend_verification}
                                                 </Link>
                                             </p>
 
                                             {status ===
                                                 'verification-link-sent' && (
                                                 <div className="mt-2 text-sm font-medium text-green-600">
-                                                    {translations.profile.email_verification_sent}
+                                                    {t.email_verification_sent}
                                                 </div>
                                             )}
                                         </div>
@@ -148,7 +150,7 @@ export default function Profile({
                                         disabled={processing}
                                         data-test="update-profile-button"
                                     >
-                                        {translations.profile.save}
+                                        {t.save}
                                     </Button>
 
                                     <Transition
@@ -159,7 +161,7 @@ export default function Profile({
                                         leaveTo="opacity-0"
                                     >
                                         <p className="text-sm text-neutral-600">
-                                            {translations.profile.saved}
+                                            {t.saved}
                                         </p>
                                     </Transition>
                                 </div>
@@ -168,7 +170,7 @@ export default function Profile({
                     </Form>
                 </div>
 
-                <DeleteUser translations={translations.delete_account} />
+                <DeleteUser translations={tDelete} />
             </SettingsLayout>
         </AppLayout>
     );

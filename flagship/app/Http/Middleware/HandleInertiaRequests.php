@@ -50,6 +50,8 @@ class HandleInertiaRequests extends Middleware
             'csrf_token' => csrf_token(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'locale' => app()->getLocale(),
+            'nav' => __('nav'),
+            'common' => __('common'),
             'captcha' => [
                 'provider' => $captchaService->getProvider() ?? 'none',
                 'siteKey' => $captchaService->getSiteKey(),

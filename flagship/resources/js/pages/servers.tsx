@@ -80,13 +80,18 @@ interface ServersTranslations {
 }
 
 interface ServersProps {
-    translations: ServersTranslations;
+    translations: {
+        common: Record<string, string>;
+        nav: Record<string, string>;
+        servers: ServersTranslations;
+    };
 }
 
 function ServersContent({ translations }: ServersProps) {
+    const t = translations.servers;
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: `${translations.title} - ${translations.subtitle}`,
+            title: `${t.title} - ${t.subtitle}`,
             href: serversRoute().url,
         },
     ];
@@ -130,7 +135,7 @@ function ServersContent({ translations }: ServersProps) {
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     const formatDate = (dateString: string | null) => {
-        if (!dateString) return translations.status.unknown;
+        if (!dateString) return t.status.unknown;
         return new Date(dateString).toLocaleString();
     };
 
@@ -139,19 +144,19 @@ function ServersContent({ translations }: ServersProps) {
             return (
                 <Badge variant="default" className="bg-green-500">
                     <Activity className="mr-1 h-3 w-3" />
-                    {translations.status.online}
+                    {t.status.online}
                 </Badge>
             );
         }
 
         if (status === 'inactive') {
-            return <Badge variant="secondary">{translations.status.offline}</Badge>;
+            return <Badge variant="secondary">{t.status.offline}</Badge>;
         }
 
         return (
             <Badge variant="destructive">
                 <Activity className="mr-1 h-3 w-3" />
-                {translations.status.offline}
+                {t.status.offline}
             </Badge>
         );
     };
@@ -218,18 +223,18 @@ function ServersContent({ translations }: ServersProps) {
             if (response.ok) {
                 setManageKeysOpen(false);
                 fetchServers();
-                toast.success(translations.messages.key_attached, {
+                toast.success(t.messages.key_attached, {
                     description: `Key has been attached to ${serverToManage.display_name}`,
                 });
             } else {
                 const error = await response.json();
-                toast.error(translations.messages.update_failed, {
+                toast.error(t.messages.update_failed, {
                     description: error.message || 'An error occurred',
                 });
             }
         } catch (error) {
             console.error('Failed to attach key:', error);
-            toast.error(translations.messages.update_failed, {
+            toast.error(t.messages.update_failed, {
                 description: 'An unexpected error occurred',
             });
         }
@@ -241,7 +246,7 @@ function ServersContent({ translations }: ServersProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={translations.title} />
+            <Head title={t.title} />
 
             <div className="AdmiralServers flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
@@ -260,7 +265,7 @@ function ServersContent({ translations }: ServersProps) {
                             className="relative cursor-pointer"
                         >
                             <Layers className="mr-2 h-4 w-4" />
-                            {translations.terminal.workspace}
+                            {t.terminal.workspace}
                             {sessions.length > 0 && (
                                 <Badge
                                     className="ml-2"
@@ -284,11 +289,11 @@ function ServersContent({ translations }: ServersProps) {
                         </Button>
                         <Button variant="outline" onClick={navigateToSSHKeys}>
                             <Key className="mr-2 h-4 w-4" />
-                            {translations.actions.manage_keys}
+                            {t.actions.manage_keys}
                         </Button>
                         <Button onClick={() => setAddServerOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
-                            {translations.list.add_server}
+                            {t.list.add_server}
                         </Button>
                     </div>
                 </div>
@@ -298,7 +303,7 @@ function ServersContent({ translations }: ServersProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.list.total_servers}
+                                {t.list.total_servers}
                             </CardTitle>
                             <Server className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -311,7 +316,7 @@ function ServersContent({ translations }: ServersProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.list.online_servers}
+                                {t.list.online_servers}
                             </CardTitle>
                             <Activity className="h-4 w-4 text-green-500" />
                         </CardHeader>
@@ -324,7 +329,7 @@ function ServersContent({ translations }: ServersProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.terminal.workspace}
+                                {t.terminal.workspace}
                             </CardTitle>
                             <Terminal className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -337,7 +342,7 @@ function ServersContent({ translations }: ServersProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.actions.manage_keys}
+                                {t.actions.manage_keys}
                             </CardTitle>
                             <Key className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -356,7 +361,7 @@ function ServersContent({ translations }: ServersProps) {
                             <div className="relative flex-1">
                                 <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder={translations.list.search_placeholder}
+                                    placeholder={t.list.search_placeholder}
                                     value={search}
                                     onChange={(e) => {
                                         setSearch(e.target.value);
@@ -376,12 +381,12 @@ function ServersContent({ translations }: ServersProps) {
                             <div className="py-8 text-center">
                                 <Server className="mx-auto h-12 w-12 text-muted-foreground" />
                                 <h3 className="mt-2 text-sm font-semibold">
-                                    {translations.list.no_servers}
+                                    {t.list.no_servers}
                                 </h3>
                                 <p className="mt-1 text-sm text-muted-foreground">
                                     {search
                                         ? 'Try adjusting your search'
-                                        : translations.list.no_servers_description}
+                                        : t.list.no_servers_description}
                                 </p>
                                 {!search && (
                                     <Button
@@ -389,7 +394,7 @@ function ServersContent({ translations }: ServersProps) {
                                         onClick={() => setAddServerOpen(true)}
                                     >
                                         <Plus className="mr-2 h-4 w-4" />
-                                        {translations.list.add_server}
+                                        {t.list.add_server}
                                     </Button>
                                 )}
                             </div>
@@ -397,13 +402,13 @@ function ServersContent({ translations }: ServersProps) {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>{translations.table.hostname}</TableHead>
-                                        <TableHead>{translations.table.status}</TableHead>
+                                        <TableHead>{t.table.hostname}</TableHead>
+                                        <TableHead>{t.table.status}</TableHead>
                                         <TableHead>SSH</TableHead>
                                         <TableHead>System</TableHead>
-                                        <TableHead>{translations.table.last_seen}</TableHead>
+                                        <TableHead>{t.table.last_seen}</TableHead>
                                         <TableHead className="text-right">
-                                            {translations.table.actions}
+                                            {t.table.actions}
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -488,7 +493,7 @@ function ServersContent({ translations }: ServersProps) {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>
-                                                            {translations.table.actions}
+                                                            {t.table.actions}
                                                         </DropdownMenuLabel>
                                                         {server.ssh_host && (
                                                             <>
@@ -500,7 +505,7 @@ function ServersContent({ translations }: ServersProps) {
                                                                     }
                                                                 >
                                                                     <Terminal className="mr-2 h-4 w-4" />
-                                                                    {translations.actions.open_terminal}
+                                                                    {t.actions.open_terminal}
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem
                                                                     onClick={() =>
@@ -510,7 +515,7 @@ function ServersContent({ translations }: ServersProps) {
                                                                     }
                                                                 >
                                                                     <Key className="mr-2 h-4 w-4" />
-                                                                    {translations.actions.manage_keys}
+                                                                    {t.actions.manage_keys}
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
                                                             </>
@@ -523,7 +528,7 @@ function ServersContent({ translations }: ServersProps) {
                                                             }
                                                         >
                                                             <Edit className="mr-2 h-4 w-4" />
-                                                            {translations.actions.edit}
+                                                            {t.actions.edit}
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             className="text-destructive"
@@ -534,7 +539,7 @@ function ServersContent({ translations }: ServersProps) {
                                                             }
                                                         >
                                                             <Trash2 className="mr-2 h-4 w-4" />
-                                                            {translations.actions.delete}
+                                                            {t.actions.delete}
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -592,20 +597,20 @@ function ServersContent({ translations }: ServersProps) {
             <Dialog open={manageKeysOpen} onOpenChange={setManageKeysOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{translations.dialog.manage_keys_title}</DialogTitle>
+                        <DialogTitle>{t.dialog.manage_keys_title}</DialogTitle>
                         <DialogDescription>
-                            {translations.dialog.manage_keys_description}
+                            {t.dialog.manage_keys_description}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="select-key">{translations.dialog.primary_key_label}</Label>
+                            <Label htmlFor="select-key">{t.dialog.primary_key_label}</Label>
                             <Select
                                 value={selectedKeyId}
                                 onValueChange={setSelectedKeyId}
                             >
                                 <SelectTrigger id="select-key">
-                                    <SelectValue placeholder={translations.dialog.primary_key_placeholder} />
+                                    <SelectValue placeholder={t.dialog.primary_key_placeholder} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {privateKeys.map((key) => (
@@ -630,13 +635,13 @@ function ServersContent({ translations }: ServersProps) {
                             variant="outline"
                             onClick={() => setManageKeysOpen(false)}
                         >
-                            {translations.dialog.cancel}
+                            {t.dialog.cancel}
                         </Button>
                         <Button
                             onClick={handleAttachKey}
                             disabled={!selectedKeyId}
                         >
-                            {translations.dialog.attach}
+                            {t.dialog.attach}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -667,9 +672,9 @@ function ServersContent({ translations }: ServersProps) {
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{translations.dialog.delete_title}</DialogTitle>
+                        <DialogTitle>{t.dialog.delete_title}</DialogTitle>
                         <DialogDescription>
-                            {translations.dialog.delete_description}
+                            {t.dialog.delete_description}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -681,14 +686,14 @@ function ServersContent({ translations }: ServersProps) {
                             }}
                             disabled={deleteLoading}
                         >
-                            {translations.dialog.cancel}
+                            {t.dialog.cancel}
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={confirmDeleteServer}
                             disabled={deleteLoading}
                         >
-                            {deleteLoading ? 'Deleting...' : translations.dialog.delete}
+                            {deleteLoading ? 'Deleting...' : t.dialog.delete}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

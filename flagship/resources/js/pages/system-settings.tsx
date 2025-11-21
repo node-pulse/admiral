@@ -59,15 +59,20 @@ interface MtlsStatus {
 }
 
 interface Props {
-    translations: SettingsTranslations;
+    translations: {
+        common: Record<string, string>;
+        nav: Record<string, string>;
+        settings: SettingsTranslations;
+    };
     settings: Setting[];
     mtls: MtlsStatus;
 }
 
 export default function SystemSettings({ translations, settings, mtls }: Props) {
+    const t = translations.settings;
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: `${translations.title} - ${translations.subtitle}`,
+            title: `${t.title} - ${t.subtitle}`,
             href: systemSettings().url,
         },
     ];
@@ -78,7 +83,7 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
     const [enablingMtls, setEnablingMtls] = useState(false);
 
     const handleEnableMtls = () => {
-        if (!confirm(translations.mtls.confirm_enable)) {
+        if (!confirm(t.mtls.confirm_enable)) {
             return;
         }
 
@@ -87,12 +92,12 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
         router.post('/dashboard/system-settings/mtls/enable', {}, {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success(translations.messages.mtls_enabled);
+                toast.success(t.messages.mtls_enabled);
                 // Reload page to show updated status
                 router.reload();
             },
             onError: (errors: any) => {
-                const errorMessage = errors.error || errors.detail || translations.messages.mtls_enable_failed;
+                const errorMessage = errors.error || errors.detail || t.messages.mtls_enable_failed;
                 toast.error(errorMessage);
             },
             onFinish: () => {
@@ -110,10 +115,10 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    toast.success(translations.messages.updated);
+                    toast.success(t.messages.updated);
                 },
                 onError: (errors) => {
-                    toast.error(errors[key] || translations.messages.update_failed);
+                    toast.error(errors[key] || t.messages.update_failed);
                 },
                 onFinish: () => {
                     setUpdating(null);
@@ -131,7 +136,7 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    toast.success(translations.messages.updated);
+                    toast.success(t.messages.updated);
                     setEditingValues((prev) => {
                         const next = { ...prev };
                         delete next[key];
@@ -139,7 +144,7 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                     });
                 },
                 onError: (errors) => {
-                    toast.error(errors[key] || translations.messages.update_failed);
+                    toast.error(errors[key] || t.messages.update_failed);
                 },
                 onFinish: () => {
                     setUpdating(null);
@@ -164,29 +169,29 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
             setting.key.includes('registration') ||
             setting.key.includes('auth')
         ) {
-            return translations.categories.authentication;
+            return t.categories.authentication;
         } else if (setting.key.includes('retention')) {
-            return translations.categories.data_retention;
+            return t.categories.data_retention;
         } else if (setting.key.includes('alert')) {
-            return translations.categories.alerting;
+            return t.categories.alerting;
         } else if (setting.tier === 'pro' || setting.tier === 'growth') {
-            return translations.categories.pro_features;
+            return t.categories.pro_features;
         } else {
-            return translations.categories.system;
+            return t.categories.system;
         }
     };
 
     const getCategoryBadgeClass = (category: string): string => {
         // Match against translated values
-        if (category === translations.categories.authentication) {
+        if (category === t.categories.authentication) {
             return 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
-        } else if (category === translations.categories.data_retention) {
+        } else if (category === t.categories.data_retention) {
             return 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300';
-        } else if (category === translations.categories.alerting) {
+        } else if (category === t.categories.alerting) {
             return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300';
-        } else if (category === translations.categories.pro_features) {
+        } else if (category === t.categories.pro_features) {
             return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
-        } else if (category === translations.categories.system) {
+        } else if (category === t.categories.system) {
             return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
         } else {
             return 'bg-muted text-muted-foreground';
@@ -254,7 +259,7 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                 <TableCell>
                     {isBoolean ? (
                         <span className="text-sm">
-                            {setting.value ? translations.table.enabled : translations.table.disabled}
+                            {setting.value ? t.table.enabled : t.table.disabled}
                         </span>
                     ) : (
                         <span className="font-mono text-sm">
@@ -336,7 +341,7 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                                     )
                                 }
                             >
-                                {translations.actions.update}
+                                {t.actions.update}
                             </Button>
                         </div>
                     )}
@@ -347,15 +352,15 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={translations.title} />
+            <Head title={t.title} />
 
             <div className="AdmiralSystemSettings flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Security Settings - mTLS Status */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>{translations.security.title}</CardTitle>
+                        <CardTitle>{t.security.title}</CardTitle>
                         <CardDescription>
-                            {translations.security.description}
+                            {t.security.description}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -374,14 +379,14 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                                 </div>
                                 <div>
                                     <div className="font-medium">
-                                        {translations.mtls.title}
+                                        {t.mtls.title}
                                     </div>
                                     <div className="text-sm text-muted-foreground">
-                                        {translations.mtls.status_label}: {mtls.status}
+                                        {t.mtls.status_label}: {mtls.status}
                                     </div>
                                     {!mtls.reachable && (
                                         <div className="mt-1 text-xs text-red-500">
-                                            {translations.mtls.unreachable_warning}
+                                            {t.mtls.unreachable_warning}
                                         </div>
                                     )}
                                 </div>
@@ -392,23 +397,23 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                                         onClick={handleEnableMtls}
                                         disabled={enablingMtls}
                                     >
-                                        {enablingMtls ? translations.mtls.enabling : translations.mtls.enable}
+                                        {enablingMtls ? t.mtls.enabling : t.mtls.enable}
                                     </Button>
                                 )}
                                 <Dialog>
                                     <DialogTrigger asChild>
                                         <Button variant="outline" size="sm">
                                             <Info className="mr-2 h-4 w-4" />
-                                            {mtls.enabled ? translations.mtls.about : translations.mtls.manual_setup}
+                                            {mtls.enabled ? t.mtls.about : t.mtls.manual_setup}
                                         </Button>
                                     </DialogTrigger>
                                 <DialogContent className="max-w-4xl!">
                                     <DialogHeader>
                                         <DialogTitle>
-                                            {translations.mtls.dialog_title}
+                                            {t.mtls.dialog_title}
                                         </DialogTitle>
                                         <DialogDescription>
-                                            {translations.mtls.dialog_description}
+                                            {t.mtls.dialog_description}
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-4">
@@ -492,9 +497,9 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                 {/* All Settings in One Table */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>{translations.table.title}</CardTitle>
+                        <CardTitle>{t.table.title}</CardTitle>
                         <CardDescription>
-                            {translations.table.description}
+                            {t.table.description}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -502,7 +507,7 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                         <div className="flex items-center gap-2">
                             <Input
                                 type="text"
-                                placeholder={translations.search.placeholder}
+                                placeholder={t.search.placeholder}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="max-w-md"
@@ -513,7 +518,7 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                                     size="sm"
                                     onClick={() => setSearchQuery('')}
                                 >
-                                    {translations.search.clear}
+                                    {t.search.clear}
                                 </Button>
                             )}
                         </div>
@@ -521,7 +526,7 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                         {/* Results count */}
                         {searchQuery && (
                             <p className="text-sm text-muted-foreground">
-                                {translations.search.found} {filteredSettings.length} {filteredSettings.length !== 1 ? translations.search.settings : translations.search.setting}
+                                {t.search.found} {filteredSettings.length} {filteredSettings.length !== 1 ? t.search.settings : t.search.setting}
                             </p>
                         )}
 
@@ -529,11 +534,11 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>{translations.table.setting}</TableHead>
-                                    <TableHead>{translations.table.description}</TableHead>
-                                    <TableHead>{translations.table.current_value}</TableHead>
+                                    <TableHead>{t.table.setting}</TableHead>
+                                    <TableHead>{t.table.description}</TableHead>
+                                    <TableHead>{t.table.current_value}</TableHead>
                                     <TableHead className="text-right">
-                                        {translations.table.actions}
+                                        {t.table.actions}
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -546,7 +551,7 @@ export default function SystemSettings({ translations, settings, mtls }: Props) 
                                             colSpan={4}
                                             className="text-center text-muted-foreground"
                                         >
-                                            {translations.search.no_results} "{searchQuery}"
+                                            {t.search.no_results} "{searchQuery}"
                                         </TableCell>
                                     </TableRow>
                                 )}

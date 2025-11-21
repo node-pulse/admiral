@@ -55,7 +55,11 @@ interface SshSessionsTranslations {
 }
 
 interface SshSessionsProps {
-    translations: SshSessionsTranslations;
+    translations: {
+        common: Record<string, string>;
+        nav: Record<string, string>;
+        ssh_sessions: SshSessionsTranslations;
+    };
 }
 
 interface ServerData {
@@ -99,9 +103,10 @@ interface SshSessionsResponse {
 }
 
 export default function SshSessions({ translations }: SshSessionsProps) {
+    const t = translations.ssh_sessions;
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: `${translations.title} - ${translations.subtitle}`,
+            title: `${t.title} - ${t.subtitle}`,
             href: sshSessionsRoute().url,
         },
     ];
@@ -205,17 +210,17 @@ export default function SshSessions({ translations }: SshSessionsProps) {
             );
 
             if (response.ok) {
-                toast.success(translations.messages.session_terminated);
+                toast.success(t.messages.session_terminated);
                 setTerminateDialogOpen(false);
                 setSessionToTerminate(null);
                 fetchSessions();
             } else {
                 const data = await response.json();
-                toast.error(data.message || translations.messages.terminate_failed);
+                toast.error(data.message || t.messages.terminate_failed);
             }
         } catch (error) {
             console.error('Failed to terminate session:', error);
-            toast.error(translations.messages.terminate_failed);
+            toast.error(t.messages.terminate_failed);
         }
     };
 
@@ -225,28 +230,28 @@ export default function SshSessions({ translations }: SshSessionsProps) {
                 return (
                     <Badge variant="default" className="bg-green-500">
                         <Activity className="mr-1 h-3 w-3" />
-                        {translations.status.active}
+                        {t.status.active}
                     </Badge>
                 );
             case 'completed':
                 return (
                     <Badge variant="secondary">
                         <CheckCircle2 className="mr-1 h-3 w-3" />
-                        {translations.status.completed}
+                        {t.status.completed}
                     </Badge>
                 );
             case 'failed':
                 return (
                     <Badge variant="destructive">
                         <XCircle className="mr-1 h-3 w-3" />
-                        {translations.status.failed}
+                        {t.status.failed}
                     </Badge>
                 );
             case 'terminated':
                 return (
                     <Badge variant="outline">
                         <XCircle className="mr-1 h-3 w-3" />
-                        {translations.status.terminated}
+                        {t.status.terminated}
                     </Badge>
                 );
             default:
@@ -272,7 +277,7 @@ export default function SshSessions({ translations }: SshSessionsProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={translations.title} />
+            <Head title={t.title} />
 
             <div className="AdmiralSSHSessions flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Stats Cards */}
@@ -280,7 +285,7 @@ export default function SshSessions({ translations }: SshSessionsProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.list.total_sessions}
+                                {t.list.total_sessions}
                             </CardTitle>
                             <Terminal className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -294,7 +299,7 @@ export default function SshSessions({ translations }: SshSessionsProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.list.active_sessions}
+                                {t.list.active_sessions}
                             </CardTitle>
                             <Activity className="h-4 w-4 text-green-500" />
                         </CardHeader>
@@ -386,10 +391,10 @@ export default function SshSessions({ translations }: SshSessionsProps) {
                             <div className="flex flex-col items-center justify-center py-8 text-center">
                                 <Terminal className="mb-4 h-12 w-12 text-muted-foreground" />
                                 <h3 className="text-lg font-medium">
-                                    {translations.list.no_sessions}
+                                    {t.list.no_sessions}
                                 </h3>
                                 <p className="text-sm text-muted-foreground">
-                                    {translations.list.no_sessions_description}
+                                    {t.list.no_sessions_description}
                                 </p>
                             </div>
                         ) : (
@@ -397,14 +402,14 @@ export default function SshSessions({ translations }: SshSessionsProps) {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>{translations.table.server}</TableHead>
-                                            <TableHead>{translations.table.user}</TableHead>
-                                            <TableHead>{translations.table.started}</TableHead>
-                                            <TableHead>{translations.table.duration}</TableHead>
-                                            <TableHead>{translations.table.status}</TableHead>
+                                            <TableHead>{t.table.server}</TableHead>
+                                            <TableHead>{t.table.user}</TableHead>
+                                            <TableHead>{t.table.started}</TableHead>
+                                            <TableHead>{t.table.duration}</TableHead>
+                                            <TableHead>{t.table.status}</TableHead>
                                             <TableHead>Auth</TableHead>
-                                            <TableHead>{translations.table.ip_address}</TableHead>
-                                            <TableHead>{translations.table.actions}</TableHead>
+                                            <TableHead>{t.table.ip_address}</TableHead>
+                                            <TableHead>{t.table.actions}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>

@@ -47,7 +47,11 @@ interface DeploymentsTranslations {
 }
 
 interface DeploymentsProps {
-    translations: DeploymentsTranslations;
+    translations: {
+        common: Record<string, string>;
+        nav: Record<string, string>;
+        deployments: DeploymentsTranslations;
+    };
 }
 
 interface DeploymentData {
@@ -79,9 +83,10 @@ interface DeploymentsResponse {
 }
 
 export default function DeploymentsIndex({ translations }: DeploymentsProps) {
+    const t = translations.deployments;
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: `${translations.title} - ${translations.subtitle}`,
+            title: `${t.title} - ${t.subtitle}`,
             href: '/dashboard/deployments',
         },
     ];
@@ -129,7 +134,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
             );
 
             if (!response.ok) {
-                throw new Error(translations.messages.failed_to_fetch);
+                throw new Error(t.messages.failed_to_fetch);
             }
 
             const data: DeploymentsResponse = await response.json();
@@ -138,7 +143,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
             setTotal(data.meta.total);
         } catch (error) {
             console.error('Error fetching deployments:', error);
-            toast.error(translations.messages.failed_to_fetch);
+            toast.error(t.messages.failed_to_fetch);
         } finally {
             setLoading(false);
         }
@@ -153,20 +158,20 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
             DeploymentData['status'],
             { variant: any; icon: any; label: string; className?: string }
         > = {
-            pending: { variant: 'secondary', icon: Clock, label: translations.status.pending },
-            running: { variant: 'default', icon: Loader2, label: translations.status.running },
+            pending: { variant: 'secondary', icon: Clock, label: t.status.pending },
+            running: { variant: 'default', icon: Loader2, label: t.status.running },
             completed: {
                 variant: 'outline',
                 icon: CheckCircle2,
-                label: translations.status.completed,
+                label: t.status.completed,
                 className:
                     'border-green-600 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400',
             },
-            failed: { variant: 'destructive', icon: XCircle, label: translations.status.failed },
+            failed: { variant: 'destructive', icon: XCircle, label: t.status.failed },
             cancelled: {
                 variant: 'secondary',
                 icon: XCircle,
-                label: translations.status.cancelled,
+                label: t.status.cancelled,
             },
         };
 
@@ -216,14 +221,14 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={translations.title} />
+            <Head title={t.title} />
 
             <div className="AdmiralDeployments flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <Button onClick={handleCreateDeployment}>
                         <Plus className="mr-2 h-4 w-4" />
-                        {translations.actions.new_deployment}
+                        {t.actions.new_deployment}
                     </Button>
                 </div>
 
@@ -232,7 +237,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.stats.total_deployments}
+                                {t.stats.total_deployments}
                             </CardTitle>
                             <Rocket className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -243,7 +248,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.stats.running}
+                                {t.stats.running}
                             </CardTitle>
                             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                         </CardHeader>
@@ -260,7 +265,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.stats.completed}
+                                {t.stats.completed}
                             </CardTitle>
                             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -277,7 +282,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
-                                {translations.stats.failed}
+                                {t.stats.failed}
                             </CardTitle>
                             <XCircle className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -300,7 +305,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                             <div className="relative flex-1">
                                 <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder={translations.filters.search_placeholder}
+                                    placeholder={t.filters.search_placeholder}
                                     className="pl-8"
                                     value={searchTerm}
                                     onChange={(e) =>
@@ -313,26 +318,26 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                                 onValueChange={setStatusFilter}
                             >
                                 <SelectTrigger className="w-full sm:w-[180px]">
-                                    <SelectValue placeholder={translations.filters.filter_by_status} />
+                                    <SelectValue placeholder={t.filters.filter_by_status} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">
-                                        {translations.filters.all_status}
+                                        {t.filters.all_status}
                                     </SelectItem>
                                     <SelectItem value="pending">
-                                        {translations.status.pending}
+                                        {t.status.pending}
                                     </SelectItem>
                                     <SelectItem value="running">
-                                        {translations.status.running}
+                                        {t.status.running}
                                     </SelectItem>
                                     <SelectItem value="completed">
-                                        {translations.status.completed}
+                                        {t.status.completed}
                                     </SelectItem>
                                     <SelectItem value="failed">
-                                        {translations.status.failed}
+                                        {t.status.failed}
                                     </SelectItem>
                                     <SelectItem value="cancelled">
-                                        {translations.status.cancelled}
+                                        {t.status.cancelled}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -347,30 +352,30 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                             <div className="py-12 text-center">
                                 <Rocket className="mx-auto h-12 w-12 text-muted-foreground" />
                                 <h3 className="mt-4 text-lg font-semibold">
-                                    {translations.empty.no_deployments_found}
+                                    {t.empty.no_deployments_found}
                                 </h3>
                                 <p className="mt-1 text-muted-foreground">
-                                    {translations.empty.get_started}
+                                    {t.empty.get_started}
                                 </p>
                                 <Button
                                     onClick={handleCreateDeployment}
                                     className="mt-4"
                                 >
                                     <Plus className="mr-2 h-4 w-4" />
-                                    {translations.actions.create_deployment}
+                                    {t.actions.create_deployment}
                                 </Button>
                             </div>
                         ) : (
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>{translations.table.name}</TableHead>
-                                        <TableHead>{translations.table.playbook}</TableHead>
-                                        <TableHead>{translations.table.status}</TableHead>
-                                        <TableHead>{translations.table.servers}</TableHead>
-                                        <TableHead>{translations.table.success_rate}</TableHead>
-                                        <TableHead>{translations.table.duration}</TableHead>
-                                        <TableHead>{translations.table.created}</TableHead>
+                                        <TableHead>{t.table.name}</TableHead>
+                                        <TableHead>{t.table.playbook}</TableHead>
+                                        <TableHead>{t.table.status}</TableHead>
+                                        <TableHead>{t.table.servers}</TableHead>
+                                        <TableHead>{t.table.success_rate}</TableHead>
+                                        <TableHead>{t.table.duration}</TableHead>
+                                        <TableHead>{t.table.created}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -411,7 +416,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                                             <TableCell>
                                                 <div className="text-sm">
                                                     <div>
-                                                        {translations.table.total}:{' '}
+                                                        {t.table.total}:{' '}
                                                         {
                                                             deployment.total_servers
                                                         }
@@ -476,7 +481,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                         {totalPages > 1 && (
                             <div className="mt-4 flex items-center justify-between">
                                 <div className="text-sm text-muted-foreground">
-                                    {translations.pagination.page} {currentPage} {translations.pagination.of} {totalPages}
+                                    {t.pagination.page} {currentPage} {t.pagination.of} {totalPages}
                                 </div>
                                 <div className="flex gap-2">
                                     <Button
@@ -487,7 +492,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                                             setCurrentPage(currentPage - 1)
                                         }
                                     >
-                                        {translations.pagination.previous}
+                                        {t.pagination.previous}
                                     </Button>
                                     <Button
                                         variant="outline"
@@ -497,7 +502,7 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                                             setCurrentPage(currentPage + 1)
                                         }
                                     >
-                                        {translations.pagination.next}
+                                        {t.pagination.next}
                                     </Button>
                                 </div>
                             </div>
