@@ -16,9 +16,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the binary with production tag (includes mTLS support)
+# Build the binary (mTLS handled at Caddy layer)
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -tags prod \
     -ldflags='-w -s -extldflags "-static"' \
     -o /build/ingest \
     ./cmd/ingest

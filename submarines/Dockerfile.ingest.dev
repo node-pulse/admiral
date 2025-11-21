@@ -19,6 +19,5 @@ COPY . .
 # Expose port
 EXPOSE 8080
 
-# Use air for hot reloading (development builds WITHOUT mTLS)
-# To enable mTLS in dev, set GOFLAGS=-tags=mtls in environment
+# Use air for hot reloading (mTLS handled at Caddy layer)
 CMD ["air", "-c", ".air.ingest.toml"]
