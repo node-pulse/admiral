@@ -1,10 +1,8 @@
-//go:build !prod
-// +build !prod
-
 package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -48,12 +46,18 @@ func main() {
 		AllowCredentials: false,
 	}))
 
+	// Determine environment for logging
+	env := os.Getenv("GIN_MODE")
+	if env == "" {
+		env = "development"
+	}
+
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status":  "ok",
 			"service": "node-pulse-ingest",
-			"mtls":    "disabled", // Development mode
+			"env":     env,
 		})
 	})
 
@@ -65,10 +69,11 @@ func main() {
 	prometheusHandler := handlers.NewPrometheusHandler(db, valkeyClient, serverIDValidator)
 	certificateHandler := handlers.NewCertificateHandler(db.DB, cfg)
 
-	// Ingest routes (for agents only, NO mTLS in development)
-	// Legacy JSON format endpoint removed - agents now send simplified snapshots to /metrics/prometheus
-	router.POST("/metrics/prometheus", prometheusHandler.IngestPrometheusMetrics) // Prometheus text format
-	router.GET("/metrics/prometheus/health", prometheusHandler.HealthCheck)       // Prometheus endpoint health
+	// Ingest routes (for agents only)
+	// mTLS is handled at Caddy layer (optional, enabled via dashboard)
+	// Server ID validation happens in handler regardless of mTLS
+	router.POST("/metrics/prometheus", prometheusHandler.IngestPrometheusMetrics)
+	router.GET("/metrics/prometheus/health", prometheusHandler.HealthCheck)
 
 	// Internal API routes (for Flagship/deployer only, not exposed publicly)
 	internal := router.Group("/internal")
@@ -86,7 +91,10 @@ func main() {
 	// Start server
 	const port = "8080"
 	addr := ":" + port
-	log.Printf("Starting ingest service on %s (mTLS: DISABLED - Development Mode)", addr)
+	log.Printf("Starting ingest service on %s (env: %s)", addr, env)
+	log.Printf("mTLS enforcement: Caddy layer (optional, configured via dashboard)")
+	log.Printf("Server ID validation: Enabled (1-hour cache)")
+
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
