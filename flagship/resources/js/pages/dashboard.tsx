@@ -63,8 +63,18 @@ export default function Dashboard({ translations }: DashboardProps) {
     const [selectedServers, setSelectedServers] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Fetch stats on mount and auto-refresh every 30s
     useEffect(() => {
+        // Initial fetch
         fetchStats();
+
+        // Set up auto-refresh interval
+        const interval = setInterval(() => {
+            fetchStats();
+        }, 30000); // 30 seconds
+
+        // Cleanup interval on unmount
+        return () => clearInterval(interval);
     }, []);
 
     const fetchStats = async () => {

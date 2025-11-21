@@ -76,12 +76,24 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
     const [metricsData, setMetricsData] = useState<ServerMetrics[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // Fetch metrics on mount, when selection changes, and auto-refresh every 30s
     useEffect(() => {
-        if (selectedServers.length > 0) {
-            fetchMetrics();
-        } else {
+        // Clear data if no servers selected
+        if (selectedServers.length === 0) {
             setMetricsData([]);
+            return;
         }
+
+        // Initial fetch
+        fetchMetrics();
+
+        // Set up auto-refresh interval
+        const interval = setInterval(() => {
+            fetchMetrics();
+        }, 30000); // 30 seconds
+
+        // Cleanup interval on unmount or dependency change
+        return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedServers, timeRange, metricType]);
 

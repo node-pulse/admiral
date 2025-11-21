@@ -42,12 +42,24 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
     const [processes, setProcesses] = useState<ProcessData[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // Fetch processes on mount, when selection changes, and auto-refresh every 30s
     useEffect(() => {
-        if (selectedServers.length > 0) {
-            fetchProcesses();
-        } else {
+        // Clear data if no servers selected
+        if (selectedServers.length === 0) {
             setProcesses([]);
+            return;
         }
+
+        // Initial fetch
+        fetchProcesses();
+
+        // Set up auto-refresh interval
+        const interval = setInterval(() => {
+            fetchProcesses();
+        }, 30000); // 30 seconds
+
+        // Cleanup interval on unmount or dependency change
+        return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedServers, timeRange, metric]);
 
