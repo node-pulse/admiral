@@ -55,10 +55,20 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
     const [loading, setLoading] = useState(false);
     const [visibleServers, setVisibleServers] = useState<Set<string>>(new Set());
 
-    // Initialize visible servers when selectedServers changes
+    // Initialize visible servers from processes when they load
     useEffect(() => {
-        setVisibleServers(new Set(selectedServers));
-    }, [selectedServers]);
+        if (processes.length > 0) {
+            // Get unique server_ids from the actual process data
+            const serverIds = Array.from(
+                new Set(processes.map((p) => p.server_id))
+            );
+            // Only update if we don't have any visible servers yet, or if new servers appeared
+            if (visibleServers.size === 0 || serverIds.some(id => !visibleServers.has(id))) {
+                setVisibleServers(new Set(serverIds));
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [processes]);
 
     // Fetch processes on mount, when selection changes, and auto-refresh every 30s
     useEffect(() => {

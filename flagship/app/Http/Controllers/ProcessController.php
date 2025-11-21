@@ -114,20 +114,32 @@ class ProcessController extends Controller
                     num_procs
                 FROM deltas
                 WHERE prev_cpu IS NOT NULL
+            ),
+            ranked_processes AS (
+                SELECT
+                    server_id,
+                    COALESCE(NULLIF(server_name, ''), NULLIF(hostname, ''), server_id) as server_display_name,
+                    process_name,
+                    ROUND(AVG(cpu_percent)::numeric, 2) as avg_cpu_percent,
+                    ROUND(AVG(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as avg_memory_mb,
+                    ROUND(MAX(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as peak_memory_mb,
+                    ROUND(AVG(num_procs)::numeric, 0) as avg_num_procs,
+                    ROW_NUMBER() OVER (PARTITION BY server_id ORDER BY AVG(cpu_percent) DESC) as rank
+                FROM cpu_rates
+                WHERE cpu_percent IS NOT NULL
+                GROUP BY server_id, server_name, hostname, process_name
             )
             SELECT
                 server_id,
-                COALESCE(NULLIF(server_name, ''), NULLIF(hostname, ''), server_id) as server_display_name,
+                server_display_name,
                 process_name,
-                ROUND(AVG(cpu_percent)::numeric, 2) as avg_cpu_percent,
-                ROUND(AVG(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as avg_memory_mb,
-                ROUND(MAX(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as peak_memory_mb,
-                ROUND(AVG(num_procs)::numeric, 0) as avg_num_procs
-            FROM cpu_rates
-            WHERE cpu_percent IS NOT NULL
-            GROUP BY server_id, server_name, hostname, process_name
-            ORDER BY avg_cpu_percent DESC
-            LIMIT ?
+                avg_cpu_percent,
+                avg_memory_mb,
+                peak_memory_mb,
+                avg_num_procs
+            FROM ranked_processes
+            WHERE rank <= ?
+            ORDER BY server_id, rank
         ";
 
         $results = DB::select($sql, $params);
@@ -192,19 +204,31 @@ class ProcessController extends Controller
                     memory_bytes,
                     num_procs
                 FROM deltas
+            ),
+            ranked_processes AS (
+                SELECT
+                    server_id,
+                    COALESCE(NULLIF(server_name, ''), NULLIF(hostname, ''), server_id) as server_display_name,
+                    process_name,
+                    ROUND(AVG(cpu_percent)::numeric, 2) as avg_cpu_percent,
+                    ROUND(AVG(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as avg_memory_mb,
+                    ROUND(MAX(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as peak_memory_mb,
+                    ROUND(AVG(num_procs)::numeric, 0) as avg_num_procs,
+                    ROW_NUMBER() OVER (PARTITION BY server_id ORDER BY AVG(memory_bytes) DESC) as rank
+                FROM cpu_rates
+                GROUP BY server_id, server_name, hostname, process_name
             )
             SELECT
                 server_id,
-                COALESCE(NULLIF(server_name, ''), NULLIF(hostname, ''), server_id) as server_display_name,
+                server_display_name,
                 process_name,
-                ROUND(AVG(cpu_percent)::numeric, 2) as avg_cpu_percent,
-                ROUND(AVG(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as avg_memory_mb,
-                ROUND(MAX(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as peak_memory_mb,
-                ROUND(AVG(num_procs)::numeric, 0) as avg_num_procs
-            FROM cpu_rates
-            GROUP BY server_id, server_name, hostname, process_name
-            ORDER BY avg_memory_mb DESC
-            LIMIT ?
+                avg_cpu_percent,
+                avg_memory_mb,
+                peak_memory_mb,
+                avg_num_procs
+            FROM ranked_processes
+            WHERE rank <= ?
+            ORDER BY server_id, rank
         ";
 
         $results = DB::select($sql, $params);
