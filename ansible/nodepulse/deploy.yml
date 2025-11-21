@@ -9,17 +9,35 @@
 #   - Prometheus Process Exporter (process metrics)
 #
 # Usage:
-#   # Deploy everything (production with mTLS):
-#   ansible-playbook -i inventory.yml deploy.yml
+#   # Deploy everything (REQUIRED: must provide server_id and ingest_endpoint):
+#   ansible-playbook -i inventory.yml deploy.yml \
+#     -e "server_id=abc-123-def-456" \
+#     -e "ingest_endpoint=https://dashboard.example.com"
 #
-#   # Deploy without mTLS (development):
-#   ansible-playbook -i inventory.yml deploy.yml -e "tls_enabled=false"
+#   # Production with mTLS:
+#   ansible-playbook -i inventory.yml deploy.yml \
+#     -e "server_id=abc-123-def-456" \
+#     -e "ingest_endpoint=https://dashboard.example.com" \
+#     -e "tls_enabled=true" \
+#     -e "ca_cert=$(cat ca.crt)" \
+#     -e "client_cert=$(cat client.crt)" \
+#     -e "client_key=$(cat client.key)"
+#
+#   # Development without mTLS:
+#   ansible-playbook -i inventory.yml deploy.yml \
+#     -e "server_id=abc-123-def-456" \
+#     -e "ingest_endpoint=https://dashboard.example.com" \
+#     -e "tls_enabled=false"
 #
 #   # Update to specific version:
-#   ansible-playbook -i inventory.yml deploy.yml -e "agent_version=1.2.3"
+#   ansible-playbook -i inventory.yml deploy.yml \
+#     -e "server_id=abc-123-def-456" \
+#     -e "ingest_endpoint=https://dashboard.example.com" \
+#     -e "agent_version=1.2.3"
 #
 #   # Deploy only specific components:
-#   ansible-playbook -i inventory.yml deploy.yml --tags "nodepulse"
+#   ansible-playbook -i inventory.yml deploy.yml --tags "nodepulse" \
+#     -e "server_id=abc-123-def-456" -e "ingest_endpoint=https://dashboard.example.com"
 #   ansible-playbook -i inventory.yml deploy.yml --tags "node-exporter"
 #   ansible-playbook -i inventory.yml deploy.yml --tags "process-exporter"
 #
@@ -27,7 +45,8 @@
 #   - Linux server (Ubuntu 22.04+, Debian 11+, RHEL 8+, Rocky Linux 8+)
 #   - Root/sudo access
 #   - Internet connectivity for downloads
-#   - For mTLS: certificates must be provided via extra vars
+#   - REQUIRED variables: server_id, ingest_endpoint
+#   - For mTLS: ca_cert, client_cert, client_key must be provided
 #
 # ==============================================================================
 
@@ -362,41 +381,22 @@
           when: tls_enabled | bool
 
         # Configure agent
-        - name: Check if server_id file exists
-          stat:
-            path: "{{ agent_data_dir }}/server_id"
-          register: server_id_file
+        - name: Verify server_id is provided
+          fail:
+            msg: "❌ server_id variable is required but not provided. Pass it via -e 'server_id=xxx-xxx-xxx'"
+          when: server_id is not defined or server_id | length == 0
 
-        - name: Generate new server ID if not exists
-          shell: python3 -c "import uuid; print(uuid.uuid4())"
-          register: new_server_id
-          when: not server_id_file.stat.exists
-
-        - name: Write server ID to file if not exists
+        - name: Write server ID to file (idempotent)
           copy:
-            content: "{{ new_server_id.stdout }}\n"
+            content: "{{ server_id }}\n"
             dest: "{{ agent_data_dir }}/server_id"
             owner: nodepulse
             group: nodepulse
             mode: "0644"
-          when: not server_id_file.stat.exists
-
-        - name: Fix server_id file permissions if already exists
-          file:
-            path: "{{ agent_data_dir }}/server_id"
-            owner: nodepulse
-            group: nodepulse
-            mode: "0644"
-          when: server_id_file.stat.exists
-
-        - name: Read server ID
-          command: cat "{{ agent_data_dir }}/server_id"
-          register: server_id_content
-          changed_when: false
 
         - name: Set server ID variable
           set_fact:
-            agent_server_id_final: "{{ server_id_content.stdout | trim }}"
+            agent_server_id_final: "{{ server_id }}"
 
         - name: Deploy agent configuration
           template:

@@ -382,6 +382,13 @@ func buildInventory(serverIDs []string, requireMTLS bool) (string, []string, err
 
 	var tempKeyFiles []string
 
+	// Validate that each server has a server_id before proceeding
+	for _, server := range servers {
+		if strings.TrimSpace(server.ServerID) == "" {
+			return "", nil, fmt.Errorf("server_id is missing for server %s (%s) - populate servers.server_id before deployment", server.Hostname, server.ID)
+		}
+	}
+
 	// Fetch active CA certificate (shared by all agents)
 	caCertPEM, err := fetchActiveCA()
 	if err != nil {
@@ -427,7 +434,7 @@ func buildInventory(serverIDs []string, requireMTLS bool) (string, []string, err
 		sb.WriteString(fmt.Sprintf("      ansible_host: %s\n", server.SSHHost))
 		sb.WriteString(fmt.Sprintf("      ansible_port: %d\n", server.SSHPort))
 		sb.WriteString(fmt.Sprintf("      ansible_user: %s\n", server.SSHUsername))
-		sb.WriteString(fmt.Sprintf("      agent_server_id: %s\n", server.AgentServerID))
+		sb.WriteString(fmt.Sprintf("      server_id: %s\n", server.ServerID))
 
 		// Decrypt and write SSH key if available
 		if server.EncryptedKeyData != "" {
@@ -465,19 +472,19 @@ func buildInventory(serverIDs []string, requireMTLS bool) (string, []string, err
 		}
 
 		// Fetch and decrypt mTLS client certificate for this server
-		clientCertPEM, clientKeyPEM, err := fetchClientCertificate(server.AgentServerID)
+		clientCertPEM, clientKeyPEM, err := fetchClientCertificate(server.ServerID)
 		if err != nil {
 			if requireMTLS {
-				return "", tempKeyFiles, fmt.Errorf("production deployment requires mTLS but failed to fetch certificate for %s (server_id: %s): %w", server.Hostname, server.AgentServerID, err)
+				return "", tempKeyFiles, fmt.Errorf("production deployment requires mTLS but failed to fetch certificate for %s (server_id: %s): %w", server.Hostname, server.ServerID, err)
 			}
-			logger.Printf("[WARNING] Failed to fetch client certificate for %s (server_id: %s): %v", server.Hostname, server.AgentServerID, err)
+			logger.Printf("[WARNING] Failed to fetch client certificate for %s (server_id: %s): %v", server.Hostname, server.ServerID, err)
 		}
 
 		if clientCertPEM == "" || clientKeyPEM == "" {
 			if requireMTLS {
-				return "", tempKeyFiles, fmt.Errorf("production deployment requires mTLS but no certificate found for %s (server_id: %s)", server.Hostname, server.AgentServerID)
+				return "", tempKeyFiles, fmt.Errorf("production deployment requires mTLS but no certificate found for %s (server_id: %s)", server.Hostname, server.ServerID)
 			}
-			logger.Printf("[WARNING] No client certificate found for %s (server_id: %s)", server.Hostname, server.AgentServerID)
+			logger.Printf("[WARNING] No client certificate found for %s (server_id: %s)", server.Hostname, server.ServerID)
 		} else {
 			// Write client certificate to temp file
 			certFile, err := os.CreateTemp("", "mtls_client_*.crt")
@@ -546,7 +553,7 @@ type ServerInfo struct {
 	SSHUsername      string
 	SSHKeyPath       string // Will be set to temp file path after decryption
 	EncryptedKeyData string // Encrypted private key from database
-	AgentServerID    string // The server_id value used by the agent (text field)
+	ServerID         string // The server_id value used by the agent (text field)
 }
 
 func fetchServers(serverIDs []string) ([]ServerInfo, error) {
@@ -576,7 +583,7 @@ func fetchServers(serverIDs []string) ([]ServerInfo, error) {
 	for rows.Next() {
 		var s ServerInfo
 		var encryptedKey *string // Nullable
-		if err := rows.Scan(&s.ID, &s.Hostname, &s.SSHHost, &s.SSHPort, &s.SSHUsername, &encryptedKey, &s.AgentServerID); err != nil {
+		if err := rows.Scan(&s.ID, &s.Hostname, &s.SSHHost, &s.SSHPort, &s.SSHUsername, &encryptedKey, &s.ServerID); err != nil {
 			return nil, fmt.Errorf("failed to scan server: %w", err)
 		}
 		if encryptedKey != nil {
@@ -704,7 +711,7 @@ func parseAnsibleResults(deploymentID string, rawOutput string, hostnameToServer
 		return fmt.Errorf("no valid JSON object found in Ansible output (first brace: %d, last brace: %d)", firstBrace, lastBrace)
 	}
 
-	jsonOutput := rawOutput[firstBrace:lastBrace+1]
+	jsonOutput := rawOutput[firstBrace : lastBrace+1]
 
 	var result AnsibleJSONOutput
 	if err := json.Unmarshal([]byte(jsonOutput), &result); err != nil {
