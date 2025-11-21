@@ -362,10 +362,32 @@
           when: tls_enabled | bool
 
         # Configure agent
-        - name: Generate and save new server ID
-          shell: python3 -c "import uuid; print(uuid.uuid4())" > "{{ agent_data_dir }}/server_id"
-          args:
-            creates: "{{ agent_data_dir }}/server_id"
+        - name: Check if server_id file exists
+          stat:
+            path: "{{ agent_data_dir }}/server_id"
+          register: server_id_file
+
+        - name: Generate new server ID if not exists
+          shell: python3 -c "import uuid; print(uuid.uuid4())"
+          register: new_server_id
+          when: not server_id_file.stat.exists
+
+        - name: Write server ID to file if not exists
+          copy:
+            content: "{{ new_server_id.stdout }}\n"
+            dest: "{{ agent_data_dir }}/server_id"
+            owner: nodepulse
+            group: nodepulse
+            mode: "0644"
+          when: not server_id_file.stat.exists
+
+        - name: Fix server_id file permissions if already exists
+          file:
+            path: "{{ agent_data_dir }}/server_id"
+            owner: nodepulse
+            group: nodepulse
+            mode: "0644"
+          when: server_id_file.stat.exists
 
         - name: Read server ID
           command: cat "{{ agent_data_dir }}/server_id"
