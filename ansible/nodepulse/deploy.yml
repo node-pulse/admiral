@@ -364,7 +364,7 @@
 
         # Configure agent
         - name: Generate and save new server ID
-          shell: uuidgen > "{{ agent_data_dir }}/server_id"
+          shell: python3 -c "import uuid; print(uuid.uuid4())" > "{{ agent_data_dir }}/server_id"
           args:
             creates: "{{ agent_data_dir }}/server_id"
 
