@@ -7,8 +7,8 @@
 # This script:
 # - Configures production environment variables (APP_ENV=production, hardcoded)
 # - Deploys all services using compose.yml (production build)
-# - ENFORCES mTLS setup (mandatory for production)
 # - Creates initial admin user
+# - mTLS can be enabled later via Flagship dashboard UI
 #
 # This script is idempotent and can be run multiple times safely
 
@@ -21,52 +21,73 @@ PROJECT_ROOT="$(pwd)"
 ENV_FILE="$PROJECT_ROOT/.env"
 ENV_EXAMPLE="$PROJECT_ROOT/.env.example"
 
+# =============================================================================
+# Language Selection
+# =============================================================================
+echo ""
+echo "Please select your preferred language / 请选择您的首选语言:"
+echo "  1) English"
+echo "  2) 中文 (Chinese)"
+echo ""
+read -p "Select language / 选择语言 [1-2] (default: 1): " lang_choice
+lang_choice="${lang_choice:-1}"
+
+case "$lang_choice" in
+    2)
+        LANG_FILE="$PROJECT_ROOT/scripts/lang/cn.sh"
+        ;;
+    1|*)
+        LANG_FILE="$PROJECT_ROOT/scripts/lang/en.sh"
+        ;;
+esac
+
+# Load language file
+if [ ! -f "$LANG_FILE" ]; then
+    echo "Error: Language file not found: $LANG_FILE"
+    echo "错误：找不到语言文件：$LANG_FILE"
+    exit 1
+fi
+
+source "$LANG_FILE"
+
 # Validate project root by checking for compose.yml
 if [ ! -f "$PROJECT_ROOT/compose.yml" ]; then
-    echo "Error: Cannot find compose.yml in: $PROJECT_ROOT"
+    echo "${MSG_ERROR_COMPOSE_NOT_FOUND} $PROJECT_ROOT"
     echo ""
-    echo "Please cd to the project root directory before running this script:"
+    echo "${MSG_HELP_CD}"
     echo "  cd /path/to/admiral"
     echo "  sudo ./deploy.sh"
     exit 1
 fi
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
-
 echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}Node Pulse Admiral - Interactive Deployment${NC}"
+echo -e "${BLUE}${MSG_TITLE}${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    echo -e "${RED}Error: This script must be run as root or with sudo${NC}"
-    echo "Usage: sudo $0"
+    echo -e "${RED}${MSG_ERROR_NOT_ROOT}${NC}"
+    echo "${MSG_USAGE} $0"
     exit 1
 fi
 
 # Check prerequisites
-echo "Checking prerequisites..."
+echo "${MSG_CHECKING_PREREQUISITES}"
 
 if ! command -v docker &> /dev/null; then
-    echo -e "${RED}Error: Docker is not installed${NC}"
-    echo "Please install Docker first: https://docs.docker.com/engine/install/"
+    echo -e "${RED}${MSG_ERROR_DOCKER_NOT_INSTALLED}${NC}"
+    echo "${MSG_INSTALL_DOCKER}"
     exit 1
 fi
 
 if ! command -v docker compose &> /dev/null; then
-    echo -e "${RED}Error: Docker Compose is not installed${NC}"
-    echo "Please install Docker Compose: https://docs.docker.com/compose/install/"
+    echo -e "${RED}${MSG_ERROR_COMPOSE_NOT_INSTALLED}${NC}"
+    echo "${MSG_INSTALL_COMPOSE}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Prerequisites check passed${NC}"
+echo -e "${GREEN}${MSG_PREREQUISITES_PASSED}${NC}"
 echo ""
 
 # Function to generate random secret
@@ -90,14 +111,14 @@ declare -A DESCRIPTIONS
 # Load existing .env if it exists
 LOAD_EXISTING=false
 if [ -f "$ENV_FILE" ]; then
-    echo -e "${YELLOW}Found existing .env file${NC}"
+    echo -e "${YELLOW}${MSG_FOUND_EXISTING_ENV}${NC}"
     echo ""
-    read -p "Do you want to use existing .env configuration? (Y/n): " use_existing
+    read -p "${MSG_USE_EXISTING_ENV}" use_existing
 
     if [[ ! "$use_existing" =~ ^[Nn]$ ]]; then
         LOAD_EXISTING=true
         echo ""
-        echo "Loading current values as defaults..."
+        echo "${MSG_LOADING_DEFAULTS}"
         echo ""
 
         # Parse existing .env file
@@ -111,7 +132,7 @@ if [ -f "$ENV_FILE" ]; then
             CONFIG["$key"]="$value"
         done < "$ENV_FILE"
 
-        echo -e "${GREEN}✓ Loaded existing configuration${NC}"
+        echo -e "${GREEN}${MSG_LOADED_CONFIG}${NC}"
         echo ""
 
         # Skip to deployment
@@ -121,8 +142,8 @@ if [ -f "$ENV_FILE" ]; then
         backup_file="$ENV_FILE.backup.$(date +%Y%m%d_%H%M%S)"
         cp "$ENV_FILE" "$backup_file"
         echo ""
-        echo -e "${GREEN}✓ Backed up existing .env to $backup_file${NC}"
-        echo -e "${CYAN}Starting fresh configuration...${NC}"
+        echo -e "${GREEN}${MSG_BACKED_UP_ENV} $backup_file${NC}"
+        echo -e "${CYAN}${MSG_STARTING_FRESH}${NC}"
         echo ""
     fi
 fi
@@ -155,7 +176,7 @@ prompt_config() {
     else
         read -p "$key: " value
         while [ -z "$value" ]; do
-            echo -e "${RED}This field is required${NC}"
+            echo -e "${RED}${MSG_FIELD_REQUIRED}${NC}"
             read -p "$key: " value
         done
     fi
@@ -166,50 +187,50 @@ prompt_config() {
 # Configure environment variables (skip if using existing .env)
 if [ "$SKIP_CONFIG" != "true" ]; then
     echo -e "${BLUE}================================================${NC}"
-    echo -e "${BLUE}Environment Configuration${NC}"
+    echo -e "${BLUE}${MSG_ENV_CONFIG}${NC}"
     echo -e "${BLUE}================================================${NC}"
     echo ""
 
     # =============================================================================
     # PostgreSQL Configuration
     # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}PostgreSQL Configuration${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo -e "${GREEN}${MSG_POSTGRES_SECTION}${NC}"
+    echo -e "${GREEN}================================================${NC}"
     echo ""
 
-    prompt_config "POSTGRES_USER" "admiral" "PostgreSQL database user"
-    prompt_config "POSTGRES_PASSWORD" "$(generate_secret)" "PostgreSQL password (auto-generated)" "true"
-    prompt_config "POSTGRES_DB" "node_pulse_admiral" "PostgreSQL database name"
+    prompt_config "POSTGRES_USER" "admiral" "${MSG_POSTGRES_USER}"
+    prompt_config "POSTGRES_PASSWORD" "$(generate_secret)" "${MSG_POSTGRES_PASSWORD}" "true"
+    prompt_config "POSTGRES_DB" "node_pulse_admiral" "${MSG_POSTGRES_DB}"
 
     echo ""
 
     # =============================================================================
     # Valkey/Redis Configuration
     # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Valkey/Redis Configuration${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo -e "${GREEN}${MSG_VALKEY_SECTION}${NC}"
+    echo -e "${GREEN}================================================${NC}"
     echo ""
 
     # Hardcoded values (Docker Compose service names)
     CONFIG["VALKEY_HOST"]="valkey"
     CONFIG["VALKEY_PORT"]="6379"
 
-    echo -e "${CYAN}VALKEY_HOST set to 'valkey' (Docker service name)${NC}"
-    echo -e "${CYAN}VALKEY_PORT set to '6379' (default Redis port)${NC}"
+    echo -e "${CYAN}${MSG_VALKEY_HOST_SET}${NC}"
+    echo -e "${CYAN}${MSG_VALKEY_PORT_SET}${NC}"
     echo ""
 
-    prompt_config "VALKEY_PASSWORD" "$(generate_secret)" "Valkey password (auto-generated)" "true"
+    prompt_config "VALKEY_PASSWORD" "$(generate_secret)" "${MSG_VALKEY_PASSWORD}" "true"
 
     echo ""
 
     # =============================================================================
     # Submarines Configuration (Go-Gin Backend)
     # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Submarines Configuration (Go-Gin Backend)${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo -e "${GREEN}${MSG_SUBMARINES_SECTION}${NC}"
+    echo -e "${GREEN}================================================${NC}"
     echo ""
 
     # Hardcoded values (Docker Compose service names and defaults)
@@ -222,34 +243,34 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     CONFIG["DB_PASSWORD"]="${CONFIG[POSTGRES_PASSWORD]}"
     CONFIG["DB_NAME"]="${CONFIG[POSTGRES_DB]}"
 
-    echo -e "${CYAN}DB_HOST set to 'postgres' (Docker service name)${NC}"
-    echo -e "${CYAN}DB_PORT set to '5432' (default PostgreSQL port)${NC}"
-    echo -e "${CYAN}DB_SSLMODE set to 'disable' (internal Docker network)${NC}"
-    echo -e "${CYAN}DB_USER, DB_PASSWORD, DB_NAME auto-set from PostgreSQL config${NC}"
+    echo -e "${CYAN}${MSG_DB_HOST_SET}${NC}"
+    echo -e "${CYAN}${MSG_DB_PORT_SET}${NC}"
+    echo -e "${CYAN}${MSG_DB_SSLMODE_SET}${NC}"
+    echo -e "${CYAN}${MSG_DB_AUTO_SET}${NC}"
     echo ""
 
     # Server settings
     # NOTE: Ports are hardcoded in each service's main.go (no env vars needed)
     CONFIG["GIN_MODE"]="release"
 
-    echo -e "${CYAN}Ports hardcoded in service binaries:${NC}"
-    echo -e "${CYAN}  - Ingest:   8080${NC}"
-    echo -e "${CYAN}  - Status:   8081${NC}"
-    echo -e "${CYAN}  - SSH WS:   6001${NC}"
-    echo -e "${CYAN}  - Flagship: 8090 (Nginx)${NC}"
-    echo -e "${CYAN}GIN_MODE set to 'release' (production mode)${NC}"
+    echo -e "${CYAN}${MSG_PORTS_HARDCODED}${NC}"
+    echo -e "${CYAN}${MSG_PORT_INGEST}${NC}"
+    echo -e "${CYAN}${MSG_PORT_STATUS}${NC}"
+    echo -e "${CYAN}${MSG_PORT_SSHWS}${NC}"
+    echo -e "${CYAN}${MSG_PORT_FLAGSHIP}${NC}"
+    echo -e "${CYAN}${MSG_GIN_MODE_SET}${NC}"
 
     echo ""
 
     # Security
-    prompt_config "JWT_SECRET" "$(generate_secret)" "JWT secret key (auto-generated)" "true"
+    prompt_config "JWT_SECRET" "$(generate_secret)" "${MSG_JWT_SECRET}" "true"
 
     echo ""
 
     # Certificate Configuration (hardcoded for production)
     CONFIG["CERT_VALIDITY_DAYS"]="180"
 
-    echo -e "${CYAN}CERT_VALIDITY_DAYS set to '180' (6 months, production default)${NC}"
+    echo -e "${CYAN}${MSG_CERT_VALIDITY_SET}${NC}"
     echo ""
 
     # Note: mTLS is build-time decision, not runtime toggle
@@ -259,18 +280,18 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     # =============================================================================
     # Flagship Configuration (Laravel Dashboard)
     # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Flagship Configuration (Laravel Dashboard)${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo -e "${GREEN}${MSG_FLAGSHIP_SECTION}${NC}"
+    echo -e "${GREEN}================================================${NC}"
     echo ""
 
     # App settings
-    prompt_config "APP_NAME" "Node Pulse Admiral Flagship" "Application name"
+    prompt_config "APP_NAME" "Node Pulse Admiral Flagship" "${MSG_APP_NAME}"
     # APP_ENV is hardcoded to "production" - this is a production-only deployment script
     CONFIG["APP_ENV"]="production"
-    prompt_config "APP_DEBUG" "false" "Enable debug mode (true/false)"
-    prompt_config "APP_KEY" "$(generate_laravel_key)" "Laravel encryption key (auto-generated)" "true"
-    prompt_config "APP_DOMAIN" "admiral.example.com" "Dashboard Application domain (without https://)"
+    prompt_config "APP_DEBUG" "false" "${MSG_APP_DEBUG}"
+    prompt_config "APP_KEY" "$(generate_laravel_key)" "${MSG_APP_KEY}" "true"
+    prompt_config "APP_DOMAIN" "admiral.example.com" "${MSG_APP_DOMAIN}"
 
     # Construct APP_URL from domain
     CONFIG["APP_URL"]="https://${CONFIG[APP_DOMAIN]}"
@@ -281,16 +302,16 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     CONFIG["APP_FAKER_LOCALE"]="en_US"
     CONFIG["APP_MAINTENANCE_DRIVER"]="file"
 
-    echo -e "${CYAN}APP_LOCALE, APP_FALLBACK_LOCALE set to 'en' (English)${NC}"
-    echo -e "${CYAN}APP_MAINTENANCE_DRIVER set to 'file' (standard Laravel driver)${NC}"
+    echo -e "${CYAN}${MSG_APP_LOCALE_SET}${NC}"
+    echo -e "${CYAN}${MSG_APP_MAINTENANCE_SET}${NC}"
     echo ""
 
     # =============================================================================
     # Master Key Generation (for SSH Private Key Encryption)
     # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Master Key for SSH Private Key Encryption${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo -e "${GREEN}${MSG_MASTER_KEY_SECTION}${NC}"
+    echo -e "${GREEN}================================================${NC}"
     echo ""
 
     SECRETS_DIR="$PROJECT_ROOT/secrets"
@@ -300,52 +321,52 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     mkdir -p "$SECRETS_DIR"
 
     if [ -f "$MASTER_KEY_FILE" ]; then
-        echo -e "${YELLOW}✓ Master key file already exists${NC}"
-        echo "  Location: $MASTER_KEY_FILE"
+        echo -e "${YELLOW}${MSG_MASTER_KEY_EXISTS}${NC}"
+        echo "${MSG_MASTER_KEY_LOCATION} $MASTER_KEY_FILE"
         echo ""
-        read -p "Keep existing master key? (Y/n): " keep_master
+        read -p "${MSG_KEEP_MASTER_KEY}" keep_master
         if [[ ! "$keep_master" =~ ^[Nn]$ ]]; then
-            echo -e "${GREEN}✓ Using existing master key${NC}"
+            echo -e "${GREEN}${MSG_USING_EXISTING_KEY}${NC}"
         else
             # Backup existing key
             backup_file="$MASTER_KEY_FILE.backup.$(date +%Y%m%d_%H%M%S)"
             cp "$MASTER_KEY_FILE" "$backup_file"
-            echo -e "${GREEN}✓ Backed up existing key to $backup_file${NC}"
+            echo -e "${GREEN}${MSG_BACKED_UP_KEY} $backup_file${NC}"
 
             # Generate new key (64 character hex string for AES-256)
             new_master_key=$(openssl rand -hex 32)
             echo "$new_master_key" > "$MASTER_KEY_FILE"
-            chmod 644 "$MASTER_KEY_FILE"
-            echo -e "${GREEN}✓ New master key generated${NC}"
-            echo -e "${YELLOW}⚠️  All existing SSH keys will need to be re-imported!${NC}"
+            chmod 600 "$MASTER_KEY_FILE"
+            echo -e "${GREEN}${MSG_NEW_KEY_GENERATED}${NC}"
+            echo -e "${YELLOW}${MSG_REENCRYPT_WARNING}${NC}"
         fi
     else
-        echo -e "${CYAN}Generating new master key for SSH private key encryption...${NC}"
+        echo -e "${CYAN}${MSG_GENERATING_KEY}${NC}"
 
         # Generate new key (64 character hex string for AES-256)
         new_master_key=$(openssl rand -hex 32)
         echo "$new_master_key" > "$MASTER_KEY_FILE"
-        chmod 644 "$MASTER_KEY_FILE"
+        chmod 600 "$MASTER_KEY_FILE"
 
-        echo -e "${GREEN}✓ Master key generated successfully${NC}"
-        echo "  Location: $MASTER_KEY_FILE"
-        echo "  Format: 64-character hex (32 bytes for AES-256-CBC)"
-        echo "  Permissions: 644 (readable by containers)"
+        echo -e "${GREEN}${MSG_KEY_GENERATED}${NC}"
+        echo "${MSG_MASTER_KEY_LOCATION} $MASTER_KEY_FILE"
+        echo "${MSG_KEY_FORMAT}"
+        echo "${MSG_KEY_PERMISSIONS}"
         echo ""
-        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "${YELLOW}⚠️  IMPORTANT: BACKUP THIS KEY AFTER DEPLOYMENT!${NC}"
-        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${YELLOW}================================================${NC}"
+        echo -e "${YELLOW}${MSG_BACKUP_KEY_WARNING}${NC}"
+        echo -e "${YELLOW}================================================${NC}"
         echo ""
-        echo "This key encrypts all SSH private keys."
-        echo "If lost, you will NOT be able to decrypt them!"
+        echo "${MSG_KEY_ENCRYPTS}"
+        echo "${MSG_KEY_LOST}"
         echo ""
-        echo "The deployment will show you the key location at the end."
-        echo "Recommended backup locations:"
-        echo "  • Password manager (1Password, Bitwarden, etc.)"
-        echo "  • Encrypted USB drive"
-        echo "  • Secure cloud storage (encrypted)"
+        echo "${MSG_KEY_BACKUP_INFO}"
+        echo "${MSG_KEY_BACKUP_LOCATIONS}"
+        echo "${MSG_KEY_BACKUP_PASSWORD_MANAGER}"
+        echo "${MSG_KEY_BACKUP_USB}"
+        echo "${MSG_KEY_BACKUP_CLOUD}"
         echo ""
-        read -p "Press Enter to continue (you can backup the key after deployment completes)..."
+        read -p "${MSG_PRESS_ENTER}"
     fi
 
     echo ""
@@ -355,9 +376,9 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     CONFIG["LOG_STACK"]="single"
     CONFIG["LOG_DEPRECATIONS_CHANNEL"]="null"
 
-    prompt_config "LOG_LEVEL" "info" "Log level (debug/info/warning/error)"
+    prompt_config "LOG_LEVEL" "info" "${MSG_LOG_LEVEL}"
 
-    echo -e "${CYAN}LOG_CHANNEL set to 'stack', LOG_STACK set to 'single'${NC}"
+    echo -e "${CYAN}${MSG_LOG_CHANNEL_SET}${NC}"
     echo ""
 
     # Database connection (fixed to PostgreSQL)
@@ -367,8 +388,8 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     CONFIG["DB_DATABASE"]="${CONFIG[POSTGRES_DB]}"
     CONFIG["DB_USERNAME"]="${CONFIG[POSTGRES_USER]}"
 
-    echo -e "${CYAN}DB_CONNECTION set to pgsql (PostgreSQL only)${NC}"
-    echo -e "${CYAN}DB_DATABASE and DB_USERNAME auto-set from PostgreSQL config${NC}"
+    echo -e "${CYAN}${MSG_DB_CONNECTION_SET}${NC}"
+    echo -e "${CYAN}${MSG_DB_DATABASE_AUTO_SET}${NC}"
     echo ""
 
     # Sessions & Cache (hardcoded - using Valkey/Redis for production)
@@ -384,40 +405,40 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     CONFIG["REDIS_PORT"]="${CONFIG[VALKEY_PORT]}"
     CONFIG["REDIS_PASSWORD"]="${CONFIG[VALKEY_PASSWORD]}"
 
-    echo -e "${CYAN}Sessions, Cache, Queue configured to use Redis (Valkey)${NC}"
-    echo -e "${CYAN}SESSION_SECURE_COOKIE set to 'true' (requires HTTPS in production)${NC}"
-    echo -e "${CYAN}REDIS_HOST, REDIS_PORT, REDIS_PASSWORD auto-set from Valkey config${NC}"
+    echo -e "${CYAN}${MSG_SESSION_CONFIG}${NC}"
+    echo -e "${CYAN}${MSG_SESSION_SECURE_SET}${NC}"
+    echo -e "${CYAN}${MSG_REDIS_AUTO_SET}${NC}"
     echo ""
 
     # =============================================================================
     # Mail Configuration (Optional)
     # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Mail Configuration (Optional)${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo -e "${GREEN}${MSG_MAIL_SECTION}${NC}"
+    echo -e "${GREEN}================================================${NC}"
     echo ""
 
-    echo -e "${CYAN}Configure email delivery?${NC}"
-    echo "  1) Log only (no emails sent, for testing)"
-    echo "  2) SMTP (configure mail server)"
+    echo -e "${CYAN}${MSG_MAIL_CONFIGURE}${NC}"
+    echo "${MSG_MAIL_OPTION_LOG}"
+    echo "${MSG_MAIL_OPTION_SMTP}"
     echo ""
 
-    read -p "Select option [1-2] (default: 1): " mail_choice
+    read -p "${MSG_MAIL_SELECT}" mail_choice
     mail_choice="${mail_choice:-1}"
 
     case "$mail_choice" in
         2)
             CONFIG["MAIL_MAILER"]="smtp"
             echo ""
-            prompt_config "MAIL_HOST" "smtp.example.com" "SMTP host"
-            prompt_config "MAIL_PORT" "587" "SMTP port (587 for TLS, 465 for SSL)"
-            prompt_config "MAIL_USERNAME" "" "SMTP username"
-            prompt_config "MAIL_PASSWORD" "" "SMTP password" "true"
-            prompt_config "MAIL_ENCRYPTION" "tls" "Encryption (tls/ssl/null)"
-            prompt_config "MAIL_FROM_ADDRESS" "noreply@example.com" "From email address"
+            prompt_config "MAIL_HOST" "smtp.example.com" "${MSG_MAIL_HOST}"
+            prompt_config "MAIL_PORT" "587" "${MSG_MAIL_PORT}"
+            prompt_config "MAIL_USERNAME" "" "${MSG_MAIL_USERNAME}"
+            prompt_config "MAIL_PASSWORD" "" "${MSG_MAIL_PASSWORD}" "true"
+            prompt_config "MAIL_ENCRYPTION" "tls" "${MSG_MAIL_ENCRYPTION}"
+            prompt_config "MAIL_FROM_ADDRESS" "noreply@example.com" "${MSG_MAIL_FROM}"
             CONFIG["MAIL_FROM_NAME"]="\${APP_NAME}"
             echo ""
-            echo -e "${GREEN}✓ SMTP mail configured${NC}"
+            echo -e "${GREEN}${MSG_SMTP_CONFIGURED}${NC}"
             ;;
         1|*)
             CONFIG["MAIL_MAILER"]="log"
@@ -429,7 +450,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
             CONFIG["MAIL_FROM_ADDRESS"]="noreply@nodepulse.local"
             CONFIG["MAIL_FROM_NAME"]="\${APP_NAME}"
             echo ""
-            echo -e "${GREEN}✓ Mail set to 'log' driver (emails logged, not sent)${NC}"
+            echo -e "${GREEN}${MSG_MAIL_LOG_SET}${NC}"
             ;;
     esac
 
@@ -443,29 +464,29 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     # =============================================================================
     # CAPTCHA Configuration
     # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}CAPTCHA Anti-Bot Protection (Optional)${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo -e "${GREEN}${MSG_CAPTCHA_SECTION}${NC}"
+    echo -e "${GREEN}================================================${NC}"
     echo ""
 
-    echo -e "${CYAN}Choose CAPTCHA provider:${NC}"
-    echo "  1) Cloudflare Turnstile (recommended - privacy-friendly)"
-    echo "  2) Google reCAPTCHA v2 (checkbox)"
-    echo "  3) Google reCAPTCHA v3 (invisible)"
-    echo "  4) None (skip CAPTCHA configuration)"
+    echo -e "${CYAN}${MSG_CAPTCHA_CHOOSE}${NC}"
+    echo "${MSG_CAPTCHA_TURNSTILE}"
+    echo "${MSG_CAPTCHA_RECAPTCHA_V2}"
+    echo "${MSG_CAPTCHA_RECAPTCHA_V3}"
+    echo "${MSG_CAPTCHA_NONE}"
     echo ""
 
-    read -p "Select option [1-4] (recommend: 1; default: 4): " captcha_choice
+    read -p "${MSG_CAPTCHA_SELECT}" captcha_choice
     captcha_choice="${captcha_choice:-4}"
 
     case "$captcha_choice" in
         1)
             CONFIG["CAPTCHA_PROVIDER"]="turnstile"
             echo ""
-            echo -e "${CYAN}Get your Turnstile keys at: https://dash.cloudflare.com/${NC}"
+            echo -e "${CYAN}${MSG_CAPTCHA_TURNSTILE_URL}${NC}"
             echo ""
-            prompt_config "TURNSTILE_SITE_KEY" "" "Turnstile Site Key"
-            prompt_config "TURNSTILE_SECRET_KEY" "" "Turnstile Secret Key" "true"
+            prompt_config "TURNSTILE_SITE_KEY" "" "${MSG_CAPTCHA_TURNSTILE_SITE_KEY}"
+            prompt_config "TURNSTILE_SECRET_KEY" "" "${MSG_CAPTCHA_TURNSTILE_SECRET}" "true"
             CONFIG["RECAPTCHA_V2_SITE_KEY"]=""
             CONFIG["RECAPTCHA_V2_SECRET_KEY"]=""
             CONFIG["RECAPTCHA_V3_SITE_KEY"]=""
@@ -475,10 +496,10 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         2)
             CONFIG["CAPTCHA_PROVIDER"]="recaptcha_v2"
             echo ""
-            echo -e "${CYAN}Get your reCAPTCHA v2 keys at: https://www.google.com/recaptcha/admin${NC}"
+            echo -e "${CYAN}${MSG_CAPTCHA_RECAPTCHA_V2_URL}${NC}"
             echo ""
-            prompt_config "RECAPTCHA_V2_SITE_KEY" "" "reCAPTCHA v2 Site Key"
-            prompt_config "RECAPTCHA_V2_SECRET_KEY" "" "reCAPTCHA v2 Secret Key" "true"
+            prompt_config "RECAPTCHA_V2_SITE_KEY" "" "${MSG_CAPTCHA_RECAPTCHA_V2_SITE_KEY}"
+            prompt_config "RECAPTCHA_V2_SECRET_KEY" "" "${MSG_CAPTCHA_RECAPTCHA_V2_SECRET}" "true"
             CONFIG["TURNSTILE_SITE_KEY"]=""
             CONFIG["TURNSTILE_SECRET_KEY"]=""
             CONFIG["RECAPTCHA_V3_SITE_KEY"]=""
@@ -488,11 +509,11 @@ if [ "$SKIP_CONFIG" != "true" ]; then
         3)
             CONFIG["CAPTCHA_PROVIDER"]="recaptcha_v3"
             echo ""
-            echo -e "${CYAN}Get your reCAPTCHA v3 keys at: https://www.google.com/recaptcha/admin${NC}"
+            echo -e "${CYAN}${MSG_CAPTCHA_RECAPTCHA_V3_URL}${NC}"
             echo ""
-            prompt_config "RECAPTCHA_V3_SITE_KEY" "" "reCAPTCHA v3 Site Key"
-            prompt_config "RECAPTCHA_V3_SECRET_KEY" "" "reCAPTCHA v3 Secret Key" "true"
-            prompt_config "RECAPTCHA_V3_SCORE_THRESHOLD" "0.5" "Score threshold (0.0=bot to 1.0=human)"
+            prompt_config "RECAPTCHA_V3_SITE_KEY" "" "${MSG_CAPTCHA_RECAPTCHA_V3_SITE_KEY}"
+            prompt_config "RECAPTCHA_V3_SECRET_KEY" "" "${MSG_CAPTCHA_RECAPTCHA_V3_SECRET}" "true"
+            prompt_config "RECAPTCHA_V3_SCORE_THRESHOLD" "0.5" "${MSG_CAPTCHA_RECAPTCHA_V3_THRESHOLD}"
             CONFIG["TURNSTILE_SITE_KEY"]=""
             CONFIG["TURNSTILE_SECRET_KEY"]=""
             CONFIG["RECAPTCHA_V2_SITE_KEY"]=""
@@ -509,7 +530,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
             CONFIG["RECAPTCHA_V3_SCORE_THRESHOLD"]="0.5"
             CONFIG["CAPTCHA_ENABLED_FEATURES"]=""
             echo ""
-            echo -e "${YELLOW}Skipping CAPTCHA configuration (can be enabled later)${NC}"
+            echo -e "${YELLOW}${MSG_CAPTCHA_SKIPPED}${NC}"
             ;;
     esac
 
@@ -517,19 +538,19 @@ if [ "$SKIP_CONFIG" != "true" ]; then
 
     # Build comma-separated list of enabled features
     if [ -n "${CONFIG[CAPTCHA_PROVIDER]}" ]; then
-        echo -e "${CYAN}Enable CAPTCHA for which pages?${NC}"
+        echo -e "${CYAN}${MSG_CAPTCHA_ENABLE_PAGES}${NC}"
         enabled_features=()
 
-        read -p "Enable for Login page? (Y/n): " enable_login
+        read -p "${MSG_CAPTCHA_LOGIN}" enable_login
         [[ ! "$enable_login" =~ ^[Nn]$ ]] && enabled_features+=("login")
 
-        read -p "Enable for Registration page? (Y/n): " enable_register
+        read -p "${MSG_CAPTCHA_REGISTER}" enable_register
         [[ ! "$enable_register" =~ ^[Nn]$ ]] && enabled_features+=("register")
 
-        read -p "Enable for Forgot Password page? (Y/n): " enable_forgot
+        read -p "${MSG_CAPTCHA_FORGOT}" enable_forgot
         [[ ! "$enable_forgot" =~ ^[Nn]$ ]] && enabled_features+=("forgot_password")
 
-        read -p "Enable for Reset Password page? (y/N): " enable_reset
+        read -p "${MSG_CAPTCHA_RESET}" enable_reset
         [[ "$enable_reset" =~ ^[Yy]$ ]] && enabled_features+=("reset_password")
 
         # Join array with commas
@@ -543,35 +564,35 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     # =============================================================================
     # Production Domain Configuration (Optional)
     # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Production Domain Configuration (Optional)${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo -e "${GREEN}${MSG_DOMAIN_SECTION}${NC}"
+    echo -e "${GREEN}================================================${NC}"
     echo ""
 
     # Use APP_DOMAIN as default for FLAGSHIP_DOMAIN
-    prompt_config "FLAGSHIP_DOMAIN" "${CONFIG[APP_DOMAIN]}" "Dashboard application domain (aka Flagship)"
+    prompt_config "FLAGSHIP_DOMAIN" "${CONFIG[APP_DOMAIN]}" "${MSG_FLAGSHIP_DOMAIN}"
 
     echo ""
 
     # =============================================================================
     # Admin User Registration
     # =============================================================================
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Dashboard Admin User Registration${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo -e "${GREEN}${MSG_ADMIN_SECTION}${NC}"
+    echo -e "${GREEN}================================================${NC}"
     echo ""
-    echo "Create the initial admin user for the dashboard."
-    echo "You will use these credentials to log in after deployment."
+    echo "${MSG_ADMIN_INFO}"
+    echo "${MSG_ADMIN_USAGE}"
     echo ""
 
-    prompt_config "ADMIN_NAME" "Administrator" "Admin user full name"
-    prompt_config "ADMIN_EMAIL" "admin@example.com" "Admin user email (used for login)"
-    prompt_config "ADMIN_PASSWORD" "" "Admin user password (min 8 characters)" "true"
+    prompt_config "ADMIN_NAME" "Administrator" "${MSG_ADMIN_NAME}"
+    prompt_config "ADMIN_EMAIL" "admin@example.com" "${MSG_ADMIN_EMAIL}"
+    prompt_config "ADMIN_PASSWORD" "" "${MSG_ADMIN_PASSWORD}" "true"
 
     # Validate password length
     while [[ ${#CONFIG["ADMIN_PASSWORD"]} -lt 8 ]]; do
-        echo -e "${RED}Password must be at least 8 characters${NC}"
-        prompt_config "ADMIN_PASSWORD" "" "Admin user password (min 8 characters)" "true"
+        echo -e "${RED}${MSG_PASSWORD_TOO_SHORT}${NC}"
+        prompt_config "ADMIN_PASSWORD" "" "${MSG_ADMIN_PASSWORD}" "true"
     done
 
     echo ""
@@ -586,83 +607,83 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     # Review Configuration
     # =============================================================================
     while true; do
-        echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "${BLUE}Configuration Review${NC}"
-        echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${BLUE}================================================${NC}"
+        echo -e "${BLUE}${MSG_REVIEW}${NC}"
+        echo -e "${BLUE}================================================${NC}"
         echo ""
 
-        echo -e "${GREEN}PostgreSQL:${NC}"
-        echo "  User:     ${CONFIG[POSTGRES_USER]}"
-        echo "  Password: ${CONFIG[POSTGRES_PASSWORD]:0:8}****"
-        echo "  Database: ${CONFIG[POSTGRES_DB]}"
+        echo -e "${GREEN}${MSG_REVIEW_POSTGRES}${NC}"
+        echo "${MSG_REVIEW_USER}     ${CONFIG[POSTGRES_USER]}"
+        echo "${MSG_REVIEW_PASSWORD} ${CONFIG[POSTGRES_PASSWORD]:0:8}****"
+        echo "${MSG_REVIEW_DATABASE} ${CONFIG[POSTGRES_DB]}"
         echo ""
 
-        echo -e "${GREEN}Valkey/Redis:${NC}"
-        echo "  Password: ${CONFIG[VALKEY_PASSWORD]:0:8}****"
+        echo -e "${GREEN}${MSG_REVIEW_VALKEY}${NC}"
+        echo "${MSG_REVIEW_PASSWORD} ${CONFIG[VALKEY_PASSWORD]:0:8}****"
         echo ""
 
-        echo -e "${GREEN}Submarines (Go-Gin):${NC}"
-        echo "  JWT Secret: ${CONFIG[JWT_SECRET]:0:8}****"
-        echo "  Ports: 8080 ingest, 8081 status (hardcoded in binaries)"
+        echo -e "${GREEN}${MSG_REVIEW_SUBMARINES}${NC}"
+        echo "${MSG_REVIEW_JWT} ${CONFIG[JWT_SECRET]:0:8}****"
+        echo "${MSG_REVIEW_PORTS}"
         echo ""
 
-        echo -e "${GREEN}Flagship (Laravel):${NC}"
-        echo "  App Name:   ${CONFIG[APP_NAME]}"
-        echo "  App Env:    ${CONFIG[APP_ENV]} (hardcoded, production-only)"
-        echo "  App Debug:  ${CONFIG[APP_DEBUG]}"
-        echo "  App Domain: ${CONFIG[APP_DOMAIN]}"
-        echo "  App URL:    ${CONFIG[APP_URL]}"
-        echo "  App Key:    ${CONFIG[APP_KEY]:0:12}****"
+        echo -e "${GREEN}${MSG_REVIEW_FLAGSHIP}${NC}"
+        echo "${MSG_REVIEW_APP_NAME}   ${CONFIG[APP_NAME]}"
+        echo "${MSG_REVIEW_APP_ENV}    ${CONFIG[APP_ENV]} ${MSG_REVIEW_APP_ENV_NOTE}"
+        echo "${MSG_REVIEW_APP_DEBUG}  ${CONFIG[APP_DEBUG]}"
+        echo "${MSG_REVIEW_APP_DOMAIN} ${CONFIG[APP_DOMAIN]}"
+        echo "${MSG_REVIEW_APP_URL}    ${CONFIG[APP_URL]}"
+        echo "${MSG_REVIEW_APP_KEY}    ${CONFIG[APP_KEY]:0:12}****"
         echo ""
 
-        echo -e "${GREEN}CAPTCHA Protection:${NC}"
+        echo -e "${GREEN}${MSG_REVIEW_CAPTCHA}${NC}"
         if [ -n "${CONFIG[CAPTCHA_PROVIDER]}" ]; then
-            echo "  Provider:          ${CONFIG[CAPTCHA_PROVIDER]}"
-            echo "  Enabled Features:  ${CONFIG[CAPTCHA_ENABLED_FEATURES]}"
+            echo "${MSG_REVIEW_CAPTCHA_PROVIDER}          ${CONFIG[CAPTCHA_PROVIDER]}"
+            echo "${MSG_REVIEW_CAPTCHA_FEATURES}  ${CONFIG[CAPTCHA_ENABLED_FEATURES]}"
         else
-            echo "  Status:            Disabled"
+            echo "${MSG_REVIEW_CAPTCHA_DISABLED}"
         fi
         echo ""
 
-        echo -e "${GREEN}Production Domain (Caddy):${NC}"
-        echo "  Flagship: ${CONFIG[FLAGSHIP_DOMAIN]}"
+        echo -e "${GREEN}${MSG_REVIEW_DOMAIN}${NC}"
+        echo "${MSG_REVIEW_FLAGSHIP_DOMAIN} ${CONFIG[FLAGSHIP_DOMAIN]}"
         echo ""
 
-        echo -e "${GREEN}Mail Configuration:${NC}"
+        echo -e "${GREEN}${MSG_REVIEW_MAIL}${NC}"
         if [ "${CONFIG[MAIL_MAILER]}" = "smtp" ]; then
-            echo "  Driver:   SMTP"
-            echo "  Host:     ${CONFIG[MAIL_HOST]}:${CONFIG[MAIL_PORT]}"
-            echo "  From:     ${CONFIG[MAIL_FROM_ADDRESS]}"
+            echo "${MSG_REVIEW_MAIL_DRIVER}   ${MSG_REVIEW_MAIL_SMTP}"
+            echo "${MSG_REVIEW_MAIL_HOST}     ${CONFIG[MAIL_HOST]}:${CONFIG[MAIL_PORT]}"
+            echo "${MSG_REVIEW_MAIL_FROM}     ${CONFIG[MAIL_FROM_ADDRESS]}"
         else
-            echo "  Driver:   Log (emails not sent, for testing)"
+            echo "${MSG_REVIEW_MAIL_DRIVER}   ${MSG_REVIEW_MAIL_LOG}"
         fi
         echo ""
 
-        echo -e "${GREEN}Admin User:${NC}"
-        echo "  Name:    ${CONFIG[ADMIN_NAME]}"
-        echo "  Email:   ${CONFIG[ADMIN_EMAIL]}"
-        echo "  Password: ********** (hidden)"
+        echo -e "${GREEN}${MSG_REVIEW_ADMIN}${NC}"
+        echo "${MSG_REVIEW_ADMIN_NAME}    ${CONFIG[ADMIN_NAME]}"
+        echo "${MSG_REVIEW_ADMIN_EMAIL}   ${CONFIG[ADMIN_EMAIL]}"
+        echo "${MSG_REVIEW_ADMIN_PASSWORD}"
         echo ""
 
-        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        read -p "Is this configuration correct? (yes/no/restart): " confirm
+        echo -e "${YELLOW}================================================${NC}"
+        read -p "${MSG_REVIEW_CONFIRM}" confirm
 
         case "$confirm" in
             [Yy]es|[Yy])
                 echo ""
-                echo -e "${GREEN}✓ Configuration confirmed${NC}"
+                echo -e "${GREEN}${MSG_CONFIG_CONFIRMED}${NC}"
                 echo ""
                 break
                 ;;
             [Nn]o|[Nn])
                 echo ""
-                echo -e "${YELLOW}Configuration aborted by user${NC}"
-                echo "Exiting without making changes..."
+                echo -e "${YELLOW}${MSG_CONFIG_ABORTED}${NC}"
+                echo "${MSG_CONFIG_EXITING}"
                 exit 0
                 ;;
             [Rr]estart|[Rr])
                 echo ""
-                echo -e "${YELLOW}Restarting configuration...${NC}"
+                echo -e "${YELLOW}${MSG_CONFIG_RESTARTING}${NC}"
                 echo ""
                 # Clear CONFIG array and restart
                 unset CONFIG
@@ -670,7 +691,7 @@ if [ "$SKIP_CONFIG" != "true" ]; then
                 exec "$0" "$@"
                 ;;
             *)
-                echo -e "${RED}Invalid option. Please enter 'yes', 'no', or 'restart'${NC}"
+                echo -e "${RED}${MSG_CONFIG_INVALID}${NC}"
                 echo ""
                 ;;
         esac
@@ -679,9 +700,9 @@ if [ "$SKIP_CONFIG" != "true" ]; then
     # =============================================================================
     # Write .env file
     # =============================================================================
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo "Writing .env file..."
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}================================================${NC}"
+    echo "${MSG_WRITING_ENV}"
+    echo -e "${BLUE}================================================${NC}"
     echo ""
 
     cat > "$ENV_FILE" << EOF
@@ -827,7 +848,7 @@ DATABASE_URL=${CONFIG[DATABASE_URL]}
 EOF
 
     chmod 600 "$ENV_FILE"
-    echo -e "${GREEN}✓ .env file created successfully${NC}"
+    echo -e "${GREEN}${MSG_ENV_CREATED}${NC}"
     echo ""
 fi
 
@@ -835,7 +856,7 @@ fi
 # Verify Master Key Exists
 # =============================================================================
 echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}Verifying Master Key${NC}"
+echo -e "${BLUE}${MSG_VERIFYING_KEY}${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
@@ -848,7 +869,7 @@ mkdir -p "$SECRETS_DIR"
 # =============================================================================
 # Ensure Ansible Directory Structure Exists
 # =============================================================================
-echo -e "${BLUE}Ensuring ansible directory structure...${NC}"
+echo -e "${BLUE}${MSG_ENSURING_ANSIBLE}${NC}"
 
 ANSIBLE_DIR="$PROJECT_ROOT/ansible"
 CATALOG_DIR="$ANSIBLE_DIR/catalog"
@@ -856,59 +877,59 @@ CATALOG_DIR="$ANSIBLE_DIR/catalog"
 # Create ansible/catalog directory if it doesn't exist
 if [ ! -d "$CATALOG_DIR" ]; then
     mkdir -p "$CATALOG_DIR"
-    echo -e "${GREEN}✓ Created ansible/catalog directory${NC}"
+    echo -e "${GREEN}${MSG_CATALOG_CREATED}${NC}"
 else
-    echo -e "${GREEN}✓ ansible/catalog directory already exists${NC}"
+    echo -e "${GREEN}${MSG_CATALOG_EXISTS}${NC}"
 fi
 
 # Set proper permissions for shared access
 # The ansible/catalog directory is shared between:
-# - flagship container (runs as laravel user, UID 1000)
+# - flagship container (PHP-FPM/Nginx run as laravel user, typically UID 1000)
 # - submarines-deployer container (runs as root, UID 0)
-# Use 777 on catalog to allow both users to write
+# Use 777 to allow both containers to write without UID/GID mapping issues
 chmod -R 777 "$CATALOG_DIR"
 
 echo ""
 
 if [ ! -f "$MASTER_KEY_FILE" ]; then
-    echo -e "${RED}✗ Master key file not found!${NC}"
-    echo "  Expected location: $MASTER_KEY_FILE"
+    echo -e "${RED}${MSG_KEY_NOT_FOUND}${NC}"
+    echo "${MSG_KEY_EXPECTED} $MASTER_KEY_FILE"
     echo ""
-    echo -e "${YELLOW}The master key should have been created during configuration.${NC}"
-    echo -e "${YELLOW}Creating it now...${NC}"
+    echo -e "${YELLOW}${MSG_KEY_SHOULD_EXIST}${NC}"
+    echo -e "${YELLOW}${MSG_CREATING_KEY_NOW}${NC}"
     echo ""
 
     # Generate new key (64 character hex string for AES-256)
     new_master_key=$(openssl rand -hex 32)
     echo "$new_master_key" > "$MASTER_KEY_FILE"
-    chmod 644 "$MASTER_KEY_FILE"
+    chmod 600 "$MASTER_KEY_FILE"
 
-    echo -e "${GREEN}✓ Master key generated${NC}"
-    echo "  Location: $MASTER_KEY_FILE"
-    echo "  Format: 64-character hex (32 bytes for AES-256-CBC)"
+    echo -e "${GREEN}${MSG_KEY_GENERATED}${NC}"
+    echo "${MSG_MASTER_KEY_LOCATION} $MASTER_KEY_FILE"
+    echo "${MSG_KEY_FORMAT}"
     echo ""
-    echo -e "${YELLOW}Remember to backup this key after deployment!${NC}"
+    echo -e "${YELLOW}${MSG_KEY_BACKUP_INFO}${NC}"
     echo ""
 else
-    echo -e "${GREEN}✓ Master key file exists${NC}"
-    echo "  Location: $MASTER_KEY_FILE"
+    echo -e "${GREEN}${MSG_KEY_EXISTS_VERIFIED}${NC}"
+    echo "${MSG_MASTER_KEY_LOCATION} $MASTER_KEY_FILE"
 
     # Verify permissions (only fix if actually incorrect)
     # Use ls to check permissions (more portable than stat)
     CURRENT_PERMS=$(ls -l "$MASTER_KEY_FILE" | awk '{print $1}')
-    EXPECTED_PERMS="-rw-r--r--"  # Symbolic representation of 644
+    EXPECTED_PERMS="-rw-------"  # Symbolic representation of 600 (owner read/write only)
 
     if [ "$CURRENT_PERMS" != "$EXPECTED_PERMS" ]; then
-        echo -e "${YELLOW}⚠  Fixing file permissions (should be 644 for container access)${NC}"
-        echo -e "${YELLOW}   Current: $CURRENT_PERMS, Expected: $EXPECTED_PERMS${NC}"
-        chmod 644 "$MASTER_KEY_FILE"
-        echo -e "${GREEN}✓ Permissions corrected${NC}"
+        echo -e "${YELLOW}${MSG_FIXING_PERMISSIONS}${NC}"
+        echo -e "${YELLOW}${MSG_CURRENT_PERMS} $CURRENT_PERMS, ${MSG_EXPECTED_PERMS} $EXPECTED_PERMS${NC}"
+        chmod 600 "$MASTER_KEY_FILE"
+        echo -e "${GREEN}${MSG_PERMISSIONS_CORRECTED}${NC}"
     fi
 
     # Verify file is not empty
     if [ ! -s "$MASTER_KEY_FILE" ]; then
-        echo -e "${RED}✗ Master key file is empty!${NC}"
-        echo "Please regenerate the master key or restore from backup."
+        echo -e "${RED}${MSG_KEY_FILE_EMPTY}${NC}"
+        echo "${MSG_KEY_REGENERATE}"
         exit 1
     fi
 
@@ -919,15 +940,15 @@ fi
 # Pull Docker images
 # =============================================================================
 echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}Pulling Docker Images${NC}"
+echo -e "${BLUE}${MSG_PULLING_IMAGES}${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
 # Pull images (compose.yml already validated at startup)
 if ! docker compose pull; then
-    echo -e "${YELLOW}⚠  Warning: Failed to pull some Docker images${NC}"
-    echo "This may be normal if images need to be built locally."
-    echo "Continuing with deployment..."
+    echo -e "${YELLOW}${MSG_PULL_WARNING}${NC}"
+    echo "${MSG_PULL_INFO}"
+    echo "${MSG_PULL_CONTINUING}"
 fi
 
 # =============================================================================
@@ -935,26 +956,26 @@ fi
 # =============================================================================
 echo ""
 echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}Validating deployment files${NC}"
+echo -e "${BLUE}${MSG_VALIDATING_FILES}${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
 # Check compose.yml
 if [ ! -f "$PROJECT_ROOT/compose.yml" ]; then
-    echo -e "${RED}Error: compose.yml not found${NC}"
+    echo -e "${RED}${MSG_COMPOSE_NOT_FOUND}${NC}"
     exit 1
 fi
-echo -e "${GREEN}✓ compose.yml found${NC}"
+echo -e "${GREEN}${MSG_COMPOSE_FOUND}${NC}"
 
 # Check Caddyfile (production)
 if [ -f "$PROJECT_ROOT/caddy/Caddyfile.prod" ]; then
-    echo -e "${GREEN}✓ caddy/Caddyfile.prod found${NC}"
+    echo -e "${GREEN}${MSG_CADDYFILE_FOUND}${NC}"
 else
-    echo -e "${RED}Error: caddy/Caddyfile.prod not found${NC}"
-    echo -e "${YELLOW}This is a production deployment script and requires Caddyfile.prod${NC}"
+    echo -e "${RED}${MSG_CADDYFILE_NOT_FOUND}${NC}"
+    echo -e "${YELLOW}${MSG_CADDYFILE_REQUIRED}${NC}"
     echo ""
-    echo "Current directory: $PROJECT_ROOT"
-    echo "Looking for: $PROJECT_ROOT/caddy/Caddyfile.prod"
+    echo "${MSG_CURRENT_DIR} $PROJECT_ROOT"
+    echo "${MSG_LOOKING_FOR} $PROJECT_ROOT/caddy/Caddyfile.prod"
     exit 1
 fi
 
@@ -965,7 +986,7 @@ echo ""
 # =============================================================================
 echo ""
 echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}Starting Services${NC}"
+echo -e "${BLUE}${MSG_STARTING_SERVICES}${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
@@ -975,7 +996,7 @@ docker compose up -d
 # Wait for services to be healthy
 # =============================================================================
 echo ""
-echo "Waiting for services to be ready..."
+echo "${MSG_WAITING_SERVICES}"
 sleep 5
 
 # =============================================================================
@@ -983,16 +1004,18 @@ sleep 5
 # =============================================================================
 echo ""
 echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}Creating Admin User${NC}"
+echo -e "${BLUE}${MSG_CREATING_ADMIN}${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
 # Run the seeder (idempotent - safe to run multiple times)
-echo "Running admin user seeder..."
+echo "${MSG_RUNNING_SEEDER}"
 echo ""
 
 # Run the seeder and show output in real-time
 # Note: Detect if we're in a TTY environment (local) or non-TTY (CI/CD)
+# Disable set -e temporarily to capture exit code
+set +e
 if [ -t 1 ]; then
     # Local environment - use interactive mode (no -T flag)
     docker compose exec flagship php artisan db:seed --class=AdminUserSeeder --force
@@ -1002,26 +1025,27 @@ else
     docker compose exec -T flagship php artisan db:seed --class=AdminUserSeeder --force
     SEEDER_EXIT_CODE=$?
 fi
+set -e
 
 echo ""
 
 # Now we can rely on exit codes since we fixed AdminUserSeeder to exit(1) on errors
 if [ $SEEDER_EXIT_CODE -eq 0 ]; then
     # Success or idempotent skip (both are OK)
-    echo -e "${GREEN}✓ Admin user setup completed successfully${NC}"
+    echo -e "${GREEN}${MSG_ADMIN_SETUP_SUCCESS}${NC}"
     echo ""
 
     # Clean up admin credentials from .env (security best practice)
     # Always try to clean up if credentials exist
     if grep -q "^ADMIN_PASSWORD=" .env 2>/dev/null; then
-        echo "Removing admin credentials from .env file..."
+        echo "${MSG_REMOVING_CREDENTIALS}"
         sed -i.bak '/^ADMIN_NAME=/d; /^ADMIN_EMAIL=/d; /^ADMIN_PASSWORD=/d' .env
         rm -f .env.bak  # Remove backup file created by sed
-        echo -e "${GREEN}✓ Credentials removed from .env (now stored securely in database)${NC}"
+        echo -e "${GREEN}${MSG_CREDENTIALS_REMOVED}${NC}"
     fi
 else
     # Actual failure (exit code != 0)
-    echo -e "${RED}✗ Admin user seeder failed (exit code: $SEEDER_EXIT_CODE)${NC}"
+    echo -e "${RED}${MSG_SEEDER_FAILED} $SEEDER_EXIT_CODE)${NC}"
     echo ""
 
     # Don't exit the deployment script - let it continue
@@ -1035,80 +1059,80 @@ echo ""
 # =============================================================================
 echo ""
 echo -e "${BLUE}================================================${NC}"
-echo -e "${GREEN}Deployment Complete!${NC}"
+echo -e "${GREEN}${MSG_DEPLOYMENT_COMPLETE}${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
 
-echo -e "${GREEN}Access URLs:${NC}"
-echo "  Flagship Dashboard:  https://${CONFIG[FLAGSHIP_DOMAIN]}"
-echo "  Metrics Ingestion:   https://${CONFIG[FLAGSHIP_DOMAIN]}/ingest/metrics/prometheus"
-echo "  SSH WebSocket:       wss://${CONFIG[FLAGSHIP_DOMAIN]}/ssh/"
+echo -e "${GREEN}${MSG_ACCESS_URLS}${NC}"
+echo "  ${MSG_FLAGSHIP_DASHBOARD}  https://${CONFIG[FLAGSHIP_DOMAIN]}"
+echo "  ${MSG_METRICS_INGESTION}   https://${CONFIG[FLAGSHIP_DOMAIN]}/ingest/metrics/prometheus"
+echo "  ${MSG_SSH_WEBSOCKET}       wss://${CONFIG[FLAGSHIP_DOMAIN]}/ssh/"
 echo ""
-echo -e "${CYAN}Note: Ensure DNS points to this server and Caddy has valid certificates${NC}"
+echo -e "${CYAN}${MSG_DNS_NOTE}${NC}"
 echo ""
 
 # Only show admin credentials if they were just created (not when using existing .env)
 if [ -n "${CONFIG[ADMIN_EMAIL]}" ] && [ -n "${CONFIG[ADMIN_PASSWORD]}" ]; then
-    echo -e "${GREEN}Admin Login Credentials:${NC}"
-    echo "  Email:    ${CONFIG[ADMIN_EMAIL]}"
-    echo "  Password: ${CONFIG[ADMIN_PASSWORD]}"
+    echo -e "${GREEN}${MSG_ADMIN_CREDENTIALS}${NC}"
+    echo "  ${MSG_EMAIL}    ${CONFIG[ADMIN_EMAIL]}"
+    echo "  ${MSG_PASSWORD} ${CONFIG[ADMIN_PASSWORD]}"
     echo ""
-    echo -e "${YELLOW}⚠️  Save these credentials - they won't be shown again!${NC}"
+    echo -e "${YELLOW}${MSG_SAVE_CREDENTIALS}${NC}"
     echo ""
 else
-    echo -e "${GREEN}Admin User:${NC}"
-    echo "  Using existing admin account from database"
+    echo -e "${GREEN}${MSG_ADMIN_USER}${NC}"
+    echo "  ${MSG_EXISTING_ADMIN}"
     echo ""
-    echo -e "${CYAN}To update admin credentials, run:${NC}"
+    echo -e "${CYAN}${MSG_UPDATE_ADMIN_HINT}${NC}"
     echo "  sudo ./update-admin.sh"
     echo ""
 fi
 echo ""
 
-echo -e "${YELLOW}Configuration Files:${NC}"
-echo "  Environment: $ENV_FILE"
+echo -e "${YELLOW}${MSG_CONFIG_FILES}${NC}"
+echo "  ${MSG_ENVIRONMENT} $ENV_FILE"
 if [ -n "$(ls -A $ENV_FILE.backup.* 2>/dev/null)" ]; then
-    echo "  Backups:     $PROJECT_ROOT/.env.backup.*"
+    echo "  ${MSG_BACKUPS}     $PROJECT_ROOT/.env.backup.*"
 fi
 echo ""
 
-echo -e "${YELLOW}Security Notes:${NC}"
-echo "  ⚠️  Keep your .env file secure (contains secrets)"
-echo "  ⚠️  Database password: ${CONFIG[POSTGRES_PASSWORD]:0:4}****"
-echo "  ⚠️  File permissions set to 600 (owner read/write only)"
+echo -e "${YELLOW}${MSG_SECURITY_NOTES}${NC}"
+echo "  ${MSG_KEEP_ENV_SECURE}"
+echo "  ${MSG_DB_PASSWORD} ${CONFIG[POSTGRES_PASSWORD]:0:4}****"
+echo "  ${MSG_FILE_PERMISSIONS}"
 echo ""
 
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW}🔑 IMPORTANT: Backup Your Master Key!${NC}"
+echo -e "${YELLOW}${MSG_KEY_BACKUP_IMPORTANT}${NC}"
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo "Your SSH encryption master key is located at:"
+echo "${MSG_KEY_LOCATION_INFO}"
 echo "  $MASTER_KEY_FILE"
 echo ""
-echo "To view and backup the key, run:"
+echo "${MSG_VIEW_BACKUP_KEY}"
 echo "  sudo cat $MASTER_KEY_FILE"
 echo ""
-echo "Store it securely in:"
-echo "  • Password manager (recommended)"
-echo "  • Encrypted USB drive"
-echo "  • Secure cloud storage"
+echo "${MSG_STORE_SECURELY}"
+echo "  ${MSG_PASSWORD_MANAGER}"
+echo "  ${MSG_ENCRYPTED_USB}"
+echo "  ${MSG_SECURE_CLOUD}"
 echo ""
-echo "⚠️  WITHOUT THIS KEY, YOU CANNOT DECRYPT SSH PRIVATE KEYS!"
-echo ""
-
-echo ""
-echo -e "${YELLOW}Next Steps:${NC}"
-echo "  1. Access the Flagship dashboard at https://${CONFIG[FLAGSHIP_DOMAIN]}"
-echo "  2. Enable mTLS authentication in System Settings (recommended if you need monitoring)"
-echo "  3. Configure your agents to send metrics"
-echo "  4. Update domain DNS to point to this server"
-echo "  5. Review logs for any startup issues"
-echo ""
-echo -e "${CYAN}ℹ️  Optional Security:${NC}"
-echo "  To enable mTLS authentication for agents:"
-echo "  • Login to Flagship > System Settings > Enable mTLS (one-click)"
-echo "  • OR run: sudo ./scripts/setup-mtls.sh (CLI option)"
+echo "${MSG_KEY_WARNING}"
 echo ""
 
-echo -e "${GREEN}Thank you for choosing Node Pulse Admiral! 🚀${NC}"
+echo ""
+echo -e "${YELLOW}${MSG_NEXT_STEPS}${NC}"
+echo "  1. ${MSG_STEP_ACCESS_DASHBOARD} https://${CONFIG[FLAGSHIP_DOMAIN]}"
+echo "  2. ${MSG_STEP_ENABLE_MTLS}"
+echo "  3. ${MSG_STEP_CONFIGURE_AGENTS}"
+echo "  4. ${MSG_STEP_UPDATE_DNS}"
+echo "  5. ${MSG_STEP_REVIEW_LOGS}"
+echo ""
+echo -e "${CYAN}${MSG_OPTIONAL_SECURITY}${NC}"
+echo "  ${MSG_MTLS_ENABLE_INFO}"
+echo "  ${MSG_MTLS_LOGIN}"
+echo "  ${MSG_MTLS_CLI}"
+echo ""
+
+echo -e "${GREEN}${MSG_THANK_YOU}${NC}"
 echo ""

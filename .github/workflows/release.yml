@@ -156,6 +156,8 @@ jobs:
           cp scripts/deploy.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
           cp scripts/setup-mtls.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
           cp scripts/update-admin.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/
+          mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/scripts/lang
+          cp scripts/lang/*.sh release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/scripts/lang/
 
           # Copy Caddy configuration (keep as Caddyfile.prod)
           mkdir -p release/node-pulse-admiral-${{ steps.version.outputs.VERSION }}/caddy
