@@ -77,25 +77,32 @@ class ProcessController extends Controller
         $sql = "
             WITH deltas AS (
                 SELECT
-                    process_name,
-                    timestamp,
-                    cpu_seconds_total,
-                    memory_bytes,
-                    num_procs,
-                    LAG(cpu_seconds_total) OVER (
-                        PARTITION BY server_id, process_name
-                        ORDER BY timestamp
+                    ps.server_id,
+                    s.hostname,
+                    s.name as server_name,
+                    ps.process_name,
+                    ps.timestamp,
+                    ps.cpu_seconds_total,
+                    ps.memory_bytes,
+                    ps.num_procs,
+                    LAG(ps.cpu_seconds_total) OVER (
+                        PARTITION BY ps.server_id, ps.process_name
+                        ORDER BY ps.timestamp
                     ) as prev_cpu,
-                    LAG(timestamp) OVER (
-                        PARTITION BY server_id, process_name
-                        ORDER BY timestamp
+                    LAG(ps.timestamp) OVER (
+                        PARTITION BY ps.server_id, ps.process_name
+                        ORDER BY ps.timestamp
                     ) as prev_ts
-                FROM admiral.process_snapshots
-                WHERE server_id IN ($placeholders)
-                    AND timestamp >= ?
+                FROM admiral.process_snapshots ps
+                INNER JOIN admiral.servers s ON s.server_id = ps.server_id
+                WHERE ps.server_id IN ($placeholders)
+                    AND ps.timestamp >= ?
             ),
             cpu_rates AS (
                 SELECT
+                    server_id,
+                    hostname,
+                    server_name,
                     process_name,
                     CASE
                         WHEN prev_cpu IS NOT NULL AND prev_ts IS NOT NULL THEN
@@ -109,6 +116,8 @@ class ProcessController extends Controller
                 WHERE prev_cpu IS NOT NULL
             )
             SELECT
+                server_id,
+                COALESCE(NULLIF(server_name, ''), NULLIF(hostname, ''), server_id) as server_display_name,
                 process_name,
                 ROUND(AVG(cpu_percent)::numeric, 2) as avg_cpu_percent,
                 ROUND(AVG(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as avg_memory_mb,
@@ -116,7 +125,7 @@ class ProcessController extends Controller
                 ROUND(AVG(num_procs)::numeric, 0) as avg_num_procs
             FROM cpu_rates
             WHERE cpu_percent IS NOT NULL
-            GROUP BY process_name
+            GROUP BY server_id, server_name, hostname, process_name
             ORDER BY avg_cpu_percent DESC
             LIMIT ?
         ";
@@ -125,6 +134,8 @@ class ProcessController extends Controller
 
         return array_map(function ($row) {
             return [
+                'server_id' => $row->server_id,
+                'server_name' => $row->server_display_name,
                 'name' => $row->process_name,
                 'avg_cpu_percent' => (float) $row->avg_cpu_percent,
                 'avg_memory_mb' => (float) $row->avg_memory_mb,
@@ -145,25 +156,32 @@ class ProcessController extends Controller
         $sql = "
             WITH deltas AS (
                 SELECT
-                    process_name,
-                    timestamp,
-                    cpu_seconds_total,
-                    memory_bytes,
-                    num_procs,
-                    LAG(cpu_seconds_total) OVER (
-                        PARTITION BY server_id, process_name
-                        ORDER BY timestamp
+                    ps.server_id,
+                    s.hostname,
+                    s.name as server_name,
+                    ps.process_name,
+                    ps.timestamp,
+                    ps.cpu_seconds_total,
+                    ps.memory_bytes,
+                    ps.num_procs,
+                    LAG(ps.cpu_seconds_total) OVER (
+                        PARTITION BY ps.server_id, ps.process_name
+                        ORDER BY ps.timestamp
                     ) as prev_cpu,
-                    LAG(timestamp) OVER (
-                        PARTITION BY server_id, process_name
-                        ORDER BY timestamp
+                    LAG(ps.timestamp) OVER (
+                        PARTITION BY ps.server_id, ps.process_name
+                        ORDER BY ps.timestamp
                     ) as prev_ts
-                FROM admiral.process_snapshots
-                WHERE server_id IN ($placeholders)
-                    AND timestamp >= ?
+                FROM admiral.process_snapshots ps
+                INNER JOIN admiral.servers s ON s.server_id = ps.server_id
+                WHERE ps.server_id IN ($placeholders)
+                    AND ps.timestamp >= ?
             ),
             cpu_rates AS (
                 SELECT
+                    server_id,
+                    hostname,
+                    server_name,
                     process_name,
                     CASE
                         WHEN prev_cpu IS NOT NULL AND prev_ts IS NOT NULL THEN
@@ -176,13 +194,15 @@ class ProcessController extends Controller
                 FROM deltas
             )
             SELECT
+                server_id,
+                COALESCE(NULLIF(server_name, ''), NULLIF(hostname, ''), server_id) as server_display_name,
                 process_name,
                 ROUND(AVG(cpu_percent)::numeric, 2) as avg_cpu_percent,
                 ROUND(AVG(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as avg_memory_mb,
                 ROUND(MAX(memory_bytes / 1024.0 / 1024.0)::numeric, 2) as peak_memory_mb,
                 ROUND(AVG(num_procs)::numeric, 0) as avg_num_procs
             FROM cpu_rates
-            GROUP BY process_name
+            GROUP BY server_id, server_name, hostname, process_name
             ORDER BY avg_memory_mb DESC
             LIMIT ?
         ";
@@ -191,6 +211,8 @@ class ProcessController extends Controller
 
         return array_map(function ($row) {
             return [
+                'server_id' => $row->server_id,
+                'server_name' => $row->server_display_name,
                 'name' => $row->process_name,
                 'avg_cpu_percent' => $row->avg_cpu_percent ? (float) $row->avg_cpu_percent : null,
                 'avg_memory_mb' => (float) $row->avg_memory_mb,
