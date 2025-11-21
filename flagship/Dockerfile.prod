@@ -21,7 +21,7 @@ RUN pecl install redis \
 # ------------------------------------------------------------
 # Stage 2: Composer Dependencies
 # ------------------------------------------------------------
-FROM composer:2 AS vendor
+FROM composer:2.8 AS vendor
 
 WORKDIR /app
 
