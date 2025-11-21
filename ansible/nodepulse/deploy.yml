@@ -110,6 +110,7 @@
     process_exporter_smaps: false
     process_exporter_recheck: false
     process_exporter_extra_flags: []
+    process_exporter_enabled: true  # Enable process-exporter scraping in agent config
 
   # ===========================================================================
   # Pre-flight Checks
