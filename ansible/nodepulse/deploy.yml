@@ -90,12 +90,6 @@
     process_exporter_listen_address: "127.0.0.1"
     process_exporter_listen_port: 9256
 
-    # Process monitoring configuration (customize as needed)
-    process_exporter_process_names:
-      - name: "{{.Comm}}"
-        cmdline:
-          - '.+'
-
   # ===========================================================================
   # Pre-flight Checks
   # ===========================================================================
