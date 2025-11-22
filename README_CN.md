@@ -79,10 +79,10 @@ curl -LO https://github.com/node-pulse/admiral/releases/latest/download/node-pul
 sha256sum -c node-pulse-admiral-latest.tar.gz.sha256
 
 # 解压
-tar xzf node-pulse-admiral-latest.tar.gz
+sudo tar xzf node-pulse-admiral-latest.tar.gz -C /opt/admiral --strip-components=1
 
 # 进入解压后的目录（例如 node-pulse-admiral-0.8.7/）
-cd node-pulse-admiral-*
+cd /opt/admiral
 
 # 运行交互式部署
 sudo ./deploy.sh
@@ -95,19 +95,6 @@ sudo ./deploy.sh
 - 拉取预构建的 Docker 镜像
 - 创建初始管理员用户
 - 启动所有服务
-
-**或使用 Makefile：**
-
-```bash
-# 快速部署
-make deploy
-
-# 或分步骤执行
-make env-check    # 验证配置
-make pull         # 拉取最新镜像
-make mtls-setup   # 引导 mTLS
-make up           # 启动服务
-```
 
 ### 开发 / 手动设置
 
@@ -568,6 +555,7 @@ PostgreSQL (:5432) - admiral.metrics + admiral.process_snapshots
 ### 即将推出的功能 🔮
 
 详细计划请参阅[路线图](docs/roadmap.md)：
+
 - 计划部署（2026 年第一季度）
 - 高级库存管理（2026 年第二季度）
 - 部署审计跟踪（2026 年第二季度）

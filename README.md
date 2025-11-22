@@ -79,10 +79,10 @@ curl -LO https://github.com/node-pulse/admiral/releases/latest/download/node-pul
 sha256sum -c node-pulse-admiral-latest.tar.gz.sha256
 
 # Extract
-tar xzf node-pulse-admiral-latest.tar.gz
+sudo tar xzf node-pulse-admiral-latest.tar.gz -C /opt/admiral --strip-components=1
 
 # Enter the extracted directory (e.g., node-pulse-admiral-0.8.7/)
-cd node-pulse-admiral-*
+cd /opt/admiral
 
 # Run interactive deployment
 sudo ./deploy.sh
@@ -95,19 +95,6 @@ The deployment script will:
 - Pull pre-built Docker images
 - Create initial admin user
 - Start all services
-
-**Or use the Makefile:**
-
-```bash
-# Quick deployment
-make deploy
-
-# Or step-by-step
-make env-check    # Validate configuration
-make pull         # Pull latest images
-make mtls-setup   # Bootstrap mTLS
-make up           # Start services
-```
 
 ### Development / Manual Setup
 
@@ -568,6 +555,7 @@ PostgreSQL (:5432) - admiral.metrics + admiral.process_snapshots
 ### Upcoming Features 🔮
 
 See [Roadmap](docs/roadmap.md) for detailed plans:
+
 - Scheduled deployments (Q1 2026)
 - Advanced inventory management (Q2 2026)
 - Deployment audit trail (Q2 2026)
