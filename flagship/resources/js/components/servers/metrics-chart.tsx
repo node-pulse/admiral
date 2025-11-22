@@ -85,11 +85,11 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         }
 
         // Initial fetch
-        fetchMetrics();
+        fetchMetrics(true);
 
         // Set up auto-refresh interval
         const interval = setInterval(() => {
-            fetchMetrics();
+            fetchMetrics(false);
         }, 30000); // 30 seconds
 
         // Cleanup interval on unmount or dependency change
@@ -97,8 +97,10 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedServers, timeRange, metricType]);
 
-    const fetchMetrics = async () => {
-        setLoading(true);
+    const fetchMetrics = async (showLoading: boolean) => {
+        if (showLoading) {
+            setLoading(true);
+        }
         try {
             const params = new URLSearchParams();
             selectedServers.forEach((id) => params.append('server_ids[]', id));
@@ -122,7 +124,9 @@ export function MetricsChart({ selectedServers }: MetricsChartProps) {
         } catch (error) {
             console.error('Failed to fetch metrics:', error);
         } finally {
-            setLoading(false);
+            if (showLoading) {
+                setLoading(false);
+            }
         }
     };
 

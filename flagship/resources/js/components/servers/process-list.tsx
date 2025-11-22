@@ -79,11 +79,11 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
         }
 
         // Initial fetch
-        fetchProcesses();
+        fetchProcesses(true);
 
         // Set up auto-refresh interval
         const interval = setInterval(() => {
-            fetchProcesses();
+            fetchProcesses(false);
         }, 30000); // 30 seconds
 
         // Cleanup interval on unmount or dependency change
@@ -91,8 +91,10 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedServers, timeRange, metric]);
 
-    const fetchProcesses = async () => {
-        setLoading(true);
+    const fetchProcesses = async (showLoading: boolean) => {
+        if (showLoading) {
+            setLoading(true);
+        }
         try {
             const params = new URLSearchParams();
             selectedServers.forEach((id) => params.append('server_ids[]', id));
@@ -115,7 +117,9 @@ export function ProcessList({ selectedServers }: ProcessListProps) {
         } catch (error) {
             console.error('Failed to fetch processes:', error);
         } finally {
-            setLoading(false);
+            if (showLoading) {
+                setLoading(false);
+            }
         }
     };
 

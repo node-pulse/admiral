@@ -34,19 +34,21 @@ export function DashboardStats({ translations }: DashboardStatsProps) {
 
     useEffect(() => {
         // Initial fetch
-        fetchStats();
+        fetchStats(true);
 
         // Set up auto-refresh interval (30 seconds)
         const interval = setInterval(() => {
-            fetchStats();
+            fetchStats(false);
         }, 30000);
 
         // Cleanup interval on unmount
         return () => clearInterval(interval);
     }, []);
 
-    const fetchStats = async () => {
-        setLoading(true);
+    const fetchStats = async (showLoading: boolean) => {
+        if (showLoading) {
+            setLoading(true);
+        }
         try {
             const response = await fetch('/api/dashboard/stats');
             const data = await response.json();
@@ -54,7 +56,9 @@ export function DashboardStats({ translations }: DashboardStatsProps) {
         } catch (error) {
             console.error('Failed to fetch dashboard stats:', error);
         } finally {
-            setLoading(false);
+            if (showLoading) {
+                setLoading(false);
+            }
         }
     };
 
