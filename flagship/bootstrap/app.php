@@ -25,7 +25,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 : ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']  // Prod: trust private IPs only
         );
 
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        $middleware->encryptCookies(except: [
+            'appearance',
+            'sidebar_state',
+            'XSRF-TOKEN',  // Must not be encrypted so JavaScript can read it
+        ]);
 
         $middleware->web(append: [
             SetLocale::class,
