@@ -268,16 +268,26 @@ export default function AnsiblePlaybooks({ translations }: AnsibleProps) {
     };
 
     const downloadFile = (content: string, filename: string) => {
-        const blob = new Blob([content], { type: 'text/yaml' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast.success(t.messages.file_downloaded);
+        const downloadPromise = new Promise((resolve) => {
+            const blob = new Blob([content], { type: 'text/yaml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // Resolve after a brief delay to ensure download starts
+            setTimeout(() => resolve(true), 100);
+        });
+
+        toast.promise(downloadPromise, {
+            loading: `Downloading ${filename}...`,
+            success: t.messages.file_downloaded,
+            error: 'Failed to download file',
+        });
     };
 
     return (
