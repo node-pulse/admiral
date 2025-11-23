@@ -115,6 +115,9 @@ export default function CreateDeployment() {
                     variable.default !== null
                 ) {
                     defaultValues[variable.name] = String(variable.default);
+                } else {
+                    // Initialize all variables, even those without defaults, so they appear in bulk edit
+                    defaultValues[variable.name] = '';
                 }
             });
 
@@ -132,6 +135,9 @@ export default function CreateDeployment() {
             playbookVariableMap[playbookPath].forEach((field) => {
                 if (field.defaultValue) {
                     defaultValues[field.name] = field.defaultValue;
+                } else {
+                    // Initialize all variables, even those without defaults, so they appear in bulk edit
+                    defaultValues[field.name] = '';
                 }
             });
 
