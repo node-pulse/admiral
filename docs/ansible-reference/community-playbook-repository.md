@@ -275,7 +275,7 @@ CREATE TABLE playbooks (
   tags TEXT NOT NULL,                     -- JSON array as string
   homepage TEXT,
   repository TEXT,
-  entry_point TEXT NOT NULL,              ---- deprecated, but value is always empty string
+  entry_point TEXT NOT NULL,              ---- deprecated, so value is always empty string
   ansible_version TEXT NOT NULL,
   os_support TEXT NOT NULL,               -- JSON array as string
   variables TEXT,                         -- JSON array as string (nullable)
