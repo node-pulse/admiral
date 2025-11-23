@@ -66,14 +66,14 @@ export default function CreateDeployment() {
     // Form state
     const [deploymentName, setDeploymentName] = useState('');
     const [deploymentDescription, setDeploymentDescription] = useState('');
-    const [playbook, setPlaybook] = useState<string>('');
+    const [selectedPlaybook, setSelectedPlaybook] = useState<string>('');
     const [deploymentVariables, setDeploymentVariables] = useState<
         Record<string, string>
     >({});
 
-    // Wrapper for setPlaybook that also initializes deployment variables
+    // Wrapper for setSelectedPlaybook that also initializes deployment variables
     const handlePlaybookChange = (playbookPath: string) => {
-        setPlaybook(playbookPath);
+        setSelectedPlaybook(playbookPath);
 
         // Check if it's a community playbook (path format: catalog/f/fail2ban/playbook.yml)
         let communityPlaybook: any = null;
@@ -240,7 +240,7 @@ export default function CreateDeployment() {
             // Set default playbook to first built-in one if available and no URL param
             const urlParams = new URLSearchParams(window.location.search);
             const pbId = urlParams.get('pb_id');
-            if (!pbId && builtInPlaybooks.length > 0 && !playbook) {
+            if (!pbId && builtInPlaybooks.length > 0 && !selectedPlaybook) {
                 handlePlaybookChange(builtInPlaybooks[0].path);
             }
         } catch (error) {
@@ -346,7 +346,7 @@ export default function CreateDeployment() {
 
         // validate playbook variables
         const requiredFields =
-            playbookVariableMap[playbook]?.filter((f) => f.isRequired) || [];
+            playbookVariableMap[selectedPlaybook]?.filter((f) => f.isRequired) || [];
         const missedRequiredFields = requiredFields.filter(
             (field) => !deploymentVariables[field.name]?.trim(),
         );
@@ -370,7 +370,7 @@ export default function CreateDeployment() {
                 body: JSON.stringify({
                     name: deploymentName,
                     description: deploymentDescription || null,
-                    playbook: playbook,
+                    playbook: selectedPlaybook,
                     server_ids: Array.from(selectedServers),
                     variables: deploymentVariables,
                 }),
@@ -449,7 +449,7 @@ export default function CreateDeployment() {
                                 <div className="space-y-2">
                                     <Label htmlFor="playbook">Playbook *</Label>
                                     <Select
-                                        value={playbook}
+                                        value={selectedPlaybook}
                                         onValueChange={handlePlaybookChange}
                                         disabled={loadingPlaybooks}
                                     >
@@ -535,7 +535,7 @@ export default function CreateDeployment() {
                                             )}
                                         </SelectContent>
                                     </Select>
-                                    {playbook &&
+                                    {selectedPlaybook &&
                                         selectedPlaybookData?.description && (
                                             <p className="text-sm text-muted-foreground">
                                                 {
@@ -543,17 +543,17 @@ export default function CreateDeployment() {
                                                 }
                                             </p>
                                         )}
-                                    {playbook &&
+                                    {selectedPlaybook &&
                                         !selectedPlaybookData &&
                                         playbooks.find(
-                                            (pb) => pb.path === playbook,
+                                            (pb) => pb.path === selectedPlaybook,
                                         )?.description && (
                                             <p className="text-sm text-muted-foreground">
                                                 {
                                                     playbooks.find(
                                                         (pb) =>
                                                             pb.path ===
-                                                            playbook,
+                                                            selectedPlaybook,
                                                     )?.description
                                                 }
                                             </p>
@@ -575,9 +575,9 @@ export default function CreateDeployment() {
                             </div>
 
                             {/* Playbook-specific fields - Built-in playbooks */}
-                            {playbookVariableMap[playbook]?.length > 0 && (
+                            {playbookVariableMap[selectedPlaybook]?.length > 0 && (
                                 <div className="grid gap-4 md:grid-cols-2">
-                                    {playbookVariableMap[playbook].map(
+                                    {playbookVariableMap[selectedPlaybook].map(
                                         (field) => (
                                             <div
                                                 key={field.name}
