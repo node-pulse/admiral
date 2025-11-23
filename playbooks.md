@@ -245,6 +245,7 @@
 
 ## Finance / Budgeting
 
+- [x] OpenBB Platform – open-source financial data platform & API (54k+ stars)
 - [ ] Actual Budget – budgeting tool (10k+ stars)
 - [ ] Firefly III – personal finance manager (13k+ stars)
 - [ ] Maybe – modern finance app (25k+ stars)

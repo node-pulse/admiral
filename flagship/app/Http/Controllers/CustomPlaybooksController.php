@@ -677,7 +677,7 @@ class CustomPlaybooksController extends Controller
         }
 
         // Validate category
-        $validCategories = ['monitoring', 'database', 'search', 'security', 'proxy', 'storage', 'dev-tools'];
+        $validCategories = ['monitoring', 'database', 'search', 'security', 'proxy', 'storage', 'dev-tools', 'finance'];
         if (isset($manifest['category']) && !in_array($manifest['category'], $validCategories)) {
             $warnings[] = "Field 'category' should be one of: " . implode(', ', $validCategories);
         }
