@@ -18,6 +18,18 @@ export interface ServerData {
     cpu_cores: number | null;
 }
 
+export type LeanServerData = Pick<
+    ServerData,
+    | 'id'
+    | 'hostname'
+    | 'name'
+    | 'display_name'
+    | 'ssh_host'
+    | 'ssh_username'
+    | 'distro'
+    | 'architecture'
+>;
+
 export interface ServersResponse {
     servers: {
         data: ServerData[];

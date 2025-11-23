@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge';
+import { ServerSelectionTable } from '@/components/deployments/create/server-selection-table';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -17,17 +17,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
+import { LeanServerData } from '@/types/servers';
 import { playbookVariableMap } from '@/utils/playbook-variables';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Loader2, Rocket, Search, Server } from 'lucide-react';
@@ -45,20 +38,8 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-interface ServerData {
-    id: string;
-    hostname: string;
-    name: string | null;
-    display_name: string;
-    ssh_host: string;
-    ssh_username: string;
-    distro: string | null;
-    architecture: string | null;
-    agent_installed: boolean;
-}
-
 interface ServersResponse {
-    data: ServerData[];
+    data: LeanServerData[];
 }
 
 export default function CreateDeployment() {
@@ -72,7 +53,7 @@ export default function CreateDeployment() {
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [servers, setServers] = useState<ServerData[]>([]);
+    const [servers, setServers] = useState<LeanServerData[]>([]);
     const [selectedServers, setSelectedServers] = useState<Set<string>>(
         new Set(),
     );
@@ -328,7 +309,7 @@ export default function CreateDeployment() {
         return (
             server.hostname.toLowerCase().includes(searchLower) ||
             server.name?.toLowerCase().includes(searchLower) ||
-            server.ssh_host.toLowerCase().includes(searchLower)
+            server.ssh_host?.toLowerCase().includes(searchLower)
         );
     });
 
@@ -836,105 +817,14 @@ export default function CreateDeployment() {
                                         </p>
                                     </div>
                                 ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-12">
-                                                    <Checkbox
-                                                        checked={
-                                                            selectedServers.size ===
-                                                            filteredServers.length
-                                                        }
-                                                        onCheckedChange={
-                                                            toggleSelectAll
-                                                        }
-                                                    />
-                                                </TableHead>
-                                                <TableHead>Server</TableHead>
-                                                <TableHead>SSH Host</TableHead>
-                                                <TableHead>OS</TableHead>
-                                                <TableHead>
-                                                    Architecture
-                                                </TableHead>
-                                                <TableHead>Status</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {filteredServers.map((server) => (
-                                                <TableRow key={server.id}>
-                                                    <TableCell>
-                                                        <Checkbox
-                                                            checked={selectedServers.has(
-                                                                server.id,
-                                                            )}
-                                                            onCheckedChange={() =>
-                                                                toggleServerSelection(
-                                                                    server.id,
-                                                                )
-                                                            }
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div>
-                                                            <div className="font-medium">
-                                                                {
-                                                                    server.display_name
-                                                                }
-                                                            </div>
-                                                            <div className="text-sm text-muted-foreground">
-                                                                {
-                                                                    server.hostname
-                                                                }
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <code className="text-sm">
-                                                            {
-                                                                server.ssh_username
-                                                            }
-                                                            @{server.ssh_host}
-                                                        </code>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {server.distro ? (
-                                                            <Badge variant="outline">
-                                                                {server.distro}
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">
-                                                                Unknown
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {server.architecture ? (
-                                                            <Badge variant="secondary">
-                                                                {
-                                                                    server.architecture
-                                                                }
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">
-                                                                Unknown
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {server.agent_installed ? (
-                                                            <Badge variant="default">
-                                                                Installed
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="secondary">
-                                                                Not Installed
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                    <ServerSelectionTable
+                                        selectedServers={selectedServers}
+                                        toggleServerSelection={
+                                            toggleServerSelection
+                                        }
+                                        toggleSelectAll={toggleSelectAll}
+                                        filteredServers={filteredServers}
+                                    />
                                 )}
                             </div>
                         </CardContent>
