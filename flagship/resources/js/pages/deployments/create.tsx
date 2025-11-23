@@ -1,6 +1,7 @@
 import { CommunityPlaybookVariables } from '@/components/deployments/create/community-playbook-variables';
 import { PlaybookSelector } from '@/components/deployments/create/playbook-selector';
 import { ServerSelectionTable } from '@/components/deployments/create/server-selection-table';
+import { VariableFileUploader } from '@/components/deployments/create/variable-file-uploader';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -377,9 +378,25 @@ export default function CreateDeployment() {
                                 />
                             </div>
 
-                            <h3 className="text-lg font-semibold">
-                                Playbook Variables
-                            </h3>
+                            <div className="flex items-center gap-4">
+                                <h3 className="text-lg font-semibold">
+                                    Playbook Variables
+                                </h3>
+                                {(builtInPlaybooksvariables.length > 0 ||
+                                    communityPlaybookVariables.length > 0) && (
+                                    <VariableFileUploader
+                                        onVariablesExtracted={(
+                                            extractedVars,
+                                        ) => {
+                                            // Merge extracted variables with existing ones
+                                            setDeploymentVariables({
+                                                ...deploymentVariables,
+                                                ...extractedVars,
+                                            });
+                                        }}
+                                    />
+                                )}
+                            </div>
                             {/* Playbook-specific fields - Built-in playbooks */}
                             {builtInPlaybooksvariables.length > 0 && (
                                 <div className="grid gap-4 md:grid-cols-2">
