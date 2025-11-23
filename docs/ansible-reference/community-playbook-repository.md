@@ -275,7 +275,7 @@ CREATE TABLE playbooks (
   tags TEXT NOT NULL,                     -- JSON array as string
   homepage TEXT,
   repository TEXT,
-  entry_point TEXT NOT NULL,              ---- deprecated, but column is still here
+  entry_point TEXT NOT NULL,              ---- deprecated, but value is always empty string
   ansible_version TEXT NOT NULL,
   os_support TEXT NOT NULL,               -- JSON array as string
   variables TEXT,                         -- JSON array as string (nullable)
@@ -661,7 +661,7 @@ export async function syncPlaybooks(env: Env): Promise<void> {
             JSON.stringify(playbook.tags),
             playbook.homepage || null,
             playbook.repository || null,
-            playbook.entry_point || null,
+            playbook.entry_point || "",
             playbook.ansible_version,
             JSON.stringify(playbook.os_support),
             playbook.variables ? JSON.stringify(playbook.variables) : null,
