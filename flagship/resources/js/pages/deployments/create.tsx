@@ -35,10 +35,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-interface ServersResponse {
-    data: LeanServerData[];
-}
-
 export default function CreateDeployment() {
     const { props } = usePage();
     const csrfToken =
@@ -172,8 +168,8 @@ export default function CreateDeployment() {
                 throw new Error('Failed to fetch servers');
             }
 
-            const data: ServersResponse = await response.json();
-            setServers(data.data);
+            const json: { data: LeanServerData[] } = await response.json();
+            setServers(json.data);
         } catch (error) {
             console.error('Error fetching servers:', error);
             toast.error('Failed to load servers');
