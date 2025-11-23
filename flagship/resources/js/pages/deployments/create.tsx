@@ -97,9 +97,16 @@ export default function CreateDeployment() {
         setPlaybook(playbookPath);
 
         // Check if it's a community playbook (path format: catalog/f/fail2ban/playbook.yml)
-        const communityPlaybook = communityPlaybooks.find(
-            (pb) => `catalog/${pb.source_path}/${pb.entry_point}` === playbookPath
-        );
+        const communityPlaybook = communityPlaybooks.find((pb) => {
+            // Check if playbook path matches any playbook in structure.playbooks
+            if (pb.structure?.playbooks) {
+                return Object.values(pb.structure.playbooks).some(
+                    (filename) => `catalog/${pb.source_path}/${filename}` === playbookPath
+                );
+            }
+            // Fallback to entry_point check
+            return `catalog/${pb.source_path}/${pb.entry_point}` === playbookPath;
+        });
 
         if (communityPlaybook) {
             // Use manifest variables for community playbooks
@@ -266,8 +273,10 @@ export default function CreateDeployment() {
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const pbId = urlParams.get('pb_id');
+        const pbType = urlParams.get('pb_type') || 'install'; // Default to 'install' if not specified
 
         console.log('URL pb_id:', pbId);
+        console.log('URL pb_type:', pbType);
         console.log('Community playbooks:', communityPlaybooks);
 
         if (pbId && communityPlaybooks.length > 0) {
@@ -279,7 +288,13 @@ export default function CreateDeployment() {
             console.log('Found community playbook:', communityPlaybook);
 
             if (communityPlaybook) {
-                const playbookPath = `catalog/${communityPlaybook.source_path}/${communityPlaybook.entry_point}`;
+                // Determine which playbook file to use based on pb_type
+                let playbookFile = communityPlaybook.entry_point;
+                if (communityPlaybook.structure?.playbooks?.[pbType]) {
+                    playbookFile = communityPlaybook.structure.playbooks[pbType];
+                }
+
+                const playbookPath = `catalog/${communityPlaybook.source_path}/${playbookFile}`;
                 console.log('Setting playbook to:', playbookPath);
                 handlePlaybookChange(playbookPath);
             } else {
@@ -470,14 +485,28 @@ export default function CreateDeployment() {
                                                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                                                         Community Playbooks
                                                     </div>
-                                                    {communityPlaybooks.map((pb) => (
-                                                        <SelectItem
-                                                            key={pb.id}
-                                                            value={`catalog/${pb.source_path}/${pb.entry_point}`}
-                                                        >
-                                                            {pb.name} (v{pb.version})
-                                                        </SelectItem>
-                                                    ))}
+                                                    {communityPlaybooks.flatMap((pb) => {
+                                                        // If structure.playbooks exists, show all playbooks
+                                                        if (pb.structure?.playbooks) {
+                                                            return Object.entries(pb.structure.playbooks).map(([type, filename]) => (
+                                                                <SelectItem
+                                                                    key={`${pb.id}-${type}`}
+                                                                    value={`catalog/${pb.source_path}/${filename}`}
+                                                                >
+                                                                    {pb.name} - {type} (v{pb.version})
+                                                                </SelectItem>
+                                                            ));
+                                                        }
+                                                        // Fallback to entry_point if no structure.playbooks
+                                                        return [
+                                                            <SelectItem
+                                                                key={pb.id}
+                                                                value={`catalog/${pb.source_path}/${pb.entry_point}`}
+                                                            >
+                                                                {pb.name} (v{pb.version})
+                                                            </SelectItem>
+                                                        ];
+                                                    })}
                                                 </>
                                             )}
                                         </SelectContent>
