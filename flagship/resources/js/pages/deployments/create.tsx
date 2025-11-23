@@ -1,3 +1,4 @@
+import { CommunityPlaybookVariables } from '@/components/deployments/create/community-playbook-variables';
 import { ServerSelectionTable } from '@/components/deployments/create/server-selection-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,7 +8,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -20,6 +21,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
+import { type PlaybookConfig, type PlaybookManifest } from '@/types/playbook';
 import { LeanServerData } from '@/types/servers';
 import { playbookVariableMap } from '@/utils/playbook-variables';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -59,9 +61,12 @@ export default function CreateDeployment() {
     );
     const [searchTerm, setSearchTerm] = useState('');
     const [playbooks, setPlaybooks] = useState<any[]>([]);
-    const [communityPlaybooks, setCommunityPlaybooks] = useState<any[]>([]);
+    const [communityPlaybooks, setCommunityPlaybooks] = useState<
+        PlaybookManifest[]
+    >([]);
     const [loadingPlaybooks, setLoadingPlaybooks] = useState(true);
-    const [selectedPlaybookData, setSelectedPlaybookData] = useState<any>(null);
+    const [selectedPlaybookData, setSelectedPlaybookData] =
+        useState<PlaybookManifest | null>(null);
 
     // Form state
     const [deploymentName, setDeploymentName] = useState('');
@@ -76,15 +81,15 @@ export default function CreateDeployment() {
         setSelectedPlaybook(playbookPath);
 
         // Check if it's a community playbook (path format: catalog/f/fail2ban/playbook.yml)
-        let communityPlaybook: any = null;
-        let playbookConfig: any = null;
+        let communityPlaybook: PlaybookManifest | null = null;
+        let playbookConfig: PlaybookConfig | null = null;
 
         for (const pb of communityPlaybooks) {
             if (pb.structure?.playbooks) {
                 for (const [, config] of Object.entries(
                     pb.structure.playbooks,
                 )) {
-                    const filename = (config as any).file;
+                    const filename = config.file;
                     if (
                         `catalog/${pb.source_path}/${filename}` === playbookPath
                     ) {
@@ -97,13 +102,13 @@ export default function CreateDeployment() {
             if (communityPlaybook) break;
         }
 
-        if (communityPlaybook) {
+        if (communityPlaybook && playbookConfig) {
             // Get allowed variables from playbook config
-            const allowedVariableNames = playbookConfig?.variables || [];
+            const allowedVariableNames = playbookConfig.variables || [];
 
             // Filter variables based on what this specific playbook needs
             const variablesToShow = (communityPlaybook.variables || []).filter(
-                (v: any) => allowedVariableNames.includes(v.name),
+                (v) => allowedVariableNames.includes(v.name),
             );
 
             // Store filtered playbook data
@@ -113,7 +118,7 @@ export default function CreateDeployment() {
             });
 
             const defaultValues: Record<string, string> = {};
-            variablesToShow.forEach((variable: any) => {
+            variablesToShow.forEach((variable) => {
                 if (
                     variable.default !== undefined &&
                     variable.default !== null
@@ -276,11 +281,6 @@ export default function CreateDeployment() {
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const pbId = urlParams.get('pb_id');
-        const pbType = urlParams.get('pb_type') || 'install'; // Default to 'install' if not specified
-
-        console.log('URL pb_id:', pbId);
-        console.log('URL pb_type:', pbType);
-        console.log('Community playbooks:', communityPlaybooks);
 
         if (pbId && communityPlaybooks.length > 0) {
             // Find the community playbook by id (downloaded playbooks have 'id' field)
@@ -289,15 +289,16 @@ export default function CreateDeployment() {
             );
 
             if (communityPlaybook) {
-                // Get playbook file from structure
+                // Default to install playbook
                 const playbookConfig =
-                    communityPlaybook.structure?.playbooks?.[pbType];
-                const playbookFile =
-                    playbookConfig?.file || communityPlaybook.entry_point;
+                    communityPlaybook.structure?.playbooks?.install;
+                const playbookFile = playbookConfig?.file;
 
-                const playbookPath = `catalog/${communityPlaybook.source_path}/${playbookFile}`;
-                console.log('Setting playbook to:', playbookPath);
-                handlePlaybookChange(playbookPath);
+                if (playbookFile) {
+                    const playbookPath = `catalog/${communityPlaybook.source_path}/${playbookFile}`;
+                    console.log('Setting playbook to:', playbookPath);
+                    handlePlaybookChange(playbookPath);
+                }
             } else {
                 console.log('No matching playbook found for pb_id:', pbId);
             }
@@ -346,7 +347,9 @@ export default function CreateDeployment() {
 
         // validate playbook variables
         const requiredFields =
-            playbookVariableMap[selectedPlaybook]?.filter((f) => f.isRequired) || [];
+            playbookVariableMap[selectedPlaybook]?.filter(
+                (f) => f.isRequired,
+            ) || [];
         const missedRequiredFields = requiredFields.filter(
             (field) => !deploymentVariables[field.name]?.trim(),
         );
@@ -399,6 +402,10 @@ export default function CreateDeployment() {
     const handleCancel = () => {
         router.visit('/dashboard/deployments');
     };
+
+    const builtInPlaybooksvariables =
+        playbookVariableMap[selectedPlaybook] || [];
+    const communityPlaybookVariables = selectedPlaybookData?.variables || [];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -546,7 +553,8 @@ export default function CreateDeployment() {
                                     {selectedPlaybook &&
                                         !selectedPlaybookData &&
                                         playbooks.find(
-                                            (pb) => pb.path === selectedPlaybook,
+                                            (pb) =>
+                                                pb.path === selectedPlaybook,
                                         )?.description && (
                                             <p className="text-sm text-muted-foreground">
                                                 {
@@ -574,204 +582,64 @@ export default function CreateDeployment() {
                                 />
                             </div>
 
+                            <h3 className="text-lg font-semibold">
+                                Playbook Variables
+                            </h3>
                             {/* Playbook-specific fields - Built-in playbooks */}
-                            {playbookVariableMap[selectedPlaybook]?.length > 0 && (
+                            {builtInPlaybooksvariables.length > 0 && (
                                 <div className="grid gap-4 md:grid-cols-2">
-                                    {playbookVariableMap[selectedPlaybook].map(
-                                        (field) => (
-                                            <div
-                                                key={field.name}
-                                                className="space-y-2"
-                                            >
-                                                <Label htmlFor={field.name}>
-                                                    {field.label}
-                                                    {field.isRequired && (
-                                                        <span className="ml-1 text-destructive">
-                                                            *
-                                                        </span>
-                                                    )}
-                                                </Label>
-                                                <Input
-                                                    id={field.name}
-                                                    placeholder={
-                                                        field.placeholder
-                                                    }
-                                                    value={
-                                                        deploymentVariables[
-                                                            field.name
-                                                        ] ??
-                                                        field.defaultValue ??
-                                                        ''
-                                                    }
-                                                    onChange={(e) =>
-                                                        setDeploymentVariables({
-                                                            ...deploymentVariables,
-                                                            [field.name]:
-                                                                e.target.value,
-                                                        })
-                                                    }
-                                                    required={field.isRequired}
-                                                />
-                                                <p className="text-sm text-muted-foreground">
-                                                    {field.helpText}
-                                                </p>
-                                            </div>
-                                        ),
-                                    )}
+                                    {builtInPlaybooksvariables.map((field) => (
+                                        <div
+                                            key={field.name}
+                                            className="space-y-2"
+                                        >
+                                            <Label htmlFor={field.name}>
+                                                {field.label}
+                                                {field.isRequired && (
+                                                    <span className="ml-1 text-destructive">
+                                                        *
+                                                    </span>
+                                                )}
+                                            </Label>
+                                            <Input
+                                                id={field.name}
+                                                placeholder={field.placeholder}
+                                                value={
+                                                    deploymentVariables[
+                                                        field.name
+                                                    ] ??
+                                                    field.defaultValue ??
+                                                    ''
+                                                }
+                                                onChange={(e) =>
+                                                    setDeploymentVariables({
+                                                        ...deploymentVariables,
+                                                        [field.name]:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                                required={field.isRequired}
+                                            />
+                                            <p className="text-sm text-muted-foreground">
+                                                {field.helpText}
+                                            </p>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
                             {/* Playbook-specific fields - Community playbooks */}
-                            {selectedPlaybookData?.variables?.length > 0 && (
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    {selectedPlaybookData.variables.map(
-                                        (variable: any) => (
-                                            <div
-                                                key={variable.name}
-                                                className="space-y-2"
-                                            >
-                                                <Label htmlFor={variable.name}>
-                                                    {variable.label}
-                                                    {variable.required && (
-                                                        <span className="ml-1 text-destructive">
-                                                            *
-                                                        </span>
-                                                    )}
-                                                </Label>
-                                                {variable.type === 'select' ? (
-                                                    <Select
-                                                        value={
-                                                            deploymentVariables[
-                                                                variable.name
-                                                            ] ??
-                                                            String(
-                                                                variable.default ??
-                                                                    '',
-                                                            )
-                                                        }
-                                                        onValueChange={(
-                                                            value,
-                                                        ) =>
-                                                            setDeploymentVariables(
-                                                                {
-                                                                    ...deploymentVariables,
-                                                                    [variable.name]:
-                                                                        value,
-                                                                },
-                                                            )
-                                                        }
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue
-                                                                placeholder={`Select ${variable.label}`}
-                                                            />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {variable.options?.map(
-                                                                (
-                                                                    opt: string,
-                                                                ) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            opt
-                                                                        }
-                                                                        value={
-                                                                            opt
-                                                                        }
-                                                                    >
-                                                                        {opt}
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                ) : variable.type ===
-                                                  'boolean' ? (
-                                                    <div className="flex items-center space-x-2">
-                                                        <Checkbox
-                                                            id={variable.name}
-                                                            checked={
-                                                                deploymentVariables[
-                                                                    variable
-                                                                        .name
-                                                                ] === 'true'
-                                                            }
-                                                            onCheckedChange={(
-                                                                checked,
-                                                            ) =>
-                                                                setDeploymentVariables(
-                                                                    {
-                                                                        ...deploymentVariables,
-                                                                        [variable.name]:
-                                                                            String(
-                                                                                checked,
-                                                                            ),
-                                                                    },
-                                                                )
-                                                            }
-                                                        />
-                                                        <label
-                                                            htmlFor={
-                                                                variable.name
-                                                            }
-                                                            className="text-sm"
-                                                        >
-                                                            {
-                                                                variable.description
-                                                            }
-                                                        </label>
-                                                    </div>
-                                                ) : (
-                                                    <Input
-                                                        id={variable.name}
-                                                        type={
-                                                            variable.type ===
-                                                            'integer'
-                                                                ? 'number'
-                                                                : variable.type ===
-                                                                    'password'
-                                                                  ? 'password'
-                                                                  : 'text'
-                                                        }
-                                                        placeholder={String(
-                                                            variable.default ??
-                                                                '',
-                                                        )}
-                                                        value={
-                                                            deploymentVariables[
-                                                                variable.name
-                                                            ] ??
-                                                            String(
-                                                                variable.default ??
-                                                                    '',
-                                                            )
-                                                        }
-                                                        onChange={(e) =>
-                                                            setDeploymentVariables(
-                                                                {
-                                                                    ...deploymentVariables,
-                                                                    [variable.name]:
-                                                                        e.target
-                                                                            .value,
-                                                                },
-                                                            )
-                                                        }
-                                                        min={variable.min}
-                                                        max={variable.max}
-                                                        required={
-                                                            variable.required
-                                                        }
-                                                    />
-                                                )}
-                                                {variable.description && (
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {variable.description}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ),
-                                    )}
-                                </div>
+                            {communityPlaybookVariables.length > 0 && (
+                                <CommunityPlaybookVariables
+                                    variables={communityPlaybookVariables}
+                                    deploymentVariables={deploymentVariables}
+                                    onVariableChange={(name, value) =>
+                                        setDeploymentVariables({
+                                            ...deploymentVariables,
+                                            [name]: value,
+                                        })
+                                    }
+                                />
                             )}
                         </CardContent>
                     </Card>
