@@ -97,23 +97,40 @@ export default function CreateDeployment() {
         setPlaybook(playbookPath);
 
         // Check if it's a community playbook (path format: catalog/f/fail2ban/playbook.yml)
-        const communityPlaybook = communityPlaybooks.find((pb) => {
-            // Check if playbook path matches any playbook in structure.playbooks
+        let communityPlaybook: any = null;
+        let playbookConfig: any = null;
+
+        for (const pb of communityPlaybooks) {
             if (pb.structure?.playbooks) {
-                return Object.values(pb.structure.playbooks).some(
-                    (filename) => `catalog/${pb.source_path}/${filename}` === playbookPath
-                );
+                for (const [, config] of Object.entries(pb.structure.playbooks)) {
+                    const filename = (config as any).file;
+                    if (`catalog/${pb.source_path}/${filename}` === playbookPath) {
+                        communityPlaybook = pb;
+                        playbookConfig = config;
+                        break;
+                    }
+                }
             }
-            // Fallback to entry_point check
-            return `catalog/${pb.source_path}/${pb.entry_point}` === playbookPath;
-        });
+            if (communityPlaybook) break;
+        }
 
         if (communityPlaybook) {
-            // Use manifest variables for community playbooks
-            setSelectedPlaybookData(communityPlaybook);
-            const defaultValues: Record<string, string> = {};
+            // Get allowed variables from playbook config
+            const allowedVariableNames = playbookConfig?.variables || [];
 
-            communityPlaybook.variables?.forEach((variable: any) => {
+            // Filter variables based on what this specific playbook needs
+            const variablesToShow = (communityPlaybook.variables || []).filter((v: any) =>
+                allowedVariableNames.includes(v.name)
+            );
+
+            // Store filtered playbook data
+            setSelectedPlaybookData({
+                ...communityPlaybook,
+                variables: variablesToShow
+            });
+
+            const defaultValues: Record<string, string> = {};
+            variablesToShow.forEach((variable: any) => {
                 if (variable.default !== undefined && variable.default !== null) {
                     defaultValues[variable.name] = String(variable.default);
                 }
@@ -288,11 +305,9 @@ export default function CreateDeployment() {
             console.log('Found community playbook:', communityPlaybook);
 
             if (communityPlaybook) {
-                // Determine which playbook file to use based on pb_type
-                let playbookFile = communityPlaybook.entry_point;
-                if (communityPlaybook.structure?.playbooks?.[pbType]) {
-                    playbookFile = communityPlaybook.structure.playbooks[pbType];
-                }
+                // Get playbook file from structure
+                const playbookConfig = communityPlaybook.structure?.playbooks?.[pbType];
+                const playbookFile = playbookConfig?.file || communityPlaybook.entry_point;
 
                 const playbookPath = `catalog/${communityPlaybook.source_path}/${playbookFile}`;
                 console.log('Setting playbook to:', playbookPath);
@@ -486,26 +501,20 @@ export default function CreateDeployment() {
                                                         Community Playbooks
                                                     </div>
                                                     {communityPlaybooks.flatMap((pb) => {
-                                                        // If structure.playbooks exists, show all playbooks
                                                         if (pb.structure?.playbooks) {
-                                                            return Object.entries(pb.structure.playbooks).map(([type, filename]) => (
-                                                                <SelectItem
-                                                                    key={`${pb.id}-${type}`}
-                                                                    value={`catalog/${pb.source_path}/${filename}`}
-                                                                >
-                                                                    {pb.name} - {type} (v{pb.version})
-                                                                </SelectItem>
-                                                            ));
+                                                            return Object.entries(pb.structure.playbooks).map(([type, playbookConfig]) => {
+                                                                const filename = (playbookConfig as any).file;
+                                                                return (
+                                                                    <SelectItem
+                                                                        key={`${pb.id}-${type}`}
+                                                                        value={`catalog/${pb.source_path}/${filename}`}
+                                                                    >
+                                                                        {pb.name} - {type} (v{pb.version})
+                                                                    </SelectItem>
+                                                                );
+                                                            });
                                                         }
-                                                        // Fallback to entry_point if no structure.playbooks
-                                                        return [
-                                                            <SelectItem
-                                                                key={pb.id}
-                                                                value={`catalog/${pb.source_path}/${pb.entry_point}`}
-                                                            >
-                                                                {pb.name} (v{pb.version})
-                                                            </SelectItem>
-                                                        ];
+                                                        return [];
                                                     })}
                                                 </>
                                             )}
