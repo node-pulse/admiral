@@ -1,3 +1,4 @@
+import { BulkEditVariablesDialog } from '@/components/deployments/create/bulk-edit-variables-dialog';
 import { CommunityPlaybookVariables } from '@/components/deployments/create/community-playbook-variables';
 import { PlaybookSelector } from '@/components/deployments/create/playbook-selector';
 import { ServerSelectionTable } from '@/components/deployments/create/server-selection-table';
@@ -384,17 +385,25 @@ export default function CreateDeployment() {
                                 </h3>
                                 {(builtInPlaybooksvariables.length > 0 ||
                                     communityPlaybookVariables.length > 0) && (
-                                    <VariableFileUploader
-                                        onVariablesExtracted={(
-                                            extractedVars,
-                                        ) => {
-                                            // Merge extracted variables with existing ones
-                                            setDeploymentVariables({
-                                                ...deploymentVariables,
-                                                ...extractedVars,
-                                            });
-                                        }}
-                                    />
+                                    <div className="flex gap-2">
+                                        <VariableFileUploader
+                                            onVariablesExtracted={(
+                                                extractedVars,
+                                            ) => {
+                                                // Merge extracted variables with existing ones
+                                                setDeploymentVariables({
+                                                    ...deploymentVariables,
+                                                    ...extractedVars,
+                                                });
+                                            }}
+                                        />
+                                        <BulkEditVariablesDialog
+                                            variables={deploymentVariables}
+                                            onSave={(vars) =>
+                                                setDeploymentVariables(vars)
+                                            }
+                                        />
+                                    </div>
                                 )}
                             </div>
                             {/* Playbook-specific fields - Built-in playbooks */}
