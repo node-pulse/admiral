@@ -37,6 +37,13 @@ export function PlaybookSelector({
         fetchCommunityPlaybooks();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Notify parent when playbooks are loaded/updated
+    useEffect(() => {
+        if (onPlaybooksLoaded && (playbooks.length > 0 || communityPlaybooks.length > 0)) {
+            onPlaybooksLoaded(playbooks, communityPlaybooks);
+        }
+    }, [playbooks, communityPlaybooks]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const fetchPlaybooks = async () => {
         setLoading(true);
         try {
@@ -88,11 +95,6 @@ export function PlaybookSelector({
             );
             setPlaybooks(builtInPlaybooks);
 
-            // Notify parent component
-            if (onPlaybooksLoaded) {
-                onPlaybooksLoaded(builtInPlaybooks, communityPlaybooks);
-            }
-
             // Set default playbook to first built-in one if available and no URL param
             const urlParams = new URLSearchParams(window.location.search);
             const pbId = urlParams.get('pb_id');
@@ -123,11 +125,6 @@ export function PlaybookSelector({
             const data = await response.json();
             const communityPbs = data.playbooks.data || [];
             setCommunityPlaybooks(communityPbs);
-
-            // Notify parent component
-            if (onPlaybooksLoaded) {
-                onPlaybooksLoaded(playbooks, communityPbs);
-            }
         } catch (error) {
             console.error('Error fetching community playbooks:', error);
             // Don't show error toast - community playbooks are optional
