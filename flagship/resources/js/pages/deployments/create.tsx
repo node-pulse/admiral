@@ -90,8 +90,6 @@ export default function CreateDeployment() {
         Record<string, string>
     >({});
 
-    console.log('deploymentVariables :>> ', deploymentVariables);
-
     // Wrapper for setPlaybook that also initializes deployment variables
     const handlePlaybookChange = (playbookPath: string) => {
         setPlaybook(playbookPath);
@@ -542,6 +540,7 @@ export default function CreateDeployment() {
                                                                                 {
                                                                                     pb.version
                                                                                 }
+
                                                                                 )
                                                                             </SelectItem>
                                                                         );
