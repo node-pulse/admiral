@@ -102,9 +102,13 @@ export default function CreateDeployment() {
 
         for (const pb of communityPlaybooks) {
             if (pb.structure?.playbooks) {
-                for (const [, config] of Object.entries(pb.structure.playbooks)) {
+                for (const [, config] of Object.entries(
+                    pb.structure.playbooks,
+                )) {
                     const filename = (config as any).file;
-                    if (`catalog/${pb.source_path}/${filename}` === playbookPath) {
+                    if (
+                        `catalog/${pb.source_path}/${filename}` === playbookPath
+                    ) {
                         communityPlaybook = pb;
                         playbookConfig = config;
                         break;
@@ -119,19 +123,22 @@ export default function CreateDeployment() {
             const allowedVariableNames = playbookConfig?.variables || [];
 
             // Filter variables based on what this specific playbook needs
-            const variablesToShow = (communityPlaybook.variables || []).filter((v: any) =>
-                allowedVariableNames.includes(v.name)
+            const variablesToShow = (communityPlaybook.variables || []).filter(
+                (v: any) => allowedVariableNames.includes(v.name),
             );
 
             // Store filtered playbook data
             setSelectedPlaybookData({
                 ...communityPlaybook,
-                variables: variablesToShow
+                variables: variablesToShow,
             });
 
             const defaultValues: Record<string, string> = {};
             variablesToShow.forEach((variable: any) => {
-                if (variable.default !== undefined && variable.default !== null) {
+                if (
+                    variable.default !== undefined &&
+                    variable.default !== null
+                ) {
                     defaultValues[variable.name] = String(variable.default);
                 }
             });
@@ -247,7 +254,7 @@ export default function CreateDeployment() {
 
             // Filter out catalog playbooks from built-in list
             const builtInPlaybooks = playbooksList.filter(
-                (pb) => !pb.path.startsWith('catalog/')
+                (pb) => !pb.path.startsWith('catalog/'),
             );
             setPlaybooks(builtInPlaybooks);
 
@@ -299,15 +306,15 @@ export default function CreateDeployment() {
         if (pbId && communityPlaybooks.length > 0) {
             // Find the community playbook by id (downloaded playbooks have 'id' field)
             const communityPlaybook = communityPlaybooks.find(
-                (pb) => pb.id === pbId
+                (pb) => pb.id === pbId,
             );
-
-            console.log('Found community playbook:', communityPlaybook);
 
             if (communityPlaybook) {
                 // Get playbook file from structure
-                const playbookConfig = communityPlaybook.structure?.playbooks?.[pbType];
-                const playbookFile = playbookConfig?.file || communityPlaybook.entry_point;
+                const playbookConfig =
+                    communityPlaybook.structure?.playbooks?.[pbType];
+                const playbookFile =
+                    playbookConfig?.file || communityPlaybook.entry_point;
 
                 const playbookPath = `catalog/${communityPlaybook.source_path}/${playbookFile}`;
                 console.log('Setting playbook to:', playbookPath);
@@ -500,31 +507,62 @@ export default function CreateDeployment() {
                                                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                                                         Community Playbooks
                                                     </div>
-                                                    {communityPlaybooks.flatMap((pb) => {
-                                                        if (pb.structure?.playbooks) {
-                                                            return Object.entries(pb.structure.playbooks).map(([type, playbookConfig]) => {
-                                                                const filename = (playbookConfig as any).file;
-                                                                return (
-                                                                    <SelectItem
-                                                                        key={`${pb.id}-${type}`}
-                                                                        value={`catalog/${pb.source_path}/${filename}`}
-                                                                    >
-                                                                        {pb.name} - {type} (v{pb.version})
-                                                                    </SelectItem>
+                                                    {communityPlaybooks.flatMap(
+                                                        (pb) => {
+                                                            if (
+                                                                pb.structure
+                                                                    ?.playbooks
+                                                            ) {
+                                                                return Object.entries(
+                                                                    pb.structure
+                                                                        .playbooks,
+                                                                ).map(
+                                                                    ([
+                                                                        type,
+                                                                        playbookConfig,
+                                                                    ]) => {
+                                                                        const filename =
+                                                                            (
+                                                                                playbookConfig as any
+                                                                            )
+                                                                                .file;
+                                                                        return (
+                                                                            <SelectItem
+                                                                                key={`${pb.id}-${type}`}
+                                                                                value={`catalog/${pb.source_path}/${filename}`}
+                                                                            >
+                                                                                {
+                                                                                    pb.name
+                                                                                }{' '}
+                                                                                -{' '}
+                                                                                {
+                                                                                    type
+                                                                                }{' '}
+                                                                                (v
+                                                                                {
+                                                                                    pb.version
+                                                                                }
+                                                                                )
+                                                                            </SelectItem>
+                                                                        );
+                                                                    },
                                                                 );
-                                                            });
-                                                        }
-                                                        return [];
-                                                    })}
+                                                            }
+                                                            return [];
+                                                        },
+                                                    )}
                                                 </>
                                             )}
                                         </SelectContent>
                                     </Select>
-                                    {playbook && selectedPlaybookData?.description && (
-                                        <p className="text-sm text-muted-foreground">
-                                            {selectedPlaybookData.description}
-                                        </p>
-                                    )}
+                                    {playbook &&
+                                        selectedPlaybookData?.description && (
+                                            <p className="text-sm text-muted-foreground">
+                                                {
+                                                    selectedPlaybookData.description
+                                                }
+                                            </p>
+                                        )}
                                     {playbook &&
                                         !selectedPlaybookData &&
                                         playbooks.find(
@@ -622,56 +660,127 @@ export default function CreateDeployment() {
                                                 </Label>
                                                 {variable.type === 'select' ? (
                                                     <Select
-                                                        value={deploymentVariables[variable.name] ?? String(variable.default ?? '')}
-                                                        onValueChange={(value) =>
-                                                            setDeploymentVariables({
-                                                                ...deploymentVariables,
-                                                                [variable.name]: value,
-                                                            })
+                                                        value={
+                                                            deploymentVariables[
+                                                                variable.name
+                                                            ] ??
+                                                            String(
+                                                                variable.default ??
+                                                                    '',
+                                                            )
+                                                        }
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            setDeploymentVariables(
+                                                                {
+                                                                    ...deploymentVariables,
+                                                                    [variable.name]:
+                                                                        value,
+                                                                },
+                                                            )
                                                         }
                                                     >
                                                         <SelectTrigger>
-                                                            <SelectValue placeholder={`Select ${variable.label}`} />
+                                                            <SelectValue
+                                                                placeholder={`Select ${variable.label}`}
+                                                            />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {variable.options?.map((opt: string) => (
-                                                                <SelectItem key={opt} value={opt}>
-                                                                    {opt}
-                                                                </SelectItem>
-                                                            ))}
+                                                            {variable.options?.map(
+                                                                (
+                                                                    opt: string,
+                                                                ) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            opt
+                                                                        }
+                                                                        value={
+                                                                            opt
+                                                                        }
+                                                                    >
+                                                                        {opt}
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
                                                         </SelectContent>
                                                     </Select>
-                                                ) : variable.type === 'boolean' ? (
+                                                ) : variable.type ===
+                                                  'boolean' ? (
                                                     <div className="flex items-center space-x-2">
                                                         <Checkbox
                                                             id={variable.name}
-                                                            checked={deploymentVariables[variable.name] === 'true'}
-                                                            onCheckedChange={(checked) =>
-                                                                setDeploymentVariables({
-                                                                    ...deploymentVariables,
-                                                                    [variable.name]: String(checked),
-                                                                })
+                                                            checked={
+                                                                deploymentVariables[
+                                                                    variable
+                                                                        .name
+                                                                ] === 'true'
+                                                            }
+                                                            onCheckedChange={(
+                                                                checked,
+                                                            ) =>
+                                                                setDeploymentVariables(
+                                                                    {
+                                                                        ...deploymentVariables,
+                                                                        [variable.name]:
+                                                                            String(
+                                                                                checked,
+                                                                            ),
+                                                                    },
+                                                                )
                                                             }
                                                         />
-                                                        <label htmlFor={variable.name} className="text-sm">
-                                                            {variable.description}
+                                                        <label
+                                                            htmlFor={
+                                                                variable.name
+                                                            }
+                                                            className="text-sm"
+                                                        >
+                                                            {
+                                                                variable.description
+                                                            }
                                                         </label>
                                                     </div>
                                                 ) : (
                                                     <Input
                                                         id={variable.name}
-                                                        type={variable.type === 'integer' ? 'number' : variable.type === 'password' ? 'password' : 'text'}
-                                                        placeholder={String(variable.default ?? '')}
-                                                        value={deploymentVariables[variable.name] ?? String(variable.default ?? '')}
+                                                        type={
+                                                            variable.type ===
+                                                            'integer'
+                                                                ? 'number'
+                                                                : variable.type ===
+                                                                    'password'
+                                                                  ? 'password'
+                                                                  : 'text'
+                                                        }
+                                                        placeholder={String(
+                                                            variable.default ??
+                                                                '',
+                                                        )}
+                                                        value={
+                                                            deploymentVariables[
+                                                                variable.name
+                                                            ] ??
+                                                            String(
+                                                                variable.default ??
+                                                                    '',
+                                                            )
+                                                        }
                                                         onChange={(e) =>
-                                                            setDeploymentVariables({
-                                                                ...deploymentVariables,
-                                                                [variable.name]: e.target.value,
-                                                            })
+                                                            setDeploymentVariables(
+                                                                {
+                                                                    ...deploymentVariables,
+                                                                    [variable.name]:
+                                                                        e.target
+                                                                            .value,
+                                                                },
+                                                            )
                                                         }
                                                         min={variable.min}
                                                         max={variable.max}
-                                                        required={variable.required}
+                                                        required={
+                                                            variable.required
+                                                        }
                                                     />
                                                 )}
                                                 {variable.description && (
