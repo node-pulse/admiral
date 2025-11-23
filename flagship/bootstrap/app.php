@@ -28,7 +28,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: [
             'appearance',
             'sidebar_state',
-            'XSRF-TOKEN',  // Must not be encrypted so JavaScript can read it
         ]);
 
         $middleware->web(append: [
