@@ -100,7 +100,7 @@ export function BulkEditVariablesDialog({
                     Bulk Edit
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="!max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Bulk Edit Variables</DialogTitle>
                     <DialogDescription>
@@ -113,7 +113,7 @@ export function BulkEditVariablesDialog({
                         value={textContent}
                         onChange={(e) => setTextContent(e.target.value)}
                         placeholder="DB_HOST=localhost&#10;DB_PORT=5432&#10;# This is a comment&#10;API_KEY=your_key_here"
-                        className="min-h-[400px] font-mono text-sm"
+                        className="min-h-[400px] border-slate-700 bg-slate-900 font-mono text-sm text-slate-100 placeholder:text-slate-500"
                     />
                     <p className="text-sm text-muted-foreground">
                         Tip: You can add comments using # at the start of a line
