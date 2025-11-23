@@ -406,7 +406,10 @@ export default function CreateDeployment() {
                                         <BulkEditVariablesDialog
                                             variables={deploymentVariables}
                                             onSave={(vars) =>
-                                                setDeploymentVariables(vars)
+                                                setDeploymentVariables({
+                                                    ...deploymentVariables,
+                                                    ...vars,
+                                                })
                                             }
                                         />
                                     </div>
