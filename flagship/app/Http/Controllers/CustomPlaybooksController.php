@@ -202,7 +202,6 @@ class CustomPlaybooksController extends Controller
                 'id' => $manifest['id'],
                 'name' => $manifest['name'],
                 'version' => $manifest['version'],
-                'entry_point' => $manifest['entry_point'],
             ],
         ]);
 
@@ -218,7 +217,6 @@ class CustomPlaybooksController extends Controller
                     'name' => $manifest['name'],
                     'version' => $manifest['version'],
                     'description' => $manifest['description'],
-                    'entry_point' => $manifest['entry_point'],
                     'author' => $manifest['author'],
                 ],
                 'contents' => $validation['files'],
@@ -645,9 +643,9 @@ class CustomPlaybooksController extends Controller
             'author' => 'array',
             'category' => 'string',
             'tags' => 'array',
-            'entry_point' => 'string',
             'ansible_version' => 'string',
             'os_support' => 'array',
+            'structure' => 'array',
             'license' => 'string',
         ];
 
@@ -666,11 +664,6 @@ class CustomPlaybooksController extends Controller
             $errors[] = "Field 'id' must match pattern: pb_XXXXXXXXXX (10 alphanumeric characters)";
         }
 
-        // Validate entry_point exists
-        if (isset($manifest['entry_point']) && !preg_match('/^[a-zA-Z0-9_.-]+\\.ya?ml$/', $manifest['entry_point'])) {
-            $errors[] = "Field 'entry_point' must be a valid YAML filename (e.g., playbook.yml)";
-        }
-
         // Validate author structure
         if (isset($manifest['author']) && is_array($manifest['author'])) {
             if (!isset($manifest['author']['name'])) {
@@ -687,6 +680,37 @@ class CustomPlaybooksController extends Controller
         $validCategories = ['monitoring', 'database', 'search', 'security', 'proxy', 'storage', 'dev-tools'];
         if (isset($manifest['category']) && !in_array($manifest['category'], $validCategories)) {
             $warnings[] = "Field 'category' should be one of: " . implode(', ', $validCategories);
+        }
+
+        // Validate structure.playbooks (must have install and uninstall)
+        if (isset($manifest['structure'])) {
+            if (!isset($manifest['structure']['playbooks'])) {
+                $errors[] = "Missing required field: structure.playbooks";
+            } else {
+                // Validate install playbook
+                if (!isset($manifest['structure']['playbooks']['install'])) {
+                    $errors[] = "Missing required field: structure.playbooks.install";
+                } else {
+                    if (!isset($manifest['structure']['playbooks']['install']['file'])) {
+                        $errors[] = "Missing required field: structure.playbooks.install.file";
+                    }
+                    if (!isset($manifest['structure']['playbooks']['install']['variables'])) {
+                        $errors[] = "Missing required field: structure.playbooks.install.variables";
+                    }
+                }
+
+                // Validate uninstall playbook
+                if (!isset($manifest['structure']['playbooks']['uninstall'])) {
+                    $errors[] = "Missing required field: structure.playbooks.uninstall";
+                } else {
+                    if (!isset($manifest['structure']['playbooks']['uninstall']['file'])) {
+                        $errors[] = "Missing required field: structure.playbooks.uninstall.file";
+                    }
+                    if (!isset($manifest['structure']['playbooks']['uninstall']['variables'])) {
+                        $errors[] = "Missing required field: structure.playbooks.uninstall.variables";
+                    }
+                }
+            }
         }
 
         return [

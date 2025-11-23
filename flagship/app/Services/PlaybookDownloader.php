@@ -304,10 +304,15 @@ class PlaybookDownloader
             'description' => 'nullable|string',
             'author' => 'required|array',
             'author.name' => 'required|string',
-            'entry_point' => 'required|string',
             'category' => 'required|string',
             'os_support' => 'required|array|min:1',
             'variables' => 'nullable|array',
+            'structure' => 'required|array',
+            'structure.playbooks' => 'required|array',
+            'structure.playbooks.install' => 'required|array',
+            'structure.playbooks.install.file' => 'required|string',
+            'structure.playbooks.uninstall' => 'required|array',
+            'structure.playbooks.uninstall.file' => 'required|string',
         ]);
 
         if ($validator->fails()) {

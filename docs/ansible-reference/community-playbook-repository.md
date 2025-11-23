@@ -120,8 +120,6 @@ Every playbook **must** include `manifest.json` in its root directory.
   "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/f/fail2ban",
   "repository": "https://github.com/node-pulse/playbooks",
 
-  "entry_point": "playbook.yml",
-
   "ansible_version": ">=2.10",
 
   "os_support": [
@@ -175,7 +173,6 @@ Every playbook **must** include `manifest.json` in its root directory.
 | `author.status`   | string   | No       | Trust badge: `community`, `verified`, `deprecated`                                      |
 | `category`        | string   | Yes      | One of: `monitoring`, `database`, `search`, `security`, `proxy`, `storage`, `dev-tools` |
 | `tags`            | string[] | Yes      | Searchable tags (max 10)                                                                |
-| `entry_point`     | string   | Yes      | Main playbook file (e.g., "playbook.yml")                                               |
 | `ansible_version` | string   | Yes      | Minimum Ansible version (e.g., ">=2.10")                                                |
 | `os_support`      | array    | Yes      | Array of OS compatibility objects                                                       |
 | `variables`       | array    | No       | Variable definitions (array format with name+label)                                     |
@@ -278,7 +275,7 @@ CREATE TABLE playbooks (
   tags TEXT NOT NULL,                     -- JSON array as string
   homepage TEXT,
   repository TEXT,
-  entry_point TEXT NOT NULL,
+  entry_point TEXT NOT NULL,              ---- deprecated, but column is still here
   ansible_version TEXT NOT NULL,
   os_support TEXT NOT NULL,               -- JSON array as string
   variables TEXT,                         -- JSON array as string (nullable)
@@ -342,7 +339,6 @@ INSERT INTO sync_metadata (key, value, updated_at) VALUES
       "category": "security",
       "tags": ["security", "ssh", "fail2ban", "intrusion-prevention"],
       "source_path": "catalog/f/fail2ban",
-      "entry_point": "playbook.yml",
       "ansible_version": ">=2.10",
       "os_support": [
         { "distro": "ubuntu", "version": "22.04", "arch": "both" }
@@ -552,7 +548,6 @@ export async function catalog(
     category: row.category,
     tags: JSON.parse(row.tags),
     source_path: row.source_path,
-    entry_point: row.entry_point,
     ansible_version: row.ansible_version,
     os_support: JSON.parse(row.os_support),
     variables: row.variables ? JSON.parse(row.variables) : [],
@@ -666,7 +661,7 @@ export async function syncPlaybooks(env: Env): Promise<void> {
             JSON.stringify(playbook.tags),
             playbook.homepage || null,
             playbook.repository || null,
-            playbook.entry_point,
+            playbook.entry_point || null,
             playbook.ansible_version,
             JSON.stringify(playbook.os_support),
             playbook.variables ? JSON.stringify(playbook.variables) : null,
@@ -791,9 +786,9 @@ export function validateManifest(manifest: any): ValidationResult {
     "author",
     "category",
     "tags",
-    "entry_point",
     "ansible_version",
     "os_support",
+    "structure",
     "license",
   ];
 
