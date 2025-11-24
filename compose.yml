@@ -32,9 +32,9 @@ services:
       - --appendfsync
       - "everysec"
       - --maxmemory
-      - "256mb"
+      - "512mb"
       - --maxmemory-policy
-      - "allkeys-lru"
+      - "noeviction"
       - --requirepass
       - "${VALKEY_PASSWORD:-valkeypassword}"
     volumes:
