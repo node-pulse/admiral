@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/nodepulse/admiral/submarines/internal/config"
 	"github.com/valkey-io/valkey-go"
@@ -192,15 +193,14 @@ func (c *Client) XGroupCreate(ctx context.Context, stream, group string, startID
 	// Ignore "BUSYGROUP" error (group already exists)
 	if err := result.Error(); err != nil {
 		errMsg := err.Error()
-		// Check for both possible error message formats
-		if errMsg != "BUSYGROUP Consumer Group name already exists" &&
-		   errMsg != "BUSYGROUP Consumer group name already exists" {
-			return fmt.Errorf("failed to create consumer group: %w", err)
+		// Use contains check to handle various error message formats from different Redis/Valkey versions
+		if strings.Contains(errMsg, "BUSYGROUP") {
+			log.Printf("Consumer group %s already exists for stream %s", group, stream)
+			return nil
 		}
-		log.Printf("Consumer group %s already exists for stream %s", group, stream)
-	} else {
-		log.Printf("Created consumer group %s for stream %s", group, stream)
+		return fmt.Errorf("failed to create consumer group: %w", err)
 	}
+	log.Printf("Created consumer group %s for stream %s", group, stream)
 	return nil
 }
 
