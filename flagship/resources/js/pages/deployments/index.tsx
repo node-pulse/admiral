@@ -59,6 +59,7 @@ interface DeploymentData {
     name: string;
     description: string | null;
     playbook: string;
+    playbook_version: string | null;
     status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
     total_servers: number;
     successful_servers: number;
@@ -404,9 +405,16 @@ export default function DeploymentsIndex({ translations }: DeploymentsProps) {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">
-                                                    {deployment.playbook}
-                                                </Badge>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="outline">
+                                                        {deployment.playbook}
+                                                    </Badge>
+                                                    {deployment.playbook_version && (
+                                                        <Badge variant="secondary" className="text-xs">
+                                                            v{deployment.playbook_version}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 {getStatusBadge(

@@ -41,6 +41,7 @@ interface DeploymentData {
     name: string;
     description: string | null;
     playbook: string;
+    playbook_version: string | null;
     status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
     total_servers: number;
     duration: number | null;
@@ -412,10 +413,15 @@ export default function DeploymentShow({ deploymentId }: DeploymentShowProps) {
                                 <div className="text-sm font-medium text-muted-foreground">
                                     Playbook
                                 </div>
-                                <div className="mt-1">
+                                <div className="mt-1 flex items-center gap-2">
                                     <Badge variant="outline">
                                         {deployment.playbook}
                                     </Badge>
+                                    {deployment.playbook_version && (
+                                        <Badge variant="secondary">
+                                            v{deployment.playbook_version}
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
                             <div>

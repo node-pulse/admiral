@@ -83,6 +83,7 @@ class DeploymentsController extends Controller
                     'name' => $deployment->name,
                     'description' => $deployment->description,
                     'playbook' => $deployment->playbook,
+                    'playbook_version' => $deployment->playbook_version,
                     'status' => $deployment->status,
                     'total_servers' => $deployment->total_servers,
                     'successful_servers' => $deployment->successful_servers,
@@ -117,6 +118,7 @@ class DeploymentsController extends Controller
                 'name' => $deployment->name,
                 'description' => $deployment->description,
                 'playbook' => $deployment->playbook,
+                'playbook_version' => $deployment->playbook_version,
                 'server_filter' => $deployment->server_filter,
                 'variables' => $deployment->variables,
                 'status' => $deployment->status,
@@ -221,11 +223,38 @@ class DeploymentsController extends Controller
             }
         }
 
+        // Extract playbook version from manifest.json (only for community playbooks)
+        $playbookVersion = null;
+        $playbookPath = $validated['playbook'];
+
+        // Built-in playbooks (nodepulse/*) don't have versions
+        if (!str_contains($playbookPath, 'nodepulse/')) {
+            // Extract directory path from playbook file path (e.g., "catalog/u/umami/install.yml" -> "catalog/u/umami")
+            $pathParts = explode('/', $playbookPath);
+            array_pop($pathParts); // Remove filename
+            $playbookDir = implode('/', $pathParts);
+
+            $manifestPath = base_path('ansible/' . $playbookDir . '/manifest.json');
+            if (file_exists($manifestPath)) {
+                try {
+                    $manifest = json_decode(file_get_contents($manifestPath), true);
+                    $playbookVersion = $manifest['version'] ?? null;
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to read playbook manifest', [
+                        'playbook' => $playbookPath,
+                        'manifest_path' => $manifestPath,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
         // Create deployment record
         $deployment = Deployment::create([
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
             'playbook' => $validated['playbook'],
+            'playbook_version' => $playbookVersion,
             'server_filter' => [
                 'server_ids' => $validated['server_ids'],
             ],

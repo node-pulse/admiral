@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $name
  * @property string|null $description
  * @property string $playbook
+ * @property string|null $playbook_version
  * @property array $server_filter
  * @property array $variables
  * @property string $status
@@ -39,6 +40,7 @@ class Deployment extends Model
         'name',
         'description',
         'playbook',
+        'playbook_version',
         'server_filter',
         'variables',
         'status',
