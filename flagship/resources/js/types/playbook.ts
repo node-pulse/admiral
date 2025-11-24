@@ -25,6 +25,7 @@ export interface PlaybookStructure {
     playbooks: {
         install: PlaybookConfig;
         uninstall: PlaybookConfig;
+        update?: PlaybookConfig;
     };
     templates?: string[];
     files?: string[];

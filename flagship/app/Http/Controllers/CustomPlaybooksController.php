@@ -682,7 +682,7 @@ class CustomPlaybooksController extends Controller
             $warnings[] = "Field 'category' should be one of: " . implode(', ', $validCategories);
         }
 
-        // Validate structure.playbooks (must have install and uninstall)
+        // Validate structure.playbooks (must have install and uninstall, update is optional)
         if (isset($manifest['structure'])) {
             if (!isset($manifest['structure']['playbooks'])) {
                 $errors[] = "Missing required field: structure.playbooks";
@@ -708,6 +708,16 @@ class CustomPlaybooksController extends Controller
                     }
                     if (!isset($manifest['structure']['playbooks']['uninstall']['variables'])) {
                         $errors[] = "Missing required field: structure.playbooks.uninstall.variables";
+                    }
+                }
+
+                // Validate update playbook (optional)
+                if (isset($manifest['structure']['playbooks']['update'])) {
+                    if (!isset($manifest['structure']['playbooks']['update']['file'])) {
+                        $errors[] = "Missing required field: structure.playbooks.update.file (when update is defined)";
+                    }
+                    if (!isset($manifest['structure']['playbooks']['update']['variables'])) {
+                        $errors[] = "Missing required field: structure.playbooks.update.variables (when update is defined)";
                     }
                 }
             }
