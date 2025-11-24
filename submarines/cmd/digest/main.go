@@ -209,6 +209,8 @@ func processMessages(ctx context.Context, valkeyClient *valkey.Client, db *datab
 		slog.String("stream", streamKey))
 	successCount := 0
 	errorCount := 0
+	processedIDs := make([]string, 0, len(messages))
+
 	for _, msg := range messages {
 		// Check if context cancelled (graceful shutdown)
 		if ctx.Err() != nil {
@@ -227,7 +229,18 @@ func processMessages(ctx context.Context, valkeyClient *valkey.Client, db *datab
 
 		// Acknowledge successful processing
 		valkeyClient.XAck(ctx, streamKey, consumerGroup, msg.ID)
+		processedIDs = append(processedIDs, msg.ID)
 		successCount++
+	}
+
+	// Delete processed messages from stream to free memory
+	// This prevents unbounded stream growth that caused the original issue
+	if len(processedIDs) > 0 {
+		if err := valkeyClient.XDel(ctx, streamKey, processedIDs...); err != nil {
+			log.Warn("Failed to delete processed messages from stream",
+				slog.String("error", err.Error()),
+				slog.Int("count", len(processedIDs)))
+		}
 	}
 
 	if successCount > 0 {

@@ -126,20 +126,6 @@ func (c *Client) XLen(ctx context.Context, stream string) (int64, error) {
 	return result.AsInt64()
 }
 
-// CheckStreamBackpressure checks if stream is above threshold and returns error if so
-func (c *Client) CheckStreamBackpressure(ctx context.Context, stream string, maxLen int64) error {
-	length, err := c.XLen(ctx, stream)
-	if err != nil {
-		return fmt.Errorf("failed to check stream backpressure: %w", err)
-	}
-
-	if length > maxLen {
-		return fmt.Errorf("stream %s is overloaded: %d messages (max: %d) - digest workers may be falling behind", stream, length, maxLen)
-	}
-
-	return nil
-}
-
 // XReadGroup reads messages from a Redis/Valkey Stream using a consumer group
 func (c *Client) XReadGroup(ctx context.Context, group, consumer, stream, id string, count int64) ([]StreamMessage, error) {
 	cmd := c.client.B().Xreadgroup().Group(group, consumer).Count(count).Block(5000).Streams().Key(stream).Id(id).Build()
@@ -182,6 +168,14 @@ func (c *Client) XReadGroup(ctx context.Context, group, consumer, stream, id str
 // XAck acknowledges messages in a consumer group
 func (c *Client) XAck(ctx context.Context, stream, group string, ids ...string) error {
 	cmd := c.client.B().Xack().Key(stream).Group(group).Id(ids...).Build()
+	result := c.client.Do(ctx, cmd)
+	return result.Error()
+}
+
+// XDel deletes messages from a stream by their IDs
+// This should be called after XAck to free memory
+func (c *Client) XDel(ctx context.Context, stream string, ids ...string) error {
+	cmd := c.client.B().Xdel().Key(stream).Id(ids...).Build()
 	result := c.client.Do(ctx, cmd)
 	return result.Error()
 }
