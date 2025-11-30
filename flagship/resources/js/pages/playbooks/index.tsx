@@ -103,6 +103,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
     const [updatesAvailable, setUpdatesAvailable] = useState<UpdateInfo[]>([]);
     const [checkingUpdates, setCheckingUpdates] = useState(false);
     const [updatingAll, setUpdatingAll] = useState(false);
+    const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
     // Load from localStorage
     const loadFromCache = () => {
@@ -205,6 +206,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
             source_path: playbook.source_path,
         });
 
+        setDownloadingId(playbook.playbook_id);
         try {
             await axios.post('/api/playbooks/download', {
                 playbook_id: playbook.playbook_id,
@@ -222,6 +224,8 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
                     error.response?.data?.error ||
                     t.messages.download_failed,
             );
+        } finally {
+            setDownloadingId(null);
         }
     };
 
@@ -448,6 +452,7 @@ export default function PlaybooksIndex({ translations }: PlaybooksProps) {
                                 onDownload={handleDownload}
                                 onRemove={handleRemove}
                                 onUpdate={handleUpdate}
+                                downloadingId={downloadingId}
                             />
                         ))}
                     </div>

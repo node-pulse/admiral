@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { ArrowUpCircle, CheckCircle2, Download, Trash2 } from 'lucide-react';
+import { ArrowUpCircle, CheckCircle2, Download, Loader2, Trash2 } from 'lucide-react';
 
 interface OsSupport {
     distro: string;
@@ -52,6 +52,7 @@ interface PlaybookListItemProps {
     onDownload?: (playbook: Playbook) => void;
     onRemove?: (playbookId: string, name: string) => void;
     onUpdate?: (playbookId: string, name: string) => void;
+    downloadingId?: string | null;
 }
 
 export function PlaybookListItem({
@@ -59,7 +60,10 @@ export function PlaybookListItem({
     onDownload,
     onRemove,
     onUpdate,
+    downloadingId,
 }: PlaybookListItemProps) {
+    const isDownloading = downloadingId === playbook.playbook_id;
+    const downloadDisabled = downloadingId !== null && !isDownloading;
     return (
         <div className="flex items-center justify-between gap-2 px-4 pb-2 hover:bg-muted/75">
             <div className="min-w-0 flex-1">
@@ -126,11 +130,15 @@ export function PlaybookListItem({
                     ) : (
                         <Badge
                             variant="default"
-                            className="shrink-0 cursor-pointer bg-blue-500 text-xs"
-                            onClick={() => onDownload?.(playbook)}
+                            className={`shrink-0 text-xs ${isDownloading ? 'cursor-wait' : downloadDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} bg-blue-500`}
+                            onClick={() => !isDownloading && !downloadDisabled && onDownload?.(playbook)}
                         >
-                            <Download className="mr-1 h-3 w-3" />
-                            Download
+                            {isDownloading ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            ) : (
+                                <Download className="mr-1 h-3 w-3" />
+                            )}
+                            {isDownloading ? 'Downloading...' : 'Download'}
                         </Badge>
                     )}
                 </div>
