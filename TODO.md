@@ -24,6 +24,14 @@
 
 ## Remaining
 
+### Alerting System
+- [ ] Alert rule engine (CPU > 90% for 5 min, disk > 85%, memory > 90%, etc.)
+- [ ] Alert channels (email, Slack, Discord, PagerDuty, webhooks)
+- [ ] Alert severity levels (info, warning, critical)
+- [ ] Alert acknowledgment and silencing
+- [ ] Alert history and dashboard
+- [ ] Escalation policies (if not ack'd in X min, escalate)
+
 ### Playbook Testing
 - [ ] Test deploy.yml on Ubuntu 22.04, 24.04, Debian 12, RHEL/Rocky 8+
 - [ ] Test uninstall.yml on all distros
